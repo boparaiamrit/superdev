@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_DIR:-.}/hooks/scripts/maybe-learn.sh \"${CLAUDE_SUBAGENT_NAME:-unknown}\""
+            "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/maybe-learn.sh\"; [ -f \"$_s\" ] && bash \"$_s\" \"${CLAUDE_SUBAGENT_NAME:-unknown}\" 2>/dev/null || true"
           }
         ]
       }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_DIR:-.}/hooks/scripts/detect-frustration.sh \"${CLAUDE_USER_PROMPT:-}\""
+            "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/detect-frustration.sh\"; [ -f \"$_s\" ] && bash \"$_s\" \"${CLAUDE_USER_PROMPT:-}\" 2>/dev/null || true"
           }
         ]
       }

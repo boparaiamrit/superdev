@@ -11,7 +11,7 @@
     {
       "name": "superdev",
       "description": "11 production-grade skills + 43 specialized subagents for full-stack monorepo builds. Workspace-scope and package-manager agnostic. Self-improving: writes .claude/memory/superdev-learned/ entries from user-frustration signals (corrections, code reverts, verifier rejections, design drift) and threads them into every future dispatch so the system stops repeating mistakes. Skills: prd-design-build-orchestrator, design-to-nextjs, design-preservation, nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas, exploratory-qa, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": {
         "name": "Amritpal Singh Boparai"
       },
