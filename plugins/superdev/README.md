@@ -1,30 +1,42 @@
 # Superdev
 
-A Claude Code plugin bundling six skills + 24 specialized subagents for full-stack monorepo builds.
+A Claude Code plugin bundling **11 skills + 43 specialized subagents** for full-stack monorepo builds, with a self-improving memory loop and a holy-grail design-preservation guarantee.
 
 ## What's in this plugin
 
-**Six skills:**
+**Nine skills:**
 
 | Skill | Purpose |
 |---|---|
-| `design-to-nextjs` | Convert Claude Design handoffs into production Next.js codebases (shadcn-everywhere, view-shape contract, dual-mode adapter) |
+| `prd-design-build-orchestrator` | The conductor — multi-agent orchestration across all 11 skills, reads `.claude/memory/superdev-learned/` before every dispatch |
+| `design-to-nextjs` | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter) |
+| `design-preservation` 🆕 | When source is a **prototype** (HTML/Figma/existing app), copy verbatim into `apps/web/src/design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift |
 | `nestjs-enterprise-backend` | Nest.js + PG17/TimescaleDB + Drizzle + CASL + BullMQ + `@Audit` decorator + view-shape contract |
-| `prd-design-build-orchestrator` | Multi-agent orchestration: PRD audit → execution plan → parallel feature builds → integration → security → QA |
 | `security-review-and-fix` | Six-phase security audit (inventory, static, dynamic, dependency, triage, fix) |
 | `prototype-to-saas` | Convert a single-user Next.js prototype with JSON-as-backend into a multi-tenant SaaS |
-| `exploratory-qa` | Senior-engineer-style QA: Playwright-driven happy + edge cases, consistency audit, performance probing |
+| `exploratory-qa` | Playwright-driven QA: happy + edge cases, consistency audit, performance probing |
+| `systematic-debugging` 🆕 | 5-phase brutal-debug (reproduce → root-cause → hypothesis-test → fix → regression-verify), refuses fixes without VERIFIED ROOT_CAUSE.md |
+| `product-completeness-audit` 🆕 | "A beautiful UI with hardcoded data is a demo, not a product" — 5 agents distinguish REAL / MOCKED / HYBRID screens in production mode |
+| `brutal-exhaustive-audit` 🆕 | Every file / route / flow / data path / edge case — 6 agents on disk-tracked checklists |
+| `superdev-self-learning` 🆕 | The meta-loop — frustration hook + lesson capturer write `.claude/memory/superdev-learned/` so the orchestrator avoids repeating mistakes |
 
-**24 subagents** auto-loaded when the plugin is enabled (no install scripts needed):
+**43 subagents** auto-loaded when the plugin is enabled (no install scripts needed):
 
 - **10 core build agents:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `frontend-module-builder`, `ui-auditor`, `integration-tester`
 - **5 security agents:** `security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, `security-fixer`
 - **5 migration agents:** `codebase-discoverer`, `schema-reverse-engineer`, `migration-planner`, `backend-extractor`, `frontend-rewirer`
 - **4 QA agents:** `qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`
+- **5 debug agents 🆕:** `bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `fix-applier`, `regression-verifier`
+- **6 brutal-audit agents 🆕:** `repo-cartographer`, `route-walker`, `flow-walker`, `data-flow-tracer`, `edge-case-prober`, `audit-synthesizer`
+- **5 product-completeness agents 🆕:** `placeholder-hunter`, `route-completeness-checker`, `wiring-auditor`, `data-flow-real-vs-mock`, `journey-walker`
+- **2 design-preservation agents 🆕:** `design-source-mirror`, `design-fidelity-auditor`
+- **1 self-learning agent 🆕:** `learn-from-frustration`
 
 **Hooks:**
-- `SubagentStop` on every builder agent runs `pnpm typecheck` automatically (path-based pnpm filters — works regardless of `@scope`)
-- `SubagentStart` on QA agents verifies the stack is up before they run
+- `SubagentStop` on every builder agent runs `<pm> typecheck` automatically (PM auto-detected from lockfile)
+- `SubagentStart` on all Playwright-using agents verifies the stack is up before they run
+- 🆕 `UserPromptSubmit` runs `detect-frustration.sh` — conservative scan for "no/stop/wrong/I told you/revert"; on match queues a `learn-from-frustration` dispatch
+- 🆕 `SubagentStop` on `fix-applier|regression-verifier|design-fidelity-auditor|audit-synthesizer` runs `maybe-learn.sh` — captures verifier rejections and `LESSON:` lines into project memory
 
 ## Placeholder convention
 

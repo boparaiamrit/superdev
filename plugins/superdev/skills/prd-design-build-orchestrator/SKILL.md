@@ -1,11 +1,55 @@
 ---
 name: prd-design-build-orchestrator
-description: Multi-agent orchestration for full-stack monorepo builds. Audits a PRD against a design handoff (HTML, screenshots, claude.ai/design output) to find gaps, writes an execution plan, and dispatches parallel Claude Code subagents to build a Next.js frontend (using the design-to-nextjs skill, shadcn/ui everywhere) and a Nest.js backend (using the nestjs-enterprise-backend skill). Defines 10 specialized subagents (prd-analyst, design-inventory, gap-auditor, plan-architect, monorepo-bootstrapper, contracts-author, backend-module-builder, frontend-module-builder, ui-auditor, integration-tester) coordinating through shared filesystem artifacts (PRD_DIGEST.md, DESIGN_DIGEST.md, AUDIT.md, EXECUTION_PLAN.md). Use whenever the user has a PRD plus a design and wants to ship a full-stack app fast; mentions multi-agent orchestration, agent teams, parallel builds, PRD-vs-design audit, gap analysis, execution planning, or shadcn UI compliance.
+description: Multi-agent orchestration for full-stack monorepo builds. Audits a PRD against a design handoff (HTML, screenshots, claude.ai/design output) to find gaps, writes an execution plan, and dispatches parallel subagents through 4 phases. Coordinates ALL 11 superdev skills — design-preservation (when source is a prototype, not Claude Design), design-to-nextjs (shadcn translation when source is Claude Design), nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas, exploratory-qa, systematic-debugging (on any bug found mid-build), product-completeness-audit (between QA and ship), brutal-exhaustive-audit (final pass before declaring done). Reads `.claude/memory/superdev-learned/` before every subagent dispatch and threads project-specific lessons into agent prompts so the system avoids repeating past mistakes (self-learning loop via superdev-self-learning skill).
 ---
 
 # PRD ↔ Design Audit + Build Orchestrator
 
 A multi-agent system for converting a PRD + a design handoff into a shipping full-stack monorepo. The orchestrator (the main Claude in Claude Code) does no implementation work itself — it dispatches specialized subagents and coordinates phases.
+
+> 🧠 **Self-learning** — the orchestrator reads `.claude/memory/superdev-learned/` BEFORE every subagent dispatch and threads relevant lessons into agent prompts. The system learns from past mistakes in THIS project. See [`superdev-self-learning`](../../superdev-self-learning/SKILL.md).
+>
+> 🎨 **Design preservation** — when the user's source is a prototype (not Claude Design output), the orchestrator inserts the [`design-preservation`](../../design-preservation/SKILL.md) Phase B.0 to copy the source verbatim and gate every Phase C wave on a fidelity audit. Pixel drift > 1% blocks the wave.
+
+## Mandatory pre-dispatch checklist (every subagent, every time)
+
+Before dispatching ANY subagent, the orchestrator does:
+
+```bash
+# 1. Read learned lessons
+ls .claude/memory/superdev-learned/ 2>/dev/null
+
+# 2. For each lesson, check if applies_to_agents includes the about-to-dispatch agent
+
+# 3. Append matched lessons to the agent's prompt under "## Lessons learned in this project"
+
+# 4. Announce to user (first dispatch of the session only):
+#    "Found N learned lessons for this project. Threading them into dispatches."
+```
+
+See [`superdev-self-learning/references/orchestrator-integration.md`](../../superdev-self-learning/references/orchestrator-integration.md) for the threading template.
+
+## Skill routing — when to delegate to which sibling skill
+
+The orchestrator coordinates 11 skills. Use this table to decide which to invoke and when:
+
+| When… | Invoke skill | Why |
+|---|---|---|
+| User has PRD + Claude Design output | `design-to-nextjs` (Phase C, frontend wave) | Translate to shadcn |
+| User has PRD + prototype (HTML/Figma/existing app) | `design-preservation` (Phase B.0) THEN `design-to-nextjs` (Phase C, wiring only) | Preserve source verbatim |
+| User has Nest.js backend to build | `nestjs-enterprise-backend` (Phase C, backend wave) | Module/contract/CASL patterns |
+| User has existing prototype with JSON fixtures to productionize | `prototype-to-saas` + `design-preservation` (in parallel) | Migration + UI preservation |
+| Any bug found mid-build | `systematic-debugging` (interrupt current phase) | Verified-root-cause-before-fix discipline |
+| Phase D security pass | `security-review-and-fix` | 6-phase audit |
+| Phase D QA pass | `exploratory-qa` | Playwright flows |
+| Before declaring "ready to ship" | `product-completeness-audit` (between QA and audit) THEN `brutal-exhaustive-audit` | Distinguishes demo-vs-product, then dots every i |
+| User-frustration signal detected OR verifier rejection | `superdev-self-learning` (auto-dispatched by hook) | Capture lesson; future dispatches inherit |
+
+When NOT to invoke a skill:
+- ❌ Don't invoke `brutal-exhaustive-audit` for a single-feature edit (it's whole-product)
+- ❌ Don't invoke `design-preservation` for Claude Design output (defeats translation purpose)
+- ❌ Don't invoke `systematic-debugging` for refactors with no bug to chase
+- ❌ Don't invoke `product-completeness-audit` mid-build (run only between QA pass and ship claim)
 
 ## When to use this skill
 

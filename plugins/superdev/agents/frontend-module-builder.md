@@ -199,6 +199,7 @@ Only create a Zustand store for the module if the feature has UI state that cros
 - **DO NOT use raw HTML primitives where a shadcn primitive exists.** No `<button>`, `<input>`, `<select>`, `<textarea>`, `<dialog>` in component code. Layout elements (`<div>`, `<section>`, `<nav>`, etc.) are fine.
 - **DO NOT hand-roll primitives.** A 30-line custom `function MyDialog` means you missed `@/components/ui/dialog`.
 - **DO NOT install UI dependencies.** The bootstrapper installed all shadcn primitives in Phase B; any feature-level `pnpm add` of a UI lib is a violation.
+- **DESIGN-PRESERVATION OVERRIDE — when `apps/web/src/design-source/` exists**, the shadcn-everywhere rule is **suspended for any markup that has a corresponding region in the preserved source**. You must **wrap source markup** (preserve className, padding, font, color verbatim), not replace it with shadcn primitives. The `design-fidelity-auditor` will pixel-diff your output against `design-baseline/` and FAIL THE WAVE if drift > 1%. See [`design-preservation/references/wrap-dont-replace-patterns.md`](../skills/design-preservation/references/wrap-dont-replace-patterns.md).
 - DO use Edit for `layout.tsx` nav append (not Write).
 - DO grep your own output for `?.` and `??` before declaring done. If you see them on view data, fix.
 
