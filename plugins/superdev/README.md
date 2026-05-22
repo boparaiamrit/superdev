@@ -37,8 +37,22 @@ This plugin is **workspace-scope agnostic** — nothing about your monorepo is h
 | `<app>` | Short name for DB / storage-key prefixes (e.g. `acme_dev`) | Lowercase `<workspace>` |
 | `<APP_NAME>` | Human-readable brand name shown in UI / API title | Your product name |
 | `<feature>` | The feature module being built | Current task |
+| `<pm>` | The package manager (`pnpm` / `npm` / `yarn` / `bun`) | Lockfile in monorepo root |
 
-Hooks use **path-based pnpm filters** (`pnpm --filter ./apps/api`) so they work regardless of your scope. Whether the plugin is installed globally in `~/.claude/plugins/` or privately in a single monorepo, it adapts to that repo's naming.
+## Package manager support
+
+Hooks **auto-detect** your package manager from the lockfile (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `bun.lockb` → bun, otherwise → npm) and run the workspace's typecheck/build script using the right command. You don't have to configure anything.
+
+Skill examples use `pnpm` (the default the monorepo-bootstrapper sets up, because pnpm + Turbo handles workspace-scope filtering best), but if you've already installed in an existing monorepo using a different PM, the hooks adapt automatically. The agent docs include a `<pm>` placeholder — substitute your manager wherever you see it.
+
+| Lockfile detected | Hook runs |
+|---|---|
+| `pnpm-lock.yaml` | `(cd apps/api && pnpm typecheck)` |
+| `yarn.lock` | `(cd apps/api && yarn typecheck)` |
+| `bun.lockb` / `bun.lock` | `(cd apps/api && bun run typecheck)` |
+| (none of the above) | `(cd apps/api && npm run typecheck)` |
+
+Whether the plugin is installed globally in `~/.claude/plugins/` or privately in a single monorepo, it adapts to that repo's naming and tooling.
 
 ## Installation
 

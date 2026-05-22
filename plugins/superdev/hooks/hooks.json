@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f apps/api/package.json ]; then pnpm --filter ./apps/api typecheck 2>&1 | tail -20; fi"
+            "command": "if [ -f apps/api/package.json ]; then (cd apps/api && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then bun run typecheck; elif [ -f ../../pnpm-lock.yaml ]; then pnpm typecheck; elif [ -f ../../yarn.lock ]; then yarn typecheck; else npm run typecheck; fi) 2>&1 | tail -20); fi"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f apps/web/package.json ]; then pnpm --filter ./apps/web typecheck 2>&1 | tail -20; fi"
+            "command": "if [ -f apps/web/package.json ]; then (cd apps/web && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then bun run typecheck; elif [ -f ../../pnpm-lock.yaml ]; then pnpm typecheck; elif [ -f ../../yarn.lock ]; then yarn typecheck; else npm run typecheck; fi) 2>&1 | tail -20); fi"
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f packages/contracts/package.json ]; then pnpm --filter ./packages/contracts build 2>&1 | tail -20; fi"
+            "command": "if [ -f packages/contracts/package.json ]; then (cd packages/contracts && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then bun run build; elif [ -f ../../pnpm-lock.yaml ]; then pnpm build; elif [ -f ../../yarn.lock ]; then yarn build; else npm run build; fi) 2>&1 | tail -20); fi"
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[superdev] Verifying stack is up before QA agent runs...' && curl -fsS http://localhost:3001/v1/readiness > /dev/null 2>&1 && curl -fsS http://localhost:3000 > /dev/null 2>&1 && echo '[superdev] Stack OK' || echo '[superdev] ⚠ Stack not fully up — QA agent may fail. Run: pnpm dev:infra && pnpm dev'"
+            "command": "echo '[superdev] Verifying stack is up before QA agent runs...' && curl -fsS http://localhost:3001/v1/readiness > /dev/null 2>&1 && curl -fsS http://localhost:3000 > /dev/null 2>&1 && echo '[superdev] Stack OK' || echo '[superdev] ⚠ Stack not fully up — QA agent may fail. Start your stack with your monorepo'\\''s dev scripts (e.g. pnpm dev / npm run dev / yarn dev / bun dev).'"
           }
         ]
       }
