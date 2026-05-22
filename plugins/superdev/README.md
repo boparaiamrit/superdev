@@ -1,0 +1,149 @@
+# Superdev
+
+A Claude Code plugin bundling six skills + 24 specialized subagents for full-stack monorepo builds.
+
+## What's in this plugin
+
+**Six skills:**
+
+| Skill | Purpose |
+|---|---|
+| `design-to-nextjs` | Convert Claude Design handoffs into production Next.js codebases (shadcn-everywhere, view-shape contract, dual-mode adapter) |
+| `nestjs-enterprise-backend` | Nest.js + PG17/TimescaleDB + Drizzle + CASL + BullMQ + `@Audit` decorator + view-shape contract |
+| `prd-design-build-orchestrator` | Multi-agent orchestration: PRD audit → execution plan → parallel feature builds → integration → security → QA |
+| `security-review-and-fix` | Six-phase security audit (inventory, static, dynamic, dependency, triage, fix) |
+| `prototype-to-saas` | Convert a single-user Next.js prototype with JSON-as-backend into a multi-tenant SaaS |
+| `exploratory-qa` | Senior-engineer-style QA: Playwright-driven happy + edge cases, consistency audit, performance probing |
+
+**24 subagents** auto-loaded when the plugin is enabled (no install scripts needed):
+
+- **10 core build agents:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `frontend-module-builder`, `ui-auditor`, `integration-tester`
+- **5 security agents:** `security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, `security-fixer`
+- **5 migration agents:** `codebase-discoverer`, `schema-reverse-engineer`, `migration-planner`, `backend-extractor`, `frontend-rewirer`
+- **4 QA agents:** `qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`
+
+**Hooks:**
+- `SubagentStop` on every builder agent runs `pnpm typecheck` automatically (path-based pnpm filters — works regardless of `@scope`)
+- `SubagentStart` on QA agents verifies the stack is up before they run
+
+## Placeholder convention
+
+This plugin is **workspace-scope agnostic** — nothing about your monorepo is hardcoded. Where docs reference your project, you'll see placeholders; substitute them with your project's actual values:
+
+| Placeholder | Means | Detect from |
+|---|---|---|
+| `<scope>` | npm scope (e.g. `acme` in `@acme/api`) | Root `package.json` `name` field |
+| `<workspace>` | Monorepo root dir / pnpm workspace name | Directory you ran `pnpm init` in |
+| `<app>` | Short name for DB / storage-key prefixes (e.g. `acme_dev`) | Lowercase `<workspace>` |
+| `<APP_NAME>` | Human-readable brand name shown in UI / API title | Your product name |
+| `<feature>` | The feature module being built | Current task |
+
+Hooks use **path-based pnpm filters** (`pnpm --filter ./apps/api`) so they work regardless of your scope. Whether the plugin is installed globally in `~/.claude/plugins/` or privately in a single monorepo, it adapts to that repo's naming.
+
+## Installation
+
+### Option 1 — install via marketplace (recommended)
+
+```bash
+/plugin marketplace add boparaiamrit/superdev
+/plugin install superdev
+```
+
+### Option 2 — local development
+
+```bash
+git clone https://github.com/boparaiamrit/superdev ~/superdev
+claude --plugin-dir ~/superdev/plugins/superdev
+```
+
+### Option 3 — install from zip
+
+```bash
+bash install-superdev.sh
+```
+
+## Quick start
+
+After installation, in any Claude Code session:
+
+```
+I have a PRD at docs/PRD.md and a design at design/index.html.
+Build the full-stack app.
+```
+
+The main session reads the orchestrator skill, dispatches subagents through the four phases (audit → bootstrap → execute → integrate), and produces a shipping monorepo.
+
+For other entry points:
+
+| Situation | What to say |
+|---|---|
+| Greenfield PRD + design | "Build the full-stack app from PRD.md and design/" |
+| Existing Next.js prototype with JSON fixtures | "Help me productionize this Next.js prototype" |
+| Standalone security audit | "Run a security audit on this codebase" |
+| Standalone QA pass | "Run a production-readiness QA pass" |
+| Frontend-only from design | "Convert this Claude Design output to a Next.js codebase" |
+| Backend-only build | "Build a Nest.js backend with these patterns: ..." |
+
+## Agent teams (optional)
+
+Several phases benefit from **agent teams** when stakes are high. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`:
+
+- **Gap audit** (orchestrator Phase A.3) — 3-teammate adversarial review of PRD-vs-design gaps
+- **Security audit** (Phase D.2) — 3-teammate team where auditors challenge each other's findings
+- **QA report synthesis** (Phase D.3.6) — 3-teammate severity debate (harshest-critic vs pragmatist vs shipping-advocate)
+- **Hard performance investigation** — on-demand competing-hypotheses team
+- **Per-feature pair-programming** (Phase C.2) — backend↔frontend teammates that can negotiate contracts live
+
+See each skill's "Agent teams (optional)" section for the exact invocation prompts.
+
+## Architectural commitments enforced across all skills
+
+1. **Monorepo** — `apps/web` (Next.js) + `apps/api` (Nest.js) + `packages/contracts` (shared Zod schemas)
+2. **View-shape contract** — backend returns view-ready data; frontend renders WITHOUT `?.` or `??` on contract fields
+3. **Title Case enums** — DB = wire = UI label, no conversion code anywhere
+4. **shadcn/ui everywhere** — every visual primitive from `@/components/ui/*`, sidebar uses shadcn block, NO competing UI libraries
+5. **Docker for ALL infrastructure** — Postgres+Timescale, Redis, etc.; nothing local
+6. **CASL authorization + `@Audit` decorator** — every endpoint protected, every mutation audited
+7. **Dual-mode adapter** — `NEXT_PUBLIC_API_MODE=demo` reads JSON fixtures; `production` hits backend
+
+## Tech stack baked in
+
+- **Frontend:** Next.js 14+ App Router, Tailwind, TanStack Query/Table, Zustand, Zod, RHF, shadcn/ui
+- **Backend:** Nest.js 10+, PG17 + TimescaleDB, Drizzle ORM, Redis 7+, BullMQ, CASL, nestjs-zod, JWT+argon2, Pino, Prometheus
+- **Tooling:** pnpm workspaces, Turborepo
+- **QA:** Playwright (via MCP server scoped to QA agents only)
+
+## Why a plugin instead of six separate skills
+
+- One install instead of six
+- Agents auto-loaded; no `install-*-agents.sh` scripts to run
+- Plugin namespacing prevents agent-name collisions with other installed plugins
+- Hooks ship with the plugin (no manual `settings.json` editing)
+- Versioned releases with `version` field
+- Marketplaceable
+
+## Development
+
+To modify the plugin:
+
+```bash
+# Make changes to skills/, agents/, or hooks/
+# Then in your Claude Code session:
+/reload-plugins
+```
+
+To validate before committing:
+
+```bash
+# Each agent file should start with frontmatter
+for f in agents/*.md; do
+  head -1 "$f" | grep -q '^---$' || echo "MISSING FRONTMATTER: $f"
+done
+
+# Plugin manifest is valid JSON
+jq empty .claude-plugin/plugin.json
+```
+
+## License
+
+MIT — see [LICENSE](../../LICENSE).

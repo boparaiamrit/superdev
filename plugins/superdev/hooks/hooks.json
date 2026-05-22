@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "SubagentStop": [
+      {
+        "matcher": "backend-module-builder|backend-extractor",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f apps/api/package.json ]; then pnpm --filter ./apps/api typecheck 2>&1 | tail -20; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "frontend-module-builder|frontend-rewirer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f apps/web/package.json ]; then pnpm --filter ./apps/web typecheck 2>&1 | tail -20; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "contracts-author",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f packages/contracts/package.json ]; then pnpm --filter ./packages/contracts build 2>&1 | tail -20; fi"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "qa-flow-tester|qa-performance-prober",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[superdev] Verifying stack is up before QA agent runs...' && curl -fsS http://localhost:3001/v1/readiness > /dev/null 2>&1 && curl -fsS http://localhost:3000 > /dev/null 2>&1 && echo '[superdev] Stack OK' || echo '[superdev] ⚠ Stack not fully up — QA agent may fail. Run: pnpm dev:infra && pnpm dev'"
+          }
+        ]
+      }
+    ]
+  }
+}
