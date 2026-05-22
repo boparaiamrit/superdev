@@ -2,9 +2,9 @@
 
 # Superdev — Claude Code Plugin
 
-**6 production-grade skills + 24 specialized subagents for full-stack monorepo builds**
+**11 production-grade skills + 43 specialized subagents for full-stack monorepo builds**
 
-*Workspace-scope agnostic · package-manager agnostic · marketplaceable*
+*Workspace-scope agnostic · package-manager agnostic · self-improving · marketplaceable*
 
 <br>
 
@@ -20,27 +20,33 @@
 
 ---
 
-## 🧬 What's Inside
+## 🧬 What's Inside — 11 Skills
 
 | # | Skill | What It Does |
 |:---:|:---|:---|
-| 1 | 🧠 **prd-design-build-orchestrator** | Multi-agent orchestration: PRD audit → execution plan → parallel feature builds → integration → security → QA. The conductor that drives a full PRD-to-shipping-app pipeline. |
-| 2 | 🎨 **design-to-nextjs** | Convert Claude Design handoffs into production Next.js codebases. Shadcn-everywhere enforcement, view-shape contract, dual-mode adapter (demo fixtures vs real API). |
-| 3 | 🏛️ **nestjs-enterprise-backend** | Nest.js + PostgreSQL 17 + TimescaleDB + Drizzle ORM + CASL + BullMQ + Redis. Includes the `@Audit` decorator, view-shape contract, and CASL ability enforcement. |
-| 4 | 🔒 **security-review-and-fix** | Six-phase security audit: inventory → static → dynamic → dependency → triage → fix. Optional 3-teammate adversarial review of findings. |
-| 5 | 🔄 **prototype-to-saas** | Convert a single-user Next.js prototype with JSON-as-backend into a multi-tenant SaaS. Surgical feature-by-feature rewiring without destroying the UI. |
-| 6 | 🧪 **exploratory-qa** | Senior-engineer-style QA: Playwright-driven happy paths + edge cases, cross-cutting consistency audit, performance probing with N+1 detection. |
+| 1 | 🧠 **prd-design-build-orchestrator** | Multi-agent orchestration. The conductor — coordinates all 11 skills, reads `.claude/memory/superdev-learned/` before every dispatch, threads project lessons into agent prompts. |
+| 2 | 🎨 **design-to-nextjs** | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter). |
+| 3 | 🖼️ **design-preservation** 🆕 | When source is a **prototype** (HTML/Figma/existing app), copy verbatim into `apps/web/src/design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift via `design-fidelity-auditor`. The Holy Grail rule: no restyling. |
+| 4 | 🏛️ **nestjs-enterprise-backend** | Nest.js + PostgreSQL 17 + TimescaleDB + Drizzle + CASL + BullMQ + Redis. `@Audit` decorator, view-shape contract, CASL ability enforcement. |
+| 5 | 🔒 **security-review-and-fix** | Six-phase security audit: inventory → static → dynamic → dependency → triage → fix. Optional 3-teammate adversarial review. |
+| 6 | 🔄 **prototype-to-saas** | Convert a single-user Next.js prototype with JSON-as-backend into a multi-tenant SaaS. Surgical feature-by-feature rewiring without destroying the UI. |
+| 7 | 🧪 **exploratory-qa** | Senior-engineer-style QA: Playwright-driven happy paths + edge cases, consistency audit, perf probing with N+1 detection. |
+| 8 | 🪲 **systematic-debugging** 🆕 | 5-phase brutal-debug pipeline (reproduce → root-cause → hypothesis-test → fix → regression-verify). Refuses to apply fixes without a `VERIFIED:true` ROOT_CAUSE.md. Optional 3-teammate competing-hypotheses team. |
+| 9 | ✅ **product-completeness-audit** 🆕 | "A beautiful UI with hardcoded data is a demo, not a product." 5 agents detect placeholders, stub handlers, mocked data, and HYBRID screens (real data + hardcoded fields). Runs in production mode against real backend. |
+| 10 | 🗡️ **brutal-exhaustive-audit** 🆕 | Every file, every route, every flow, every data path, every edge case — no shortcuts, mandatory checklists tracked on disk. The final gate before "ship". 6 agents + optional severity-debate team. |
+| 11 | 🧠 **superdev-self-learning** 🆕 | The meta-loop. `UserPromptSubmit` hook detects frustration; `SubagentStop` captures verifier failures; both dispatch `learn-from-frustration` to write a structured feedback memory entry. The orchestrator reads these before every future dispatch. The system gets smarter every session. |
+
 
 ---
 
-## 💎 The Gem: 24 Subagents + Adversarial Teams + PM-Agnostic Runtime
+## 💎 The Gem: 43 Subagents + Self-Improving Memory + Adversarial Teams
 
-**Superdev** ships every full-stack workflow as a fleet of **24 specialized subagents** that the orchestrator dispatches in parallel waves — each agent gets a fresh context window, focuses on one feature module or one audit concern, and writes its findings to disk before returning.
+**Superdev** ships every full-stack workflow as a fleet of **43 specialized subagents** that the orchestrator dispatches in parallel waves — each agent gets a fresh context window, focuses on one feature module or one audit concern, and writes its findings to disk before returning. The orchestrator reads `.claude/memory/superdev-learned/` BEFORE every dispatch and threads relevant lessons into agent prompts, so the system learns from every past failure and stops repeating mistakes.
 
 ```
  ╔══════════════════════════════════════════════════════════════════════╗
- ║              ORCHESTRATOR  ·  4 phases  ·  6 skills                  ║
- ║         A) Audit    B) Bootstrap    C) Execute    D) Integrate       ║
+ ║          ORCHESTRATOR  ·  4 phases  ·  11 skills  ·  43 agents       ║
+ ║      A) Audit  B) Bootstrap  C) Execute  D) Integrate + Audits       ║
  ╚════════════════════════════════╦═════════════════════════════════════╝
                                   ║
                        Subagent waves dispatching
@@ -74,10 +80,10 @@
 - ✅ **Workspace-scope agnostic** — no hardcoded `@scope/` anywhere; uses `<scope>` placeholders + path-based pnpm filters
 - ✅ **Package-manager agnostic** — hooks auto-detect pnpm / npm / yarn / bun from lockfile
 - ✅ **Install anywhere** — works installed globally in `~/.claude/plugins/` or privately checked into a single monorepo
-- ✅ **24 subagents auto-loaded** — no install scripts, no manual `agents/` copying
-- ✅ **2 runtime hooks** — `SubagentStop` auto-typecheck after every builder; `SubagentStart` verifies stack health before QA agents run
-- ✅ **Adversarial teams (optional)** — 3-teammate reviews for security, QA synthesis, and gap audits when stakes are high
-- ✅ **Memory-injection ready** — agents that use `memory: project` write their findings to the project's `.claude/` memory so subsequent sessions inherit context
+- ✅ **43 subagents auto-loaded** — no install scripts, no manual `agents/` copying
+- ✅ **6 runtime hooks** — auto-typecheck after every builder, stack-health check before Playwright agents, frustration-detection on every user prompt, lesson-capture after every verifier
+- ✅ **Self-improving** — orchestrator reads `.claude/memory/superdev-learned/` before every dispatch; `learn-from-frustration` writes new lessons from user corrections / code reverts / verifier rejections / design drift
+- ✅ **Adversarial teams (optional)** — 3-teammate reviews on 9+ phases (security, QA, gap, severity, drift, completeness, competing-hypotheses) when stakes are high
 - ✅ **Resumable** — every phase produces a markdown artifact; pick up where you stopped
 
 ---
@@ -109,18 +115,28 @@
 
 ### Run
 
-In any Claude Code session, just say what you want:
+In any Claude Code session, just say what you want — **the right skill activates standalone**, no need to drive the whole orchestrator pipeline.
+
+#### Use a single skill (no orchestrator overhead)
+
+| 🎯 Want only… | 💬 Say… | 🎬 What happens |
+|:---|:---|:---|
+| Security audit | *"Run a security audit on this codebase"* | `security-review-and-fix` activates → dispatches its 5 agents → produces `SECURITY_REPORT.md`. No orchestrator. |
+| QA pass | *"Run a production-readiness QA pass"* | `exploratory-qa` activates → its 4 agents run Playwright flows + perf probes |
+| Debug a bug | *"Help me debug this test failure: …"* | `systematic-debugging` activates → reproduce → root-cause → fix → regression-verify |
+| Brutal final audit | *"Audit this brutally before we ship"* | `brutal-exhaustive-audit` activates → all 6 phases on disk-tracked checklists |
+| Demo-vs-product check | *"Is this actually wired up or just looks done?"* | `product-completeness-audit` activates → 5 agents detect placeholder/mock/HYBRID |
+| Preserve prototype UI | *"Migrate this prototype to a SaaS but DO NOT change the UI"* | `design-preservation` + `prototype-to-saas` activate together → byte-for-byte mirror + frontend-rewirer with fidelity gate |
+| Convert design to Next.js | *"Convert this Claude Design output to a Next.js codebase"* | `design-to-nextjs` activates → shadcn translation, view-shape contract |
+| Build backend only | *"Build a Nest.js backend with these patterns: …"* | `nestjs-enterprise-backend` activates → modules with CASL + @Audit + Drizzle |
+
+#### Use the orchestrator (full pipeline)
 
 | 🎯 Situation | 💬 What to say |
 |:---|:---|
-| Greenfield PRD + design | *"Build the full-stack app from `docs/PRD.md` and `design/`"* |
-| Existing Next.js prototype | *"Help me productionize this Next.js prototype"* |
-| Standalone security pass | *"Run a security audit on this codebase"* |
-| Standalone QA pass | *"Run a production-readiness QA pass"* |
-| Frontend only | *"Convert this Claude Design output to a Next.js codebase"* |
-| Backend only | *"Build a Nest.js backend with these patterns: …"* |
-
-The right skill activates, the right subagents dispatch — no slash commands to memorize.
+| Greenfield PRD + Claude Design | *"Build the full-stack app from `docs/PRD.md` and `design/`"* |
+| Greenfield PRD + prototype | *"Build the full-stack app — PRD at `docs/PRD.md`, preserve the prototype in `design/`"* |
+| Existing Next.js prototype | *"Help me productionize this Next.js prototype — don't change the UI"* |
 
 ---
 
@@ -215,6 +231,78 @@ For each feature in the execution plan, dispatched in parallel:
 
 ---
 
+## 🖼️ Design-Preservation — the Holy Grail Rule
+
+When you hand superdev a **prototype** (your own HTML, a Figma export, an existing app's frontend), the `design-preservation` skill treats it as sacred:
+
+```
+THE ORIGINAL DESIGN IS A HOLY GRAIL.
+WE DO NOT IMPROVE IT, RESTYLE IT, OR REINTERPRET IT.
+WE COPY VERBATIM, RENDER AS A MIRROR, AND ONLY THEN WIRE DATA.
+Pixel drift > 1% in any region against the source = build fails.
+```
+
+How it works:
+
+1. 🗄️ **Phase 0a — Verbatim copy.** `design-source-mirror` copies every HTML / CSS / JS / image / font byte-for-byte into `apps/web/src/design-source/`. Verified with `diff -r`.
+2. 🪞 **Phase 0b — Mirror route.** A dev-only `/__design-source/[...path]` route serves the copied files. Source becomes browseable side-by-side with the built app.
+3. 📐 **Phase 0c — Baseline capture.** `design-fidelity-auditor` screenshots every page at desktop / tablet / mobile → `design-baseline/`.
+4. 🚦 **Phase C wave gates.** After every frontend agent finishes, `design-fidelity-auditor` re-screenshots and pixel-diffs. Drift > 1% on any region → wave fails, agent re-dispatches with the diff.
+
+When NOT to use it:
+
+- ❌ Claude Design output (those are *blueprints meant to be translated* into shadcn — preserving them defeats the whole `design-to-nextjs` skill)
+- ❌ Mood-boards or screenshots without HTML/CSS (nothing to preserve verbatim)
+
+The orchestrator auto-routes: prototype → preservation, Claude Design → translation. You don't have to remember the difference.
+
+## 🧠 Self-Learning Loop — the Meta-Skill
+
+Every time the system fails *and you correct it*, it learns. Permanently. For this project.
+
+```
+   User dispatches superdev
+        │
+        ▼
+   Orchestrator reads .claude/memory/superdev-learned/  ← ALL past lessons
+        │
+        ▼
+   Threads relevant lessons into agent prompts
+        │
+        ▼
+   Agents do work informed by past mistakes
+        │
+        ▼
+   ⚠️ Something goes wrong? (you said "no/stop/wrong",
+      you reverted Claude's code, regression-verifier
+      REJECTed, design-fidelity-auditor flagged > 1% drift,
+      product-completeness-audit found mocked data)
+        │
+        ▼
+   Frustration hook fires → learn-from-frustration agent
+        │
+        ▼
+   New feedback memory entry written
+   (.claude/memory/superdev-learned/<topic>.md)
+        │
+        ▼
+   NEXT dispatch reads the new entry too
+        │
+        └─ The same mistake is never made twice in this project.
+```
+
+What gets captured:
+
+| 🚨 Triggering event | 📝 Example lesson saved |
+|:---|:---|
+| User reverted 3 `frontend-module-builder` commits with "I told you not to change the buttons" | `no-restyle-source-buttons` — wrap source `<button>` markup, never replace with shadcn `<Button>` |
+| `product-completeness-audit` found 3 hardcoded `*_count` fields | `aggregate-counts-always-real` — presenters must SELECT COUNT, never hardcode |
+| User said "stop adding error boundaries to list pages" | `do-not-add-error-boundaries-to-list-pages` — rely on TanStack `isError` instead |
+
+Scope (v1.2): **project-only** — lessons live in `.claude/memory/superdev-learned/` in the current repo and are appended to that repo's `CLAUDE.md` so EVERY Claude session in the repo sees them. The user can promote any lesson to global with *"remember this for all my projects"*.
+
+Detection is **conservative** — only strong signals trigger learning ("no/stop/wrong" as a short message, repeat-correction markers like "I already told you", explicit code reverts, verifier rejections). Normal iteration ("actually change the color to blue") doesn't.
+
 ## 🤝 Agent Teams (Optional, ~3× tokens)
 
 Several phases benefit from **adversarial 3-teammate reviews** when stakes are high. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
@@ -226,6 +314,10 @@ Several phases benefit from **adversarial 3-teammate reviews** when stakes are h
 | 🧪 | QA report synthesis (Phase D.3.6) | 3 reviewers | Severity debate — harshest-critic vs pragmatist vs shipping-advocate |
 | ⚡ | Performance investigation | 3 hypothesists | Competing-hypotheses for ambiguous slowdowns |
 | 🔧 | Per-feature pair-programming (Phase C.2) | be ↔ fe | Backend + frontend teammates negotiate contracts live |
+| 🪲 | Systematic debugging — competing hypotheses 🆕 | 3 detectives | Each champions one root-cause candidate, designs an experiment to falsify the others' |
+| 🗡️ | Brutal audit — severity debate 🆕 | 3 reviewers | Harshest-critic vs pragmatist vs shipping-advocate for ambiguous P0/P2 findings |
+| ✅ | Product completeness — demo-vs-product 🆕 | 3 verdicts | strict / pragmatic / user-POV decide if HYBRID screens count as DEMO or ship-able |
+| 🖼️ | Design drift severity 🆕 | 3 reviewers | designer / pixel-strict / pragmatist for drifts between 1% and 5% |
 
 Enable with the installer:
 ```bash
@@ -248,16 +340,18 @@ bash install-superdev.sh --enable-teams
 
 ## 🪝 Runtime Enforcement Hooks
 
-Event-driven enforcement that catches regressions the moment they happen:
+Event-driven enforcement that catches regressions the moment they happen and powers the self-learning loop:
 
 | | Hook | Event | What it does |
 |:---:|:---|:---|:---|
-| ✅ | **Auto-typecheck (backend)** | `SubagentStop` · backend-module-builder, backend-extractor | Runs `<pm> typecheck` in `apps/api/` and pipes last 20 lines to the orchestrator |
-| ✅ | **Auto-typecheck (frontend)** | `SubagentStop` · frontend-module-builder, frontend-rewirer | Runs `<pm> typecheck` in `apps/web/` and pipes last 20 lines |
-| ✅ | **Auto-build (contracts)** | `SubagentStop` · contracts-author | Runs `<pm> build` in `packages/contracts/` to catch Zod schema errors early |
-| 🚦 | **Stack-up check** | `SubagentStart` · qa-flow-tester, qa-performance-prober | Hits `/v1/readiness` + Next.js root before QA agents waste time on a dead stack |
+| ✅ | **Auto-typecheck (backend)** | `SubagentStop` · backend-module-builder, backend-extractor | Runs `<pm> typecheck` in `apps/api/` |
+| ✅ | **Auto-typecheck (frontend)** | `SubagentStop` · frontend-module-builder, frontend-rewirer | Runs `<pm> typecheck` in `apps/web/` |
+| ✅ | **Auto-build (contracts)** | `SubagentStop` · contracts-author | Runs `<pm> build` in `packages/contracts/` |
+| 🚦 | **Stack-up check** | `SubagentStart` · all Playwright-using agents (qa-flow-tester, qa-performance-prober, journey-walker, route-walker, edge-case-prober, route-completeness-checker) | Hits `/v1/readiness` + Next.js root before runtime agents waste time on a dead stack |
+| 🧠 | **Frustration detector** 🆕 | `UserPromptSubmit` · every prompt | Conservative regex scan for "no/stop/wrong/I told you/revert" → queues a learn-from-frustration dispatch |
+| 🧠 | **Lesson capturer** 🆕 | `SubagentStop` · fix-applier, regression-verifier, design-fidelity-auditor, audit-synthesizer | If verifier verdict is REJECT/FAIL/drift > 1% OR a `LESSON:` line is in the agent's output, queues a learn-from-frustration dispatch |
 
-All hooks **auto-detect your package manager** from the lockfile — no configuration required.
+All package-manager-aware hooks **auto-detect your PM** from the lockfile — no configuration required.
 
 ---
 
@@ -269,8 +363,8 @@ superdev/
 │   └── marketplace.json                     Marketplace manifest
 ├── 📁 plugins/superdev/
 │   ├── 📁 .claude-plugin/
-│   │   └── plugin.json                      Plugin manifest
-│   ├── 📁 agents/                           24 specialized subagents
+│   │   └── plugin.json                      Plugin manifest (v1.2.0)
+│   ├── 📁 agents/                           43 specialized subagents
 │   │   ├── prd-analyst.md                   ┐
 │   │   ├── design-inventory.md              │
 │   │   ├── gap-auditor.md                   │  10 core
@@ -294,16 +388,43 @@ superdev/
 │   │   ├── qa-environment.md                ┐
 │   │   ├── qa-flow-tester.md                │  4 QA
 │   │   ├── qa-consistency-checker.md        │  agents
-│   │   └── qa-performance-prober.md         ┘
-│   ├── 📁 skills/                           6 skills with references/
-│   │   ├── prd-design-build-orchestrator/   The conductor
-│   │   ├── design-to-nextjs/                Frontend skill
+│   │   ├── qa-performance-prober.md         ┘
+│   │   ├── bug-reproducer.md                ┐
+│   │   ├── root-cause-investigator.md       │  5 systematic-
+│   │   ├── hypothesis-tester.md             │  debugging
+│   │   ├── fix-applier.md                   │  agents 🆕
+│   │   ├── regression-verifier.md           ┘
+│   │   ├── repo-cartographer.md             ┐
+│   │   ├── route-walker.md                  │
+│   │   ├── flow-walker.md                   │  6 brutal-
+│   │   ├── data-flow-tracer.md              │  audit
+│   │   ├── edge-case-prober.md              │  agents 🆕
+│   │   ├── audit-synthesizer.md             ┘
+│   │   ├── placeholder-hunter.md            ┐
+│   │   ├── route-completeness-checker.md    │
+│   │   ├── wiring-auditor.md                │  5 product-
+│   │   ├── data-flow-real-vs-mock.md        │  completeness
+│   │   ├── journey-walker.md                ┘  agents 🆕
+│   │   ├── design-source-mirror.md          ┐  2 design-
+│   │   ├── design-fidelity-auditor.md       ┘  preservation 🆕
+│   │   └── learn-from-frustration.md           1 self-learning 🆕
+│   ├── 📁 skills/                           11 skills with references/
+│   │   ├── prd-design-build-orchestrator/   The conductor (routes to all)
+│   │   ├── design-to-nextjs/                Claude Design → shadcn translation
+│   │   ├── design-preservation/             🆕 Prototype → verbatim mirror + fidelity gate
 │   │   ├── nestjs-enterprise-backend/       Backend skill
 │   │   ├── security-review-and-fix/         Security skill
 │   │   ├── prototype-to-saas/               Migration skill
-│   │   └── exploratory-qa/                  QA skill
+│   │   ├── exploratory-qa/                  QA skill
+│   │   ├── systematic-debugging/            🆕 5-phase root-cause-before-fix
+│   │   ├── product-completeness-audit/      🆕 Demo-vs-product verdict
+│   │   ├── brutal-exhaustive-audit/         🆕 Every file/route/flow/edge
+│   │   └── superdev-self-learning/          🆕 Meta-loop — writes .claude/memory/superdev-learned/
 │   ├── 📁 hooks/
-│   │   └── hooks.json                       PM-agnostic runtime hooks
+│   │   ├── hooks.json                       PM-agnostic runtime + frustration hooks
+│   │   └── scripts/
+│   │       ├── detect-frustration.sh        UserPromptSubmit hook
+│   │       └── maybe-learn.sh               SubagentStop hook
 │   └── README.md                            Plugin-level docs
 ├── 📦 superdev.zip                          Bundled plugin for the installer
 ├── 🛠️ install-superdev.sh                   Shell installer (bash, ~20KB)

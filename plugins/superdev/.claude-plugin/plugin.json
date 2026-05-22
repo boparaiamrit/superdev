@@ -1,7 +1,7 @@
 {
   "name": "superdev",
-  "description": "Six-skill toolkit for full-stack monorepo builds: PRD+design audit and build orchestration, design-to-Next.js, enterprise Nest.js backend, security audit, prototype-to-SaaS migration, and exploratory QA. Includes 24 specialized subagents (10 core build agents + 5 security agents + 5 migration agents + 4 QA agents), shadcn-everywhere frontend enforcement, view-shape contract, Title Case enums, Docker-for-all-infra, and optional agent-teams mode for adversarial audits. Workspace-scope agnostic: hooks and agent commands use path-based pnpm filters so it works in any pnpm monorepo regardless of the @scope used.",
-  "version": "1.0.0",
+  "version": "1.2.0",
+  "description": "11-skill toolkit + 43 specialized subagents for full-stack monorepo builds with a self-improving memory loop. Workspace-scope and package-manager agnostic (hooks auto-detect pnpm/npm/yarn/bun). Includes: PRD+design orchestration, design-to-Next.js (Claude Design → shadcn translation), design-preservation (prototype → byte-for-byte mirror + pixel-diff wave gate at 1% drift), Nest.js enterprise backend, security audit, prototype-to-SaaS migration, exploratory QA, systematic-debugging (5-phase root-cause-before-fix), product-completeness-audit (demo-vs-product verdict), brutal-exhaustive-audit (every-file/every-route/every-flow), and superdev-self-learning (writes .claude/memory/superdev-learned/ from user-frustration signals so the orchestrator avoids repeating mistakes). Adversarial 3-teammate agent teams optional on 5+ phases.",
   "author": {
     "name": "Amritpal Singh Boparai",
     "url": "https://github.com/boparaiamrit"
@@ -22,6 +22,14 @@
     "playwright",
     "migration",
     "orchestration",
-    "subagents"
+    "subagents",
+    "agent-teams",
+    "debugging",
+    "brutal-audit",
+    "product-completeness",
+    "design-preservation",
+    "self-learning",
+    "memory",
+    "self-improving"
   ]
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "superdev",
-  "description": "Superdev — a workspace-scope-agnostic Claude Code plugin bundling 6 skills and 24 subagents for full-stack monorepo builds (PRD+design audit, design-to-Next.js, Nest.js backend, security review, prototype-to-SaaS migration, exploratory QA).",
+  "description": "Superdev — a workspace-scope-agnostic, package-manager-agnostic, self-improving Claude Code plugin bundling 11 skills and 43 subagents for full-stack monorepo builds (PRD+design orchestration, design-to-Next.js / design-preservation, Nest.js backend, security, prototype-to-SaaS migration, exploratory QA, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning).",
   "owner": {
     "name": "Amritpal Singh Boparai",
     "email": "boparaiamrit@gmail.com",
@@ -10,8 +10,8 @@
   "plugins": [
     {
       "name": "superdev",
-      "description": "6 production-grade skills + 24 specialized subagents for full-stack monorepo builds. Workspace-scope agnostic — hooks use path-based pnpm filters, works in any pnpm monorepo regardless of @scope. Covers PRD+design orchestration, Next.js frontend (shadcn-everywhere, view-shape contract), Nest.js backend (CASL + @Audit + Drizzle + Timescale + BullMQ), security audit, prototype-to-SaaS migration, and exploratory QA via Playwright.",
-      "version": "1.0.0",
+      "description": "11 production-grade skills + 43 specialized subagents for full-stack monorepo builds. Workspace-scope and package-manager agnostic. Self-improving: writes .claude/memory/superdev-learned/ entries from user-frustration signals (corrections, code reverts, verifier rejections, design drift) and threads them into every future dispatch so the system stops repeating mistakes. Skills: prd-design-build-orchestrator, design-to-nextjs, design-preservation, nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas, exploratory-qa, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning.",
+      "version": "1.2.0",
       "author": {
         "name": "Amritpal Singh Boparai"
       },

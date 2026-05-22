@@ -27,15 +27,35 @@
             "command": "if [ -f packages/contracts/package.json ]; then (cd packages/contracts && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then bun run build; elif [ -f ../../pnpm-lock.yaml ]; then pnpm build; elif [ -f ../../yarn.lock ]; then yarn build; else npm run build; fi) 2>&1 | tail -20); fi"
           }
         ]
+      },
+      {
+        "matcher": "fix-applier|regression-verifier|design-fidelity-auditor|audit-synthesizer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_DIR:-.}/hooks/scripts/maybe-learn.sh \"${CLAUDE_SUBAGENT_NAME:-unknown}\""
+          }
+        ]
       }
     ],
     "SubagentStart": [
       {
-        "matcher": "qa-flow-tester|qa-performance-prober",
+        "matcher": "qa-flow-tester|qa-performance-prober|journey-walker|route-walker|edge-case-prober|route-completeness-checker",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[superdev] Verifying stack is up before QA agent runs...' && curl -fsS http://localhost:3001/v1/readiness > /dev/null 2>&1 && curl -fsS http://localhost:3000 > /dev/null 2>&1 && echo '[superdev] Stack OK' || echo '[superdev] ⚠ Stack not fully up — QA agent may fail. Start your stack with your monorepo'\\''s dev scripts (e.g. pnpm dev / npm run dev / yarn dev / bun dev).'"
+            "command": "echo '[superdev] Verifying stack is up before agent runs...' && curl -fsS http://localhost:3001/v1/readiness > /dev/null 2>&1 && curl -fsS http://localhost:3000 > /dev/null 2>&1 && echo '[superdev] Stack OK' || echo '[superdev] ⚠ Stack not fully up — agent may fail. Start your stack with your monorepo'\\''s dev scripts (e.g. pnpm dev / npm run dev / yarn dev / bun dev).'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_DIR:-.}/hooks/scripts/detect-frustration.sh \"${CLAUDE_USER_PROMPT:-}\""
           }
         ]
       }

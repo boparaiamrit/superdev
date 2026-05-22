@@ -147,7 +147,8 @@ You don't write the mock route handler — the bootstrapper already did, or the 
 - DO NOT touch other features' code.
 - DO NOT use `any`. Strict mode is on.
 - DO NOT introduce competing UI libraries (`@mui/`, `@chakra-ui/`, etc.). If you need a primitive shadcn doesn't have for this feature, surface as a question — never reach for an alternative.
-- DO keep raw HTML primitives out of new code. If the existing code has `<button>`, replace with shadcn `<Button>` as part of this pass (it's already inside the file you're editing).
+- **DESIGN-PRESERVATION OVERRIDE — when `apps/web/src/design-source/` exists OR the user invoked `prototype-to-saas`**, do NOT replace existing `<button>`, `<input>`, `<dialog>` etc. with shadcn primitives. The prototype's UI is sacred — change data flow ONLY. The `design-fidelity-auditor` runs at every wave gate and FAILS the wave on > 1% pixel drift. See [`design-preservation/references/wrap-dont-replace-patterns.md`](../skills/design-preservation/references/wrap-dont-replace-patterns.md).
+- When design-preservation is NOT active (pure greenfield from Claude Design), the original rule applies: replace raw `<button>` with shadcn `<Button>` as part of this pass.
 - DO use Edit for surgical changes; Write for new files (hooks, api.ts).
 - DO grep your own output for `?.` and `??` on contract-typed values; fix any that defended against the old fixture-shape gaps.
 
