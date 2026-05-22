@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "superdev",
+  "description": "Superdev — a workspace-scope-agnostic Claude Code plugin bundling 6 skills and 24 subagents for full-stack monorepo builds (PRD+design audit, design-to-Next.js, Nest.js backend, security review, prototype-to-SaaS migration, exploratory QA).",
+  "owner": {
+    "name": "Amritpal Singh Boparai",
+    "email": "boparaiamrit@gmail.com",
+    "url": "https://github.com/boparaiamrit"
+  },
+  "plugins": [
+    {
+      "name": "superdev",
+      "description": "6 production-grade skills + 24 specialized subagents for full-stack monorepo builds. Workspace-scope agnostic — hooks use path-based pnpm filters, works in any pnpm monorepo regardless of @scope. Covers PRD+design orchestration, Next.js frontend (shadcn-everywhere, view-shape contract), Nest.js backend (CASL + @Audit + Drizzle + Timescale + BullMQ), security audit, prototype-to-SaaS migration, and exploratory QA via Playwright.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Amritpal Singh Boparai"
+      },
+      "source": "./plugins/superdev",
+      "category": "development"
+    }
+  ]
+}
