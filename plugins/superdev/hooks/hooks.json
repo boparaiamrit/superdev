@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f apps/api/package.json ]; then (cd apps/api && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then bun run typecheck; elif [ -f ../../pnpm-lock.yaml ]; then pnpm typecheck; elif [ -f ../../yarn.lock ]; then yarn typecheck; else npm run typecheck; fi) 2>&1 | tail -20); fi"
+            "command": "if [ -f apps/api/package.json ]; then (cd apps/api && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then PM=bun; elif [ -f ../../pnpm-lock.yaml ]; then PM=pnpm; elif [ -f ../../yarn.lock ]; then PM=yarn; else PM=npm; fi; $PM run typecheck 2>/dev/null || $PM run type-check 2>/dev/null || $PM run check-types 2>/dev/null || npx -y tsc --noEmit) 2>&1 | tail -20); fi"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f apps/web/package.json ]; then (cd apps/web && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then bun run typecheck; elif [ -f ../../pnpm-lock.yaml ]; then pnpm typecheck; elif [ -f ../../yarn.lock ]; then yarn typecheck; else npm run typecheck; fi) 2>&1 | tail -20); fi"
+            "command": "if [ -f apps/web/package.json ]; then (cd apps/web && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then PM=bun; elif [ -f ../../pnpm-lock.yaml ]; then PM=pnpm; elif [ -f ../../yarn.lock ]; then PM=yarn; else PM=npm; fi; $PM run typecheck 2>/dev/null || $PM run type-check 2>/dev/null || $PM run check-types 2>/dev/null || npx -y tsc --noEmit) 2>&1 | tail -20); fi"
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f packages/contracts/package.json ]; then (cd packages/contracts && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then bun run build; elif [ -f ../../pnpm-lock.yaml ]; then pnpm build; elif [ -f ../../yarn.lock ]; then yarn build; else npm run build; fi) 2>&1 | tail -20); fi"
+            "command": "if [ -f packages/contracts/package.json ]; then (cd packages/contracts && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then PM=bun; elif [ -f ../../pnpm-lock.yaml ]; then PM=pnpm; elif [ -f ../../yarn.lock ]; then PM=yarn; else PM=npm; fi; $PM run build 2>/dev/null || $PM run compile 2>/dev/null || npx -y tsc) 2>&1 | tail -20); fi"
           }
         ]
       },
@@ -33,18 +33,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/maybe-learn.sh\"; [ -f \"$_s\" ] && bash \"$_s\" \"${CLAUDE_SUBAGENT_NAME:-unknown}\" 2>/dev/null || true"
+            "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/maybe-learn.sh\"; [ -f \"$_s\" ] && bash \"$_s\" 2>/dev/null || true"
           }
         ]
       }
     ],
     "SubagentStart": [
       {
-        "matcher": "qa-flow-tester|qa-performance-prober|journey-walker|route-walker|edge-case-prober|route-completeness-checker",
+        "matcher": "qa-flow-tester|qa-performance-prober|journey-walker|route-walker|edge-case-prober|route-completeness-checker|design-fidelity-auditor",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[superdev] Verifying stack is up before agent runs...' && curl -fsS http://localhost:3001/v1/readiness > /dev/null 2>&1 && curl -fsS http://localhost:3000 > /dev/null 2>&1 && echo '[superdev] Stack OK' || echo '[superdev] ⚠ Stack not fully up — agent may fail. Start your stack with your monorepo'\\''s dev scripts (e.g. pnpm dev / npm run dev / yarn dev / bun dev).'"
+            "command": "_api=\"${SUPERDEV_API_URL:-http://localhost:3001/v1/readiness}\"; _web=\"${SUPERDEV_WEB_URL:-http://localhost:3000}\"; echo \"[superdev] Verifying stack is up ($_api + $_web)...\"; if curl -fsS \"$_api\" > /dev/null 2>&1 && curl -fsS \"$_web\" > /dev/null 2>&1; then echo '[superdev] Stack OK'; else echo \"[superdev] WARN: Stack not fully up — agent may fail. Start your stack (e.g. pnpm dev / npm run dev / yarn dev / bun dev) or override URLs with SUPERDEV_API_URL and SUPERDEV_WEB_URL.\"; fi"
           }
         ]
       }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/detect-frustration.sh\"; [ -f \"$_s\" ] && bash \"$_s\" \"${CLAUDE_USER_PROMPT:-}\" 2>/dev/null || true"
+            "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/detect-frustration.sh\"; [ -f \"$_s\" ] && bash \"$_s\" 2>/dev/null || true"
           }
         ]
       }
