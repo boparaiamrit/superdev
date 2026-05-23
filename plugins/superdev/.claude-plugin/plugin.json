@@ -1,7 +1,7 @@
 {
   "name": "superdev",
-  "version": "1.2.2",
-  "description": "11-skill toolkit + 43 specialized subagents for full-stack monorepo builds with a self-improving memory loop. Workspace-scope and package-manager agnostic (hooks auto-detect pnpm/npm/yarn/bun). Includes: PRD+design orchestration, design-to-Next.js (Claude Design → shadcn translation), design-preservation (prototype → byte-for-byte mirror + pixel-diff wave gate at 1% drift), Nest.js enterprise backend, security audit, prototype-to-SaaS migration, exploratory QA, systematic-debugging (5-phase root-cause-before-fix), product-completeness-audit (demo-vs-product verdict), brutal-exhaustive-audit (every-file/every-route/every-flow), and superdev-self-learning (writes .claude/memory/superdev-learned/ from user-frustration signals so the orchestrator avoids repeating mistakes). Adversarial 3-teammate agent teams optional on 5+ phases.",
+  "version": "1.3.0",
+  "description": "13-skill toolkit + 49 specialized subagents for full-stack monorepo builds with a self-improving memory loop. Workspace-scope and package-manager agnostic (hooks auto-detect pnpm/npm/yarn/bun). v1.3.0 adds frontend-modular-architecture (opinionated structure: pages ≤ 100 lines, components ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, drawers/modals/popovers in parts/<name>/ folders with shadcn Portal primitives) and frontend-refactoring (atomic ONE-MODULE conversion in a single commit on a feature branch — deep plan, behavior baseline, atomic execute, zero-drift verify, hard rollback). Other skills: prd-design-build-orchestrator, design-to-nextjs, design-preservation, nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas (now with Phase 4.5 modular-decomposition before rewiring), exploratory-qa, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning.",
   "author": {
     "name": "Amritpal Singh Boparai",
     "url": "https://github.com/boparaiamrit"
@@ -30,6 +30,12 @@
     "design-preservation",
     "self-learning",
     "memory",
-    "self-improving"
+    "self-improving",
+    "frontend-architecture",
+    "modular-frontend",
+    "atomic-refactoring",
+    "zustand",
+    "portals",
+    "wizard-decomposition"
   ]
 }

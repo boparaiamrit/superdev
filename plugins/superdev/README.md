@@ -1,42 +1,47 @@
 # Superdev
 
-A Claude Code plugin bundling **11 skills + 43 specialized subagents** for full-stack monorepo builds, with a self-improving memory loop and a holy-grail design-preservation guarantee.
+A Claude Code plugin bundling **13 skills + 49 specialized subagents** for full-stack monorepo builds, with a self-improving memory loop, holy-grail design preservation, and atomic frontend refactoring.
 
 ## What's in this plugin
 
-**Nine skills:**
+**Thirteen skills:**
 
 | Skill | Purpose |
 |---|---|
-| `prd-design-build-orchestrator` | The conductor — multi-agent orchestration across all 11 skills, reads `.claude/memory/superdev-learned/` before every dispatch |
+| `prd-design-build-orchestrator` | The conductor — multi-agent orchestration across all 13 skills, reads `.claude/memory/superdev-learned/` before every dispatch |
 | `design-to-nextjs` | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter) |
-| `design-preservation` 🆕 | When source is a **prototype** (HTML/Figma/existing app), copy verbatim into `apps/web/src/design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift |
+| `design-preservation` | When source is a **prototype**, copy verbatim into `design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift |
+| `frontend-modular-architecture` 🆕 v1.3.0 | Opinionated structure: page ≤ 100 / component ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, sub-sub-components (drawer/modal/popover) in `parts/<name>/` folders using shadcn Portal primitives |
+| `frontend-refactoring` 🆕 v1.3.0 | **Atomic one-module conversion** of a fat existing module — 5 strict phases (plan → review → snapshot → atomic-execute → verify) with hard rollback on any behavior drift. No half-state ever lands. |
 | `nestjs-enterprise-backend` | Nest.js + PG17/TimescaleDB + Drizzle + CASL + BullMQ + `@Audit` decorator + view-shape contract |
 | `security-review-and-fix` | Six-phase security audit (inventory, static, dynamic, dependency, triage, fix) |
-| `prototype-to-saas` | Convert a single-user Next.js prototype with JSON-as-backend into a multi-tenant SaaS |
+| `prototype-to-saas` | Convert a single-user Next.js prototype with JSON-as-backend into a multi-tenant SaaS. v1.3.0 adds **Phase 4.5** — refactoring runs BEFORE rewiring. |
 | `exploratory-qa` | Playwright-driven QA: happy + edge cases, consistency audit, performance probing |
-| `systematic-debugging` 🆕 | 5-phase brutal-debug (reproduce → root-cause → hypothesis-test → fix → regression-verify), refuses fixes without VERIFIED ROOT_CAUSE.md |
-| `product-completeness-audit` 🆕 | "A beautiful UI with hardcoded data is a demo, not a product" — 5 agents distinguish REAL / MOCKED / HYBRID screens in production mode |
-| `brutal-exhaustive-audit` 🆕 | Every file / route / flow / data path / edge case — 6 agents on disk-tracked checklists |
-| `superdev-self-learning` 🆕 | The meta-loop — frustration hook + lesson capturer write `.claude/memory/superdev-learned/` so the orchestrator avoids repeating mistakes |
+| `systematic-debugging` | 5-phase brutal-debug, refuses fixes without VERIFIED ROOT_CAUSE.md |
+| `product-completeness-audit` | "A beautiful UI with hardcoded data is a demo" — distinguishes REAL / MOCKED / HYBRID in production mode |
+| `brutal-exhaustive-audit` | Every file / route / flow / data path / edge case — disk-tracked checklists |
+| `superdev-self-learning` | The meta-loop — writes `.claude/memory/superdev-learned/` from frustration / verifier signals |
 
-**43 subagents** auto-loaded when the plugin is enabled (no install scripts needed):
+**49 subagents** auto-loaded when the plugin is enabled:
 
 - **10 core build agents:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `frontend-module-builder`, `ui-auditor`, `integration-tester`
 - **5 security agents:** `security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, `security-fixer`
 - **5 migration agents:** `codebase-discoverer`, `schema-reverse-engineer`, `migration-planner`, `backend-extractor`, `frontend-rewirer`
 - **4 QA agents:** `qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`
-- **5 debug agents 🆕:** `bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `fix-applier`, `regression-verifier`
-- **6 brutal-audit agents 🆕:** `repo-cartographer`, `route-walker`, `flow-walker`, `data-flow-tracer`, `edge-case-prober`, `audit-synthesizer`
-- **5 product-completeness agents 🆕:** `placeholder-hunter`, `route-completeness-checker`, `wiring-auditor`, `data-flow-real-vs-mock`, `journey-walker`
-- **2 design-preservation agents 🆕:** `design-source-mirror`, `design-fidelity-auditor`
-- **1 self-learning agent 🆕:** `learn-from-frustration`
+- **5 debug agents:** `bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `fix-applier`, `regression-verifier`
+- **6 brutal-audit agents:** `repo-cartographer`, `route-walker`, `flow-walker`, `data-flow-tracer`, `edge-case-prober`, `audit-synthesizer`
+- **5 product-completeness agents:** `placeholder-hunter`, `route-completeness-checker`, `wiring-auditor`, `data-flow-real-vs-mock`, `journey-walker`
+- **2 design-preservation agents:** `design-source-mirror`, `design-fidelity-auditor`
+- **1 self-learning agent:** `learn-from-frustration`
+- **2 modular-architecture agents 🆕:** `module-structure-auditor`, `portal-correctness-auditor`
+- **4 frontend-refactoring agents 🆕:** `module-conversion-planner`, `module-behavior-snapshotter`, `atomic-module-converter`, `conversion-verifier`
 
 **Hooks:**
 - `SubagentStop` on every builder agent runs `<pm> typecheck` automatically (PM auto-detected from lockfile)
 - `SubagentStart` on all Playwright-using agents verifies the stack is up before they run
-- 🆕 `UserPromptSubmit` runs `detect-frustration.sh` — conservative scan for "no/stop/wrong/I told you/revert"; on match queues a `learn-from-frustration` dispatch
-- 🆕 `SubagentStop` on `fix-applier|regression-verifier|design-fidelity-auditor|audit-synthesizer` runs `maybe-learn.sh` — captures verifier rejections and `LESSON:` lines into project memory
+- `UserPromptSubmit` runs `detect-frustration.sh` — conservative scan for "no/stop/wrong/I told you/revert"; on match queues a `learn-from-frustration` dispatch
+- `SubagentStop` on `fix-applier|regression-verifier|design-fidelity-auditor|audit-synthesizer` runs `maybe-learn.sh` — captures verifier rejections and `LESSON:` lines into project memory
+- 🆕 `SubagentStop` on `frontend-module-builder|frontend-rewirer|atomic-module-converter` scans newly-written .tsx files for >300 lines and emits a `LESSON:` to dispatch `frontend-refactoring` if any are found
 
 ## Placeholder convention
 

@@ -2,7 +2,7 @@
 
 # Superdev — Claude Code Plugin
 
-**11 production-grade skills + 43 specialized subagents for full-stack monorepo builds**
+**13 production-grade skills + 49 specialized subagents for full-stack monorepo builds**
 
 *Workspace-scope agnostic · package-manager agnostic · self-improving · marketplaceable*
 
@@ -20,7 +20,7 @@
 
 ---
 
-## 🧬 What's Inside — 11 Skills
+## 🧬 What's Inside — 13 Skills
 
 | # | Skill | What It Does |
 |:---:|:---|:---|
@@ -34,7 +34,9 @@
 | 8 | 🪲 **systematic-debugging** 🆕 | 5-phase brutal-debug pipeline (reproduce → root-cause → hypothesis-test → fix → regression-verify). Refuses to apply fixes without a `VERIFIED:true` ROOT_CAUSE.md. Optional 3-teammate competing-hypotheses team. |
 | 9 | ✅ **product-completeness-audit** 🆕 | "A beautiful UI with hardcoded data is a demo, not a product." 5 agents detect placeholders, stub handlers, mocked data, and HYBRID screens (real data + hardcoded fields). Runs in production mode against real backend. |
 | 10 | 🗡️ **brutal-exhaustive-audit** 🆕 | Every file, every route, every flow, every data path, every edge case — no shortcuts, mandatory checklists tracked on disk. The final gate before "ship". 6 agents + optional severity-debate team. |
-| 11 | 🧠 **superdev-self-learning** 🆕 | The meta-loop. `UserPromptSubmit` hook detects frustration; `SubagentStop` captures verifier failures; both dispatch `learn-from-frustration` to write a structured feedback memory entry. The orchestrator reads these before every future dispatch. The system gets smarter every session. |
+| 11 | 🧠 **superdev-self-learning** | The meta-loop. `UserPromptSubmit` hook detects frustration; `SubagentStop` captures verifier failures; both dispatch `learn-from-frustration` to write a structured feedback memory entry. The orchestrator reads these before every future dispatch. The system gets smarter every session. |
+| 12 | 🧱 **frontend-modular-architecture** 🆕 v1.3.0 | The structure-enforcer that prevents AI-frontend god-files. Page ≤ 100 lines. Component ≤ 200 lines. Dedicated **Zustand** stores per module (entity / UI / wizard). Wizards split per-step under `create-wizard/`. Drawers/modals/popovers in own folders under `parts/<name>/` using shadcn **Portal** primitives (Sheet / Dialog / Popover / DropdownMenu). Audited by `module-structure-auditor` + `portal-correctness-auditor` at every wave gate. |
+| 13 | 🔨 **frontend-refactoring** 🆕 v1.3.0 | **Atomic one-module conversion** of an existing fat module into the canonical layout. Five strict phases: deep plan (every file enumerated) → review gate → behavior baseline (Playwright) → atomic-execute (one commit on feature branch) → zero-drift verify. **Any behavior change = full rollback.** No half-converted state ever lands. |
 
 
 ---

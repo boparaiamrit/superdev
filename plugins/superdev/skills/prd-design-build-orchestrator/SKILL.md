@@ -31,14 +31,16 @@ See [`superdev-self-learning/references/orchestrator-integration.md`](../../supe
 
 ## Skill routing — when to delegate to which sibling skill
 
-The orchestrator coordinates 11 skills. Use this table to decide which to invoke and when:
+The orchestrator coordinates 13 skills. Use this table to decide which to invoke and when:
 
 | When… | Invoke skill | Why |
 |---|---|---|
+| Any frontend module being built | `frontend-modular-architecture` (mandatory rules) + wave-gate `module-structure-auditor` + `portal-correctness-auditor` | Prevent god-files / state soup / flat folders / Portal-less drawers from day 1 |
+| Existing fat module needs decomposition (>300 line file, >5 useState, wizard god-file, no stores/) | `frontend-refactoring` (atomic one-module conversion in single commit) | Half-converted modules are worse than untouched ones |
 | User has PRD + Claude Design output | `design-to-nextjs` (Phase C, frontend wave) | Translate to shadcn |
 | User has PRD + prototype (HTML/Figma/existing app) | `design-preservation` (Phase B.0) THEN `design-to-nextjs` (Phase C, wiring only) | Preserve source verbatim |
 | User has Nest.js backend to build | `nestjs-enterprise-backend` (Phase C, backend wave) | Module/contract/CASL patterns |
-| User has existing prototype with JSON fixtures to productionize | `prototype-to-saas` + `design-preservation` (in parallel) | Migration + UI preservation |
+| Existing prototype with JSON fixtures to productionize | `prototype-to-saas` + `design-preservation` + `frontend-refactoring` (Phase B.5 — decompose BEFORE rewiring) | Migration + UI preservation + structural decomposition |
 | Any bug found mid-build | `systematic-debugging` (interrupt current phase) | Verified-root-cause-before-fix discipline |
 | Phase D security pass | `security-review-and-fix` | 6-phase audit |
 | Phase D QA pass | `exploratory-qa` | Playwright flows |
@@ -50,6 +52,8 @@ When NOT to invoke a skill:
 - ❌ Don't invoke `design-preservation` for Claude Design output (defeats translation purpose)
 - ❌ Don't invoke `systematic-debugging` for refactors with no bug to chase
 - ❌ Don't invoke `product-completeness-audit` mid-build (run only between QA pass and ship claim)
+- ❌ Don't invoke `frontend-refactoring` for multiple modules at once — one module per dispatch, atomic. For N fat modules, run N separate dispatches.
+- ❌ Don't dispatch `frontend-rewirer` on files > 300 lines — `frontend-refactoring` must run first (the rewirer itself refuses).
 
 ## When to use this skill
 
