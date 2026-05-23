@@ -36,6 +36,15 @@
             "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/maybe-learn.sh\"; [ -f \"$_s\" ] && bash \"$_s\" 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "matcher": "frontend-module-builder|frontend-rewirer|atomic-module-converter",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -d apps/web/src/modules ]; then FAT=$(find apps/web/src/modules -name '*.tsx' -newer /tmp/.superdev-tick 2>/dev/null | xargs wc -l 2>/dev/null | awk '$1 > 300 && $2 != \"total\" { print $2 \": \" $1 \" lines\" }'); touch /tmp/.superdev-tick; if [ -n \"$FAT\" ]; then echo \"[superdev] FAT-FILE WARNING — files over 300 lines were just written/edited:\"; echo \"$FAT\"; echo \"LESSON: frontend module has file(s) >300 lines — dispatch frontend-refactoring on the module to decompose before next session\"; fi; fi"
+          }
+        ]
       }
     ],
     "SubagentStart": [

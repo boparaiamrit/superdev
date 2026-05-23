@@ -237,6 +237,34 @@ This costs a few seconds per dispatch (worktree creation + cleanup) and gives yo
 
 `backend-extractor` for each module also produces a Drizzle seed script that imports the existing JSON fixtures (under `apps/web/src/mocks/` or wherever the prototype stored them) and inserts them into the dev database. This means the dev backend starts with the same data the prototype had, which makes Phase 5's rewiring testable against known state.
 
+## Phase 4.5 — Frontend module decomposition (NEW — runs BEFORE rewiring)
+
+**Goal:** decompose every fat module in the prototype into the canonical [`frontend-modular-architecture`](../frontend-modular-architecture/SKILL.md) layout BEFORE `frontend-rewirer` touches anything.
+
+**Why this phase exists:** AI-built prototypes routinely have 1000+ line page files, 8-step wizards in one component, 30+ useState chains, and absolute-positioned drawers that violate Portal rules. If `frontend-rewirer` runs on these as-is, it adds TanStack Query hooks INTO the fat file — preserving every antipattern with new data wiring layered on top. The prototype becomes a "real backend" version of the same unmaintainable mess.
+
+The fix: run [`frontend-refactoring`](../frontend-refactoring/SKILL.md) on each fat module FIRST. Each conversion is atomic (one commit, on a feature branch, behavior-verified). Only after the module is decomposed does `frontend-rewirer` operate on it — and now it works against small, focused files where data wiring is straightforward.
+
+### Per-module decomposition workflow
+
+For each module in MIGRATION_PLAN.md, BEFORE dispatching `frontend-rewirer`:
+
+> "Run frontend-refactoring on apps/web/src/modules/<feature>/.
+> Phase 1: dispatch module-conversion-planner to produce CONVERSION_PLAN.md.
+> Phase 2: user reviews + approves the plan.
+> Phase 3: dispatch module-behavior-snapshotter to capture baseline behavior of the prototype.
+> Phase 4: dispatch atomic-module-converter to execute the plan on a feature branch (single commit).
+> Phase 5: dispatch conversion-verifier to confirm zero behavior change.
+> Merge to migration branch on PASS. Then proceed to frontend-rewirer for this module in Phase 5."
+
+If `frontend-rewirer` is dispatched on a module that wasn't decomposed first, it will refuse (it has a built-in 300-line file refusal). The orchestrator must respect the ordering.
+
+### When Phase 4.5 can be skipped
+
+For modules that are ALREADY well-structured in the prototype (rare but possible — e.g., a tiny one-page module that's only 80 lines), `module-structure-auditor` returns no P1 findings → skip refactoring for that module → proceed directly to rewiring.
+
+The orchestrator dispatches `module-structure-auditor` on every prototype module as the first step of Phase 4.5 to decide which modules need refactoring.
+
 ## Phase 5 — Frontend rewiring
 
 **Goal:** per module, replace fixture-loading + client-side logic with API calls to the new backend.
