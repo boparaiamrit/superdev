@@ -1,6 +1,6 @@
 {
   "name": "superdev",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "11-skill toolkit + 43 specialized subagents for full-stack monorepo builds with a self-improving memory loop. Workspace-scope and package-manager agnostic (hooks auto-detect pnpm/npm/yarn/bun). Includes: PRD+design orchestration, design-to-Next.js (Claude Design → shadcn translation), design-preservation (prototype → byte-for-byte mirror + pixel-diff wave gate at 1% drift), Nest.js enterprise backend, security audit, prototype-to-SaaS migration, exploratory QA, systematic-debugging (5-phase root-cause-before-fix), product-completeness-audit (demo-vs-product verdict), brutal-exhaustive-audit (every-file/every-route/every-flow), and superdev-self-learning (writes .claude/memory/superdev-learned/ from user-frustration signals so the orchestrator avoids repeating mistakes). Adversarial 3-teammate agent teams optional on 5+ phases.",
   "author": {
     "name": "Amritpal Singh Boparai",
