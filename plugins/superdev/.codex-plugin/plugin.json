@@ -1,0 +1,51 @@
+{
+  "name": "superdev",
+  "version": "1.3.0",
+  "description": "13-skill full-stack toolkit plus 49 bundled role prompts for monorepo builds, audits, migrations, QA, debugging, and frontend refactoring.",
+  "author": {
+    "name": "Amritpal Singh Boparai",
+    "url": "https://github.com/boparaiamrit"
+  },
+  "homepage": "https://github.com/boparaiamrit/superdev",
+  "repository": "https://github.com/boparaiamrit/superdev",
+  "license": "MIT",
+  "keywords": [
+    "monorepo",
+    "nextjs",
+    "nestjs",
+    "drizzle",
+    "shadcn",
+    "casl",
+    "audit",
+    "qa",
+    "security",
+    "playwright",
+    "migration",
+    "orchestration",
+    "debugging",
+    "design-preservation",
+    "frontend-architecture",
+    "atomic-refactoring"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Superdev",
+    "shortDescription": "Full-stack build, audit, QA, migration, and refactoring skills.",
+    "longDescription": "Superdev brings Codex a skill-first full-stack toolkit for PRD-to-product builds, design-to-Next.js conversion, NestJS backends, prototype migration, QA, security review, debugging, product-completeness audits, frontend modularization, and atomic refactoring. The bundled Claude subagent files are kept as reusable role prompts; Codex runs the workflows through skills and explicit delegation.",
+    "developerName": "Amritpal Singh Boparai",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Code",
+      "Write",
+      "Review",
+      "Interactive"
+    ],
+    "websiteURL": "https://github.com/boparaiamrit/superdev",
+    "defaultPrompt": [
+      "Use Superdev to audit this product before ship.",
+      "Use Superdev to productionize this prototype.",
+      "Use Superdev to build from my PRD and design."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

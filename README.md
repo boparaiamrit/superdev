@@ -1,8 +1,8 @@
 <div align="center">
 
-# Superdev — Claude Code Plugin
+# Superdev — Claude Code + Codex Plugin
 
-**13 production-grade skills + 49 specialized subagents for full-stack monorepo builds**
+**13 production-grade skills + 49 specialized role prompts for full-stack monorepo builds**
 
 *Workspace-scope agnostic · package-manager agnostic · self-improving · marketplaceable*
 
@@ -19,6 +19,12 @@
 </div>
 
 ---
+
+## Codex Support
+
+Superdev now includes a Codex manifest at `plugins/superdev/.codex-plugin/plugin.json` and a repo-local marketplace at `.agents/plugins/marketplace.json`.
+
+In Codex, the 13 Superdev skills load natively. The Claude Code subagent files and hook events are preserved for Claude users; Codex treats the `agents/*.md` files as role-prompt references and runs hook-equivalent checks explicitly from the skills. See [CODEX.md](CODEX.md) for the host adapter notes.
 
 ## 🧬 What's Inside — 13 Skills
 
@@ -93,6 +99,21 @@
 ## 🚀 Quick Start
 
 ### Install
+
+**Codex local marketplace:**
+```shell
+# Use this repository's marketplace file:
+# .agents/plugins/marketplace.json
+```
+
+Then invoke the skills directly in Codex, for example:
+```text
+Use $security-review-and-fix to audit this codebase.
+Use $prototype-to-saas to productionize this prototype.
+Use $prd-design-build-orchestrator with docs/PRD.md and design/.
+```
+
+**Claude Code marketplace:**
 
 **Step 1 — Add the marketplace:**
 ```shell

@@ -1,6 +1,15 @@
 # Superdev
 
-A Claude Code plugin bundling **13 skills + 49 specialized subagents** for full-stack monorepo builds, with a self-improving memory loop, holy-grail design preservation, and atomic frontend refactoring.
+A Claude Code + Codex plugin bundling **13 skills + 49 specialized role prompts** for full-stack monorepo builds, with a self-improving memory loop, holy-grail design preservation, and atomic frontend refactoring.
+
+## Host support
+
+Superdev is dual-hosted:
+
+- **Codex:** loads the 13 skills through `.codex-plugin/plugin.json`. Use `agents/*.md` as role-prompt references when explicit delegation is useful. Claude hook behavior should be run as explicit verification steps.
+- **Claude Code:** loads the original Claude plugin manifest, subagents, and hook events.
+
+See `../../CODEX.md` for the Codex adapter notes.
 
 ## What's in this plugin
 
@@ -22,7 +31,9 @@ A Claude Code plugin bundling **13 skills + 49 specialized subagents** for full-
 | `brutal-exhaustive-audit` | Every file / route / flow / data path / edge case — disk-tracked checklists |
 | `superdev-self-learning` | The meta-loop — writes `.claude/memory/superdev-learned/` from frustration / verifier signals |
 
-**49 subagents** auto-loaded when the plugin is enabled:
+**49 role prompts** bundled with the plugin:
+
+In Claude Code, these are auto-loaded as subagents when the plugin is enabled. In Codex, they remain available as prompt references for explicit delegated or parallel work.
 
 - **10 core build agents:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `frontend-module-builder`, `ui-auditor`, `integration-tester`
 - **5 security agents:** `security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, `security-fixer`
@@ -72,6 +83,24 @@ Skill examples use `pnpm` (the default the monorepo-bootstrapper sets up, becaus
 Whether the plugin is installed globally in `~/.claude/plugins/` or privately in a single monorepo, it adapts to that repo's naming and tooling.
 
 ## Installation
+
+### Codex — local marketplace
+
+This repo includes a Codex marketplace file:
+
+```text
+.agents/plugins/marketplace.json
+```
+
+After installing from that local marketplace, invoke the skills directly:
+
+```text
+Use $security-review-and-fix to audit this codebase.
+Use $prototype-to-saas to productionize this prototype.
+Use $prd-design-build-orchestrator with docs/PRD.md and design/.
+```
+
+### Claude Code
 
 ### Option 1 — install via marketplace (recommended)
 
