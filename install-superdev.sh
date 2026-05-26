@@ -32,7 +32,7 @@ set -euo pipefail
 # -----------------------------------------------------------------------------
 
 PLUGIN_NAME="superdev"
-PLUGIN_VERSION="1.0.0"
+PLUGIN_VERSION="1.3.1"
 PLUGIN_ZIP="${PLUGIN_ZIP:-superdev.zip}"
 CLAUDE_HOME="${HOME}/.claude"
 PLUGIN_DIR="${CLAUDE_HOME}/plugins/${PLUGIN_NAME}"
