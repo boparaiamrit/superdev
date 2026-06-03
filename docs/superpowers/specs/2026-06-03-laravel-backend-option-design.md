@@ -106,10 +106,12 @@ Phase 6 — Async Layer          SQS jobs, scheduled commands, audit prune, 4000
 
 Phase 2 has a mandatory user-confirmation gate (same as Nest).
 
+**Module layout (canonical, removes ambiguity):** each feature is a self-contained domain module at **`apps/api/app/Domains/<Feature>/`** (PSR-4 `App\Domains\<Feature>\`) holding the model, enum(s), laravel-data classes, action/service, controller, policy, jobs, and tests. This mirrors Nest's per-feature `modules/<feature>/` folder so a single `laravel-module-builder` agent owns exactly one folder and never touches another feature's files. `routes/api.php` references the feature's controller; the migration lives in `database/migrations/`. `references/module-structure.md` is the source of truth for the exact file list.
+
 **Canonical per-module order (Phase 5):**
 `Data class (contract+presenter) → migration → model(+enum casts) → action/service (#[Audit] on mutations) → controller (#[Authorize]) → Pest tests (presenter no-null, cross-workspace 404, authz negative)`.
 
-**Reference files (≈15):**
+**Reference files (15):**
 
 | File | Purpose |
 |---|---|
@@ -155,7 +157,7 @@ artisan  runtime php-84-console one-off commands + EventBridge rate(1 minute) �
 - **Deploy commands:** default **`osls deploy --stage prod`**; document **`bref deploy`** (Bref Cloud) as the managed alternative.
 - **Package hygiene:** keep deploy package < 250 MB (audit `aws/aws-sdk-php`); ARM64 for ~20% savings; ≥ 1024 MB memory for `web`.
 
-**Reference files (≈8):**
+**Reference files (8):**
 `serverless-yml.md`, `runtimes-and-functions.md`, `sqs-worker.md`, `scheduler-eventbridge.md`, `storage-s3-cloudfront.md` (owns the asset/HTML copy), `secrets-ssm.md`, `cockroachdb-serverless-connection.md`, `deploy-checklist.md`.
 
 ---
@@ -165,7 +167,7 @@ artisan  runtime php-84-console one-off commands + EventBridge rate(1 minute) �
 Parallel to `backend-module-builder.md`; one feature module per invocation, designed for parallel wave dispatch by the orchestrator.
 
 - **Frontmatter:** `tools: Read, Write, Edit, Bash`; `model: inherit`; `permissionMode: acceptEdits`; `skills: [laravel-enterprise-backend]`.
-- **Owns:** `apps/api/app/Domains/<Feature>/*` (or `app/Models` + `app/Http/Controllers/<Feature>` per chosen module layout), the feature migration, the feature's laravel-data classes (which feed `packages/contracts` via transform), Pest tests.
+- **Owns:** `apps/api/app/Domains/<Feature>/*` (the domain-module layout fixed in §6), the feature migration in `database/migrations/`, the feature's route entry, the feature's laravel-data classes (which feed `packages/contracts` via transform), Pest tests.
 - **Critical patterns enforced:** Title-Case enums; Data-class-as-presenter (no raw model/array out); `BelongsToWorkspace` scoping; `#[Audit]` on every mutation; `#[Authorize]` on every endpoint; cross-workspace 404 + authz-negative + no-null Pest tests.
 - **After writing:** `php artisan typescript:transform`; `composer test`/`php artisan test --filter=<Feature>`; up to 3 fix attempts then report.
 - **Strict rules:** don't touch other features; don't hand-author TS contracts (generate them); don't skip the Data presenter / `#[Audit]` / cross-workspace test.
