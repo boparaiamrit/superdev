@@ -31,7 +31,7 @@ See [`superdev-self-learning/references/orchestrator-integration.md`](../../supe
 
 ## Skill routing — when to delegate to which sibling skill
 
-The orchestrator coordinates 13 skills. Use this table to decide which to invoke and when:
+The orchestrator coordinates 15 skills. Use this table to decide which to invoke and when:
 
 | When… | Invoke skill | Why |
 |---|---|---|
@@ -39,7 +39,8 @@ The orchestrator coordinates 13 skills. Use this table to decide which to invoke
 | Existing fat module needs decomposition (>300 line file, >5 useState, wizard god-file, no stores/) | `frontend-refactoring` (atomic one-module conversion in single commit) | Half-converted modules are worse than untouched ones |
 | User has PRD + Claude Design output | `design-to-nextjs` (Phase C, frontend wave) | Translate to shadcn |
 | User has PRD + prototype (HTML/Figma/existing app) | `design-preservation` (Phase B.0) THEN `design-to-nextjs` (Phase C, wiring only) | Preserve source verbatim |
-| User has Nest.js backend to build | `nestjs-enterprise-backend` (Phase C, backend wave) | Module/contract/CASL patterns |
+| Backend selection gate (Step A.5b) chose **Nest.js** | `nestjs-enterprise-backend` (Phase C, backend wave) | Postgres17+Timescale / Drizzle / Redis+BullMQ / CASL patterns |
+| Backend selection gate (Step A.5b) chose **Laravel** | `laravel-enterprise-backend` (Phase C build) + `laravel-bref-deploy` (Phase D ship) | Laravel 13 / CockroachDB (stock pgsql) / DB cache+sessions / SQS / Bref serverless; laravel-data contracts; #[Audit]; global-scope tenancy |
 | Existing prototype with JSON fixtures to productionize | `prototype-to-saas` + `design-preservation` + `frontend-refactoring` (Phase B.5 — decompose BEFORE rewiring) | Migration + UI preservation + structural decomposition |
 | Any bug found mid-build | `systematic-debugging` (interrupt current phase) | Verified-root-cause-before-fix discipline |
 | Phase D security pass | `security-review-and-fix` | 6-phase audit |
@@ -390,6 +391,8 @@ ls .claude/agents/
 #  - 19 with both security and QA skills installed
 ```
 
+> **Backend stack note:** `backend-module-builder` (Nest.js) and `laravel-module-builder` (Laravel) are both auto-discovered plugin agents. The orchestrator dispatches whichever matches the `backend_stack` chosen at Step A.5b; the other simply goes unused. No conditional install step is needed — they ship with the plugin.
+
 The full install scripts (with the awk-based extraction) live in:
 - `references/agent-definitions.md` of this skill (core agents)
 - `references/security-agents.md` of the `security-review-and-fix` skill (security agents)
@@ -436,6 +439,22 @@ The orchestrator reads EXECUTION_PLAN.md, summarizes:
 
 Show this to the user. **Do not proceed without explicit confirmation.** If the user wants to revise (drop a feature, change an entity name, etc.), edit AUDIT.md and rerun `plan-architect`.
 
+### Step A.5b — Backend-stack selection gate
+
+If `EXECUTION_PLAN.md` contains backend modules, the orchestrator asks the operator — **before Phase B** — which backend stack to build, using `AskUserQuestion`:
+
+> **Backend stack?**
+> - **Nest.js** — Postgres 17 + TimescaleDB + Drizzle + Redis/BullMQ + CASL (`nestjs-enterprise-backend`)
+> - **Laravel** — Laravel 13 + CockroachDB (stock `pgsql`) + database cache/sessions + SQS, deployed via Bref (`laravel-enterprise-backend` + `laravel-bref-deploy`)
+
+Persist the answer to `STACK.md` and a `backend_stack:` field in `EXECUTION_PLAN.md` so every later phase — and any resume — reads the same value. **All backend routing in Phases B/C/D below is conditioned on `backend_stack`.** The frontend half (design-to-nextjs, frontend-modular-architecture, QA/security/audit) is unaffected — it consumes the generated contracts identically regardless of backend stack.
+
+The agents this gate re-routes:
+- `monorepo-bootstrapper` (B.1) — Nest scaffold vs Laravel scaffold (see its stack-aware section).
+- `contracts-author` (B.2) — hand-authored Zod vs `spatie/laravel-data` classes emitted to TS.
+- backend module builder (C.2) — `backend-module-builder` (Nest) vs `laravel-module-builder` (Laravel).
+- Phase D ship — add `laravel-bref-deploy` when the stack is Laravel.
+
 ## Phase B — BOOTSTRAP
 
 **Goal:** monorepo skeleton + shared contracts in place, ready for parallel feature builds.
@@ -446,6 +465,8 @@ Dispatch `monorepo-bootstrapper`:
 
 > "Use the monorepo-bootstrapper subagent to read EXECUTION_PLAN.md, then scaffold the pnpm workspace per nestjs-enterprise-backend/references/monorepo-setup.md, scaffold apps/api per nestjs-enterprise-backend/references/scaffolding.md, and scaffold apps/web per design-to-nextjs/references/scaffolding.md. Stop after pnpm install + first health check pass."
 
+**If `backend_stack == Laravel`** (Step A.5b): instead scaffold `apps/api` as a Laravel 13 app per `laravel-enterprise-backend/references/scaffolding.md` + `monorepo-setup.md` (composer, Laravel Boost, stock `pgsql`/CockroachDB, database cache/session tables, single-node CockroachDB compose for local), and `packages/contracts` is populated by `php artisan typescript:transform` rather than hand-authored Zod. See the stack-aware section in the `monorepo-bootstrapper` agent definition.
+
 This is sequential and foundational — it must finish before contracts-author runs.
 
 ### Step B.2 — Author all contracts up front
@@ -454,9 +475,11 @@ The orchestrator dispatches `contracts-author`:
 
 > "Use the contracts-author subagent to read EXECUTION_PLAN.md and, for each feature module, author the Zod schemas in `packages/contracts/src/<feature>.ts` following the view-shape contract in nestjs-enterprise-backend/references/view-presenter.md and the contracts patterns in nestjs-enterprise-backend/references/monorepo-setup.md."
 
-Why all contracts up front? Because module builders in Phase C depend on `@<scope>/contracts` being complete. If contracts are written piecemeal alongside modules, the backend builder for module X can race the contracts for module Y.
+**If `backend_stack == Laravel`** (Step A.5b): `contracts-author` instead authors `spatie/laravel-data` classes under `apps/api/app/Domains/<feature>/Data/` per `laravel-enterprise-backend/references/laravel-data-contracts.md`, then runs `php artisan typescript:transform` to emit the TS types into `packages/contracts/src/generated.ts`. It does NOT hand-author Zod. See the stack-aware section in the `contracts-author` agent definition.
 
-After contracts-author finishes, run `pnpm --filter @<scope>/contracts build` to ensure the package compiles before parallel builders depend on it.
+Why all contracts up front? Because module builders in Phase C depend on `@<scope>/contracts` (Nest) / the generated TS contracts (Laravel) being complete. If contracts are written piecemeal alongside modules, the backend builder for module X can race the contracts for module Y.
+
+After contracts-author finishes, run `pnpm --filter @<scope>/contracts build` (Nest) or confirm `php artisan typescript:transform` produced `packages/contracts/src/generated.ts` (Laravel) before parallel builders depend on it.
 
 ## Phase C — EXECUTE (the parallel phase)
 
@@ -480,7 +503,7 @@ Wave 5: analytics, audit                          (read-side, depend on everythi
 
 ### Step C.2 — For each wave, the orchestrator dispatches builders in parallel
 
-For each feature in the current wave, the orchestrator emits BOTH a backend builder AND a frontend builder in the same tool-use batch. In natural language to the main session:
+For each feature in the current wave, the orchestrator emits BOTH a backend builder AND a frontend builder in the same tool-use batch. **The backend builder is `backend-module-builder` when `backend_stack == Nest.js`, or `laravel-module-builder` when `backend_stack == Laravel`** (Step A.5b); the frontend builder is unchanged. In natural language to the main session:
 
 > "For Wave 2, dispatch six subagents in parallel: a backend-module-builder for companies, a frontend-module-builder for companies, a backend-module-builder for contacts, a frontend-module-builder for contacts, a backend-module-builder for mailboxes, a frontend-module-builder for mailboxes. Each gets the prompt 'Build the <feature> module per EXECUTION_PLAN.md feature: <feature>.' Wait for all to complete before advancing."
 
