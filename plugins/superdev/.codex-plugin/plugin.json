@@ -1,7 +1,7 @@
 {
   "name": "superdev",
   "version": "1.4.0",
-  "description": "15-skill full-stack toolkit plus 49 bundled role prompts for monorepo builds, audits, migrations, QA, debugging, and frontend refactoring. v1.4.0 adds a Laravel backend option — laravel-enterprise-backend (Laravel 13 + CockroachDB + database cache/sessions + SQS; spatie/laravel-data contracts; #[Audit] attribute; Title-Case enums; Laravel Boost) and laravel-bref-deploy (AWS Lambda serverless via Bref 3.x) — selectable through a backend-stack gate in the orchestrator.",
+  "description": "15-skill full-stack toolkit plus 50 bundled role prompts for monorepo builds, audits, migrations, QA, debugging, and frontend refactoring. v1.4.0 adds a Laravel backend option — laravel-enterprise-backend (Laravel 13 + CockroachDB + database cache/sessions + SQS; spatie/laravel-data contracts; #[Audit] attribute; Title-Case enums; Laravel Boost) and laravel-bref-deploy (AWS Lambda serverless via Bref 3.x) — selectable through a backend-stack gate in the orchestrator.",
   "author": {
     "name": "Amritpal Singh Boparai",
     "url": "https://github.com/boparaiamrit"
