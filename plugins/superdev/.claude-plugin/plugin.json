@@ -1,7 +1,7 @@
 {
   "name": "superdev",
-  "version": "1.3.1",
-  "description": "13-skill toolkit + 49 specialized subagents for full-stack monorepo builds with a self-improving memory loop. Workspace-scope and package-manager agnostic (hooks auto-detect pnpm/npm/yarn/bun). v1.3.0 adds frontend-modular-architecture (opinionated structure: pages ≤ 100 lines, components ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, drawers/modals/popovers in parts/<name>/ folders with shadcn Portal primitives) and frontend-refactoring (atomic ONE-MODULE conversion in a single commit on a feature branch — deep plan, behavior baseline, atomic execute, zero-drift verify, hard rollback). Other skills: prd-design-build-orchestrator, design-to-nextjs, design-preservation, nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas (now with Phase 4.5 modular-decomposition before rewiring), exploratory-qa, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning.",
+  "version": "1.4.0",
+  "description": "15-skill toolkit + 49 specialized subagents for full-stack monorepo builds with a self-improving memory loop. Workspace-scope and package-manager agnostic (hooks auto-detect pnpm/npm/yarn/bun). v1.3.0 adds frontend-modular-architecture (opinionated structure: pages ≤ 100 lines, components ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, drawers/modals/popovers in parts/<name>/ folders with shadcn Portal primitives) and frontend-refactoring (atomic ONE-MODULE conversion in a single commit on a feature branch — deep plan, behavior baseline, atomic execute, zero-drift verify, hard rollback). Other skills: prd-design-build-orchestrator, design-to-nextjs, design-preservation, nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas (now with Phase 4.5 modular-decomposition before rewiring), exploratory-qa, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning. v1.4.0 adds a Laravel backend option — laravel-enterprise-backend (Laravel 13 + CockroachDB + database cache/sessions + SQS; spatie/laravel-data contracts; #[Audit] attribute; Title-Case enums; Laravel Boost) and laravel-bref-deploy (AWS Lambda serverless via Bref 3.x) — selectable through a backend-stack gate in the orchestrator.",
   "author": {
     "name": "Amritpal Singh Boparai",
     "url": "https://github.com/boparaiamrit"
@@ -36,6 +36,13 @@
     "atomic-refactoring",
     "zustand",
     "portals",
-    "wizard-decomposition"
+    "wizard-decomposition",
+    "laravel",
+    "bref",
+    "serverless",
+    "cockroachdb",
+    "eloquent",
+    "sanctum",
+    "aws-lambda"
   ]
 }

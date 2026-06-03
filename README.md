@@ -2,7 +2,7 @@
 
 # Superdev — Claude Code + Codex Plugin
 
-**13 production-grade skills + 49 specialized role prompts for full-stack monorepo builds**
+**15 production-grade skills + 50 specialized role prompts for full-stack monorepo builds**
 
 *Workspace-scope agnostic · package-manager agnostic · self-improving · marketplaceable*
 
@@ -24,13 +24,13 @@
 
 Superdev now includes a Codex manifest at `plugins/superdev/.codex-plugin/plugin.json` and a repo-local marketplace at `.agents/plugins/marketplace.json`.
 
-In Codex, the 13 Superdev skills load natively. The Claude Code subagent files and hook events are preserved for Claude users; Codex treats the `agents/*.md` files as role-prompt references and runs hook-equivalent checks explicitly from the skills. See [CODEX.md](CODEX.md) for the host adapter notes.
+In Codex, the 15 Superdev skills load natively. The Claude Code subagent files and hook events are preserved for Claude users; Codex treats the `agents/*.md` files as role-prompt references and runs hook-equivalent checks explicitly from the skills. See [CODEX.md](CODEX.md) for the host adapter notes.
 
-## 🧬 What's Inside — 13 Skills
+## 🧬 What's Inside — 15 Skills
 
 | # | Skill | What It Does |
 |:---:|:---|:---|
-| 1 | 🧠 **prd-design-build-orchestrator** | Multi-agent orchestration. The conductor — coordinates all 11 skills, reads `.claude/memory/superdev-learned/` before every dispatch, threads project lessons into agent prompts. |
+| 1 | 🧠 **prd-design-build-orchestrator** | Multi-agent orchestration. The conductor — coordinates all 15 skills, reads `.claude/memory/superdev-learned/` before every dispatch, threads project lessons into agent prompts. |
 | 2 | 🎨 **design-to-nextjs** | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter). |
 | 3 | 🖼️ **design-preservation** 🆕 | When source is a **prototype** (HTML/Figma/existing app), copy verbatim into `apps/web/src/design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift via `design-fidelity-auditor`. The Holy Grail rule: no restyling. |
 | 4 | 🏛️ **nestjs-enterprise-backend** | Nest.js + PostgreSQL 17 + TimescaleDB + Drizzle + CASL + BullMQ + Redis. `@Audit` decorator, view-shape contract, CASL ability enforcement. |
@@ -43,17 +43,21 @@ In Codex, the 13 Superdev skills load natively. The Claude Code subagent files a
 | 11 | 🧠 **superdev-self-learning** | The meta-loop. `UserPromptSubmit` hook detects frustration; `SubagentStop` captures verifier failures; both dispatch `learn-from-frustration` to write a structured feedback memory entry. The orchestrator reads these before every future dispatch. The system gets smarter every session. |
 | 12 | 🧱 **frontend-modular-architecture** 🆕 v1.3.0 | The structure-enforcer that prevents AI-frontend god-files. Page ≤ 100 lines. Component ≤ 200 lines. Dedicated **Zustand** stores per module (entity / UI / wizard). Wizards split per-step under `create-wizard/`. Drawers/modals/popovers in own folders under `parts/<name>/` using shadcn **Portal** primitives (Sheet / Dialog / Popover / DropdownMenu). Audited by `module-structure-auditor` + `portal-correctness-auditor` at every wave gate. |
 | 13 | 🔨 **frontend-refactoring** 🆕 v1.3.0 | **Atomic one-module conversion** of an existing fat module into the canonical layout. Five strict phases: deep plan (every file enumerated) → review gate → behavior baseline (Playwright) → atomic-execute (one commit on feature branch) → zero-drift verify. **Any behavior change = full rollback.** No half-converted state ever lands. |
+| 14 | 🐘 **laravel-enterprise-backend** 🆕 v1.4.0 | **Laravel 13 backend** alternative to Nest.js — CockroachDB on the free tier (stock `pgsql`, UUID PKs, 40001 retry), **database-backed cache + sessions** (no Redis), **SQS** queues, `spatie/laravel-data` as presenter **and** contract source (→ TS via `typescript:transform` into `packages/contracts`), `#[Audit]` attribute → partitioned `audit_logs`, Sanctum + `spatie/laravel-permission` + `#[Authorize]`, `BelongsToWorkspace` global-scope tenancy (cross-workspace 404), Title-Case enums, Laravel Boost. |
+| 15 | ☁️ **laravel-bref-deploy** 🆕 v1.4.0 | **Serverless deploy** of the Laravel backend on AWS Lambda via **Bref 3.x** — `web` (php-84-fpm) + SQS `worker` + `artisan` (php-84-console) functions, EventBridge `schedule:run`, public HTML/assets → S3 + CloudFront, SSM secrets, CockroachDB over public internet (no VPC). Defaults to OSS Serverless (`osls`); Bref Cloud (`bref deploy`) documented. |
+
+> 🔀 **Backend stack choice** — when the orchestrator builds a backend (Step A.5b), it asks **Laravel or Nest.js** and routes the right builder, contracts authoring, and deploy. The Next.js frontend and all QA/security/audit skills are identical either way (the frontend consumes generated TS contracts regardless of stack).
 
 
 ---
 
-## 💎 The Gem: 43 Subagents + Self-Improving Memory + Adversarial Teams
+## 💎 The Gem: 50 Subagents + Self-Improving Memory + Adversarial Teams
 
-**Superdev** ships every full-stack workflow as a fleet of **43 specialized subagents** that the orchestrator dispatches in parallel waves — each agent gets a fresh context window, focuses on one feature module or one audit concern, and writes its findings to disk before returning. The orchestrator reads `.claude/memory/superdev-learned/` BEFORE every dispatch and threads relevant lessons into agent prompts, so the system learns from every past failure and stops repeating mistakes.
+**Superdev** ships every full-stack workflow as a fleet of **50 specialized subagents** that the orchestrator dispatches in parallel waves — each agent gets a fresh context window, focuses on one feature module or one audit concern, and writes its findings to disk before returning. The orchestrator reads `.claude/memory/superdev-learned/` BEFORE every dispatch and threads relevant lessons into agent prompts, so the system learns from every past failure and stops repeating mistakes.
 
 ```
  ╔══════════════════════════════════════════════════════════════════════╗
- ║          ORCHESTRATOR  ·  4 phases  ·  11 skills  ·  43 agents       ║
+ ║          ORCHESTRATOR  ·  4 phases  ·  15 skills  ·  50 agents       ║
  ║      A) Audit  B) Bootstrap  C) Execute  D) Integrate + Audits       ║
  ╚════════════════════════════════╦═════════════════════════════════════╝
                                   ║
@@ -88,7 +92,7 @@ In Codex, the 13 Superdev skills load natively. The Claude Code subagent files a
 - ✅ **Workspace-scope agnostic** — no hardcoded `@scope/` anywhere; uses `<scope>` placeholders + path-based pnpm filters
 - ✅ **Package-manager agnostic** — hooks auto-detect pnpm / npm / yarn / bun from lockfile
 - ✅ **Install anywhere** — works installed globally in `~/.claude/plugins/` or privately checked into a single monorepo
-- ✅ **43 subagents auto-loaded** — no install scripts, no manual `agents/` copying
+- ✅ **50 subagents auto-loaded** — no install scripts, no manual `agents/` copying
 - ✅ **6 runtime hooks** — auto-typecheck after every builder, stack-health check before Playwright agents, frustration-detection on every user prompt, lesson-capture after every verifier
 - ✅ **Self-improving** — orchestrator reads `.claude/memory/superdev-learned/` before every dispatch; `learn-from-frustration` writes new lessons from user corrections / code reverts / verifier rejections / design drift
 - ✅ **Adversarial teams (optional)** — 3-teammate reviews on 9+ phases (security, QA, gap, severity, drift, completeness, competing-hypotheses) when stakes are high
@@ -387,7 +391,7 @@ superdev/
 ├── 📁 plugins/superdev/
 │   ├── 📁 .claude-plugin/
 │   │   └── plugin.json                      Plugin manifest (v1.2.0)
-│   ├── 📁 agents/                           43 specialized subagents
+│   ├── 📁 agents/                           50 specialized subagents
 │   │   ├── prd-analyst.md                   ┐
 │   │   ├── design-inventory.md              │
 │   │   ├── gap-auditor.md                   │  10 core
@@ -431,7 +435,7 @@ superdev/
 │   │   ├── design-source-mirror.md          ┐  2 design-
 │   │   ├── design-fidelity-auditor.md       ┘  preservation 🆕
 │   │   └── learn-from-frustration.md           1 self-learning 🆕
-│   ├── 📁 skills/                           11 skills with references/
+│   ├── 📁 skills/                           15 skills with references/
 │   │   ├── prd-design-build-orchestrator/   The conductor (routes to all)
 │   │   ├── design-to-nextjs/                Claude Design → shadcn translation
 │   │   ├── design-preservation/             🆕 Prototype → verbatim mirror + fidelity gate
