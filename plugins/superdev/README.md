@@ -1,23 +1,23 @@
 # Superdev
 
-A Claude Code + Codex plugin bundling **13 skills + 49 specialized role prompts** for full-stack monorepo builds, with a self-improving memory loop, holy-grail design preservation, and atomic frontend refactoring.
+A Claude Code + Codex plugin bundling **15 skills + 50 specialized role prompts** for full-stack monorepo builds, with a self-improving memory loop, holy-grail design preservation, and atomic frontend refactoring.
 
 ## Host support
 
 Superdev is dual-hosted:
 
-- **Codex:** loads the 13 skills through `.codex-plugin/plugin.json`. Use `agents/*.md` as role-prompt references when explicit delegation is useful. Claude hook behavior should be run as explicit verification steps.
+- **Codex:** loads the 15 skills through `.codex-plugin/plugin.json`. Use `agents/*.md` as role-prompt references when explicit delegation is useful. Claude hook behavior should be run as explicit verification steps.
 - **Claude Code:** loads the original Claude plugin manifest, subagents, and hook events.
 
 See `../../CODEX.md` for the Codex adapter notes.
 
 ## What's in this plugin
 
-**Thirteen skills:**
+**Fifteen skills:**
 
 | Skill | Purpose |
 |---|---|
-| `prd-design-build-orchestrator` | The conductor — multi-agent orchestration across all 13 skills, reads `.claude/memory/superdev-learned/` before every dispatch |
+| `prd-design-build-orchestrator` | The conductor — multi-agent orchestration across all 15 skills, reads `.claude/memory/superdev-learned/` before every dispatch |
 | `design-to-nextjs` | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter) |
 | `design-preservation` | When source is a **prototype**, copy verbatim into `design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift |
 | `frontend-modular-architecture` 🆕 v1.3.0 | Opinionated structure: page ≤ 100 / component ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, sub-sub-components (drawer/modal/popover) in `parts/<name>/` folders using shadcn Portal primitives |
@@ -30,12 +30,16 @@ See `../../CODEX.md` for the Codex adapter notes.
 | `product-completeness-audit` | "A beautiful UI with hardcoded data is a demo" — distinguishes REAL / MOCKED / HYBRID in production mode |
 | `brutal-exhaustive-audit` | Every file / route / flow / data path / edge case — disk-tracked checklists |
 | `superdev-self-learning` | The meta-loop — writes `.claude/memory/superdev-learned/` from frustration / verifier signals |
+| `laravel-enterprise-backend` 🆕 v1.4.0 | **Laravel 13** backend alternative — CockroachDB (stock `pgsql`) + DB cache/sessions + SQS, `spatie/laravel-data` presenter+contract (→ TS), `#[Audit]` attribute, Sanctum + `spatie/laravel-permission`, `BelongsToWorkspace` global-scope tenancy, Title-Case enums, Laravel Boost |
+| `laravel-bref-deploy` 🆕 v1.4.0 | **Serverless deploy** of the Laravel backend on AWS Lambda via **Bref 3.x** — web/SQS-worker/console functions, EventBridge scheduler, S3/CloudFront assets, SSM secrets, no VPC; OSS Serverless (`osls`) default |
 
-**49 role prompts** bundled with the plugin:
+> 🔀 **Backend stack choice** — the orchestrator asks **Laravel or Nest.js** at Step A.5b and routes builder/contracts/deploy accordingly. The Next.js frontend is identical either way.
+
+**50 role prompts** bundled with the plugin:
 
 In Claude Code, these are auto-loaded as subagents when the plugin is enabled. In Codex, they remain available as prompt references for explicit delegated or parallel work.
 
-- **10 core build agents:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `frontend-module-builder`, `ui-auditor`, `integration-tester`
+- **11 core build agents:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `laravel-module-builder` 🆕, `frontend-module-builder`, `ui-auditor`, `integration-tester`
 - **5 security agents:** `security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, `security-fixer`
 - **5 migration agents:** `codebase-discoverer`, `schema-reverse-engineer`, `migration-planner`, `backend-extractor`, `frontend-rewirer`
 - **4 QA agents:** `qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`
@@ -142,7 +146,8 @@ For other entry points:
 | Standalone security audit | "Run a security audit on this codebase" |
 | Standalone QA pass | "Run a production-readiness QA pass" |
 | Frontend-only from design | "Convert this Claude Design output to a Next.js codebase" |
-| Backend-only build | "Build a Nest.js backend with these patterns: ..." |
+| Backend-only build (Nest.js) | "Build a Nest.js backend with these patterns: ..." |
+| Backend-only build (Laravel) | "Build a Laravel backend with these patterns: ..." (CockroachDB + SQS, deploy via Bref) |
 
 ## Agent teams (optional)
 
@@ -166,10 +171,13 @@ See each skill's "Agent teams (optional)" section for the exact invocation promp
 6. **CASL authorization + `@Audit` decorator** — every endpoint protected, every mutation audited
 7. **Dual-mode adapter** — `NEXT_PUBLIC_API_MODE=demo` reads JSON fixtures; `production` hits backend
 
+> 🐘 **Laravel backend variant (v1.4.0)** preserves all seven commitments with Laravel mechanisms: shared contract via `spatie/laravel-data` → generated TS in `packages/contracts` (1); `laravel-data` presenters (2); PHP Title-Case enums (3); `spatie/laravel-permission` + Policies + `#[Audit]` (6). It diverges where the serverless target requires it: CockroachDB + database cache/sessions + SQS instead of Docker Postgres/Redis (5), and Bref/AWS Lambda for production instead of Docker. See `laravel-enterprise-backend` / `laravel-bref-deploy`.
+
 ## Tech stack baked in
 
 - **Frontend:** Next.js 14+ App Router, Tailwind, TanStack Query/Table, Zustand, Zod, RHF, shadcn/ui
-- **Backend:** Nest.js 10+, PG17 + TimescaleDB, Drizzle ORM, Redis 7+, BullMQ, CASL, nestjs-zod, JWT+argon2, Pino, Prometheus
+- **Backend (default):** Nest.js 10+, PG17 + TimescaleDB, Drizzle ORM, Redis 7+, BullMQ, CASL, nestjs-zod, JWT+argon2, Pino, Prometheus
+- **Backend (alternative) 🆕 v1.4.0:** Laravel 13 (PHP 8.3+), CockroachDB free tier (stock `pgsql`), database cache/sessions, SQS queues, Eloquent, `spatie/laravel-data` (presenter + TS contracts), Sanctum, `spatie/laravel-permission`, `#[Audit]` attribute, Laravel Boost — deployed serverless on AWS Lambda via **Bref 3.x** (`laravel-enterprise-backend` + `laravel-bref-deploy`)
 - **Tooling:** pnpm workspaces, Turborepo
 - **QA:** Playwright (via MCP server scoped to QA agents only)
 
