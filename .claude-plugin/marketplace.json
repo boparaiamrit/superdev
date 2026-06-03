@@ -11,7 +11,7 @@
     {
       "name": "superdev",
       "description": "15 production-grade skills + 49 specialized subagents for full-stack monorepo builds. Workspace-scope and package-manager agnostic. Self-improving via .claude/memory/superdev-learned/. v1.3.0 adds frontend-modular-architecture (page ≤ 100 / component ≤ 200 / dedicated Zustand stores / per-step wizards / parts/<name>/ folders with Portal primitives) + frontend-refactoring (atomic one-module conversion: plan → snapshot → execute → verify → rollback-on-drift). Other skills: prd-design-build-orchestrator, design-to-nextjs, design-preservation, nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas (now with Phase 4.5 decomposition before rewiring), exploratory-qa, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning, laravel-enterprise-backend, laravel-bref-deploy (Laravel 13 + CockroachDB + Bref serverless, chosen via an orchestrator backend-stack gate).",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "author": {
         "name": "Amritpal Singh Boparai"
       },
