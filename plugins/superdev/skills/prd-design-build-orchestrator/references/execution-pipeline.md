@@ -2,6 +2,8 @@
 
 How the orchestrator dispatches per-feature builders in parallel waves. This is the speed lever.
 
+> **Backend stack note:** the examples below use `backend-module-builder` (the Nest.js builder). When the Step A.5b selection gate set `backend_stack == Laravel`, substitute **`laravel-module-builder`** everywhere `backend-module-builder` appears, and the wave-gate typecheck/test commands become their Laravel equivalents (`php artisan typescript:transform` + `php artisan test`). The wave/batching mechanics are identical.
+
 ## The mental model
 
 Imagine a Gantt chart:
