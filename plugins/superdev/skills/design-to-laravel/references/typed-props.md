@@ -159,7 +159,7 @@ This is the deliberate divergence from the decoupled Next.js path, and you must 
 
 | | Decoupled Next.js path | **This Inertia path (D4)** |
 |---|---|---|
-| Source of the FE type | `laravel-data` DTO → generated TS in `packages/contracts` | **Hand-written** in `resources/js/types/` |
+| Source of the FE type | **Hand-written** TS in `packages/contracts` (from API Resources) | **Hand-written** in `resources/js/types/` |
 | Guarantee | Machine-checked — codegen keeps FE in sync with the DTO | **Discipline** — a human keeps the type in sync with `Inertia::render` |
 | Drift risk | Build breaks if the DTO changes | Type silently lies if the controller's shape changes |
 
@@ -167,7 +167,7 @@ Because there is **no codegen** here, the hand-written type and the controller's
 
 - **Write them together.** When a controller method's render shape changes, update the matching `resources/js/types/<feature>.ts` in the same change. The `inertia-module-builder` agent owns both halves of a feature for exactly this reason — types → controller render → page, in lockstep.
 - **`npm run build` is the typecheck.** A page that reads a field not on the interface fails the TS build. That catches the page→type direction; it does **not** catch the controller→type direction (the controller is PHP).
-- **Review for the PHP↔TS match.** The skill's review pass diffs the `Inertia::render([...])` keys against the interface fields and flags any `?.` / `??` on prop fields as a smell that the type is wrong (it's modeling absence the controller should have eliminated). Note that `laravel-data` may still be used **backend-side** for validation/shaping — it just is not the FE contract source here.
+- **Review for the PHP↔TS match.** The skill's review pass diffs the `Inertia::render([...])` keys against the interface fields and flags any `?.` / `??` on prop fields as a smell that the type is wrong (it's modeling absence the controller should have eliminated). Note the backend shapes the payload with an **Eloquent API Resource**; the hand-written type is the FE contract here.
 
 ## Anti-patterns
 

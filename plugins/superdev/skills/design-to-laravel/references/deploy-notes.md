@@ -81,7 +81,7 @@ Inertia uses **Fortify session auth** (D3), not Sanctum tokens. Session persiste
 ### Required environment variables
 
 ```bash
-# Session driver — must be 'database'; uses the 'sessions' table on CockroachDB
+# Session driver — must be 'database'; uses the 'sessions' table on PostgreSQL
 SESSION_DRIVER=database
 
 # Your public application domain — used for cookie generation + CSRF verification
@@ -100,7 +100,7 @@ All four live in SSM Parameter Store (`/app/prod/SESSION_DRIVER`, etc.) and are 
 
 ### Why SESSION_DRIVER=database
 
-Lambda instances are stateless and ephemeral — each invocation may run on a different instance. File-based sessions (`SESSION_DRIVER=file`) are written to the read-only Lambda filesystem and do not survive across invocations. The `database` driver persists the `sessions` table to **CockroachDB** (already the database for the app), making sessions available to all Lambda instances. `CACHE_STORE=database` for the same reason.
+Lambda instances are stateless and ephemeral — each invocation may run on a different instance. File-based sessions (`SESSION_DRIVER=file`) are written to the read-only Lambda filesystem and do not survive across invocations. The `database` driver persists the `sessions` table to **PostgreSQL** (already the database for the app), making sessions available to all Lambda instances. `CACHE_STORE=database` for the same reason.
 
 ### No cross-domain CORS or token dance
 
@@ -146,7 +146,7 @@ The full detailed checklist lives in `laravel-bref-deploy/references/deploy-chec
 
 | Variable | Value | Purpose |
 |---|---|---|
-| `SESSION_DRIVER` | `database` | Persist sessions to CockroachDB (stateless Lambda) |
+| `SESSION_DRIVER` | `database` | Persist sessions to PostgreSQL (stateless Lambda) |
 | `APP_URL` | `https://app.example.com` | Fortify login redirects; CSRF cookie domain |
 | `SESSION_DOMAIN` | `.example.com` | Cookie domain scope |
 | `SESSION_SECURE_COOKIE` | `true` | HTTPS-only cookies in production |

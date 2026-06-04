@@ -6,7 +6,7 @@ How to handle form submission, validation errors, and loading state in the Larav
 
 ## The core pattern
 
-`useForm` from `@inertiajs/react` initialises form data, submits to a Laravel route, and surfaces server-validation errors automatically in `form.errors`. The controller validates via a `FormRequest` (or `laravel-data`'s validation pipeline); any failed validation returns the standard Inertia error bag, which lands in `form.errors` keyed by field name.
+`useForm` from `@inertiajs/react` initialises form data, submits to a Laravel route, and surfaces server-validation errors automatically in `form.errors`. The controller validates via a `FormRequest`; any failed validation returns the standard Inertia error bag, which lands in `form.errors` keyed by field name.
 
 ```tsx
 import { useForm } from '@inertiajs/react'
@@ -176,7 +176,7 @@ export default function CompanyEdit({ company }: { company: CompanyView }) {
 
 ## Server validation errors: how they surface
 
-Laravel's `FormRequest` (or `laravel-data` validation) returns a `422` with the validation error bag when validation fails. Inertia intercepts that response and populates `form.errors` automatically — the page does **not** hard-reload. The React component re-renders with the error messages in place.
+Laravel's `FormRequest` returns a `422` with the validation error bag when validation fails. Inertia intercepts that response and populates `form.errors` automatically — the page does **not** hard-reload. The React component re-renders with the error messages in place.
 
 Backend side, a typical `FormRequest`:
 

@@ -19,17 +19,17 @@ The orchestrator's Step A.5b selection gate writes `backend_stack` to `STACK.md`
 
 > ### Laravel variant (`backend_stack == Laravel`)
 > Scaffold `apps/api` as a **Laravel 13** app per `~/.claude/skills/laravel-enterprise-backend/references/scaffolding.md` and `monorepo-setup.md`, NOT Nest.js. Concretely, the backend differs from the Nest defaults below as follows:
-> - **No Docker Postgres+Timescale, no Docker Redis.** Local dev uses a **single-node CockroachDB** container for parity (see `laravel-enterprise-backend/references/monorepo-setup.md`); production is managed CockroachDB serverless. The "Docker for ALL infra / Postgres+Redis baseline" rules below DO NOT apply to the Laravel backend.
+> - **No Docker Redis.** Local dev uses a **single-node PostgreSQL + TimescaleDB** container (e.g. `timescale/timescaledb:latest-pg17`) for parity (see `laravel-enterprise-backend/references/postgres-timescale-eloquent.md`); production is a managed PostgreSQL + TimescaleDB host (Timescale Cloud / self-managed). The "Redis baseline" rule below does NOT apply to the Laravel backend.
 > - **Cache + sessions are database-backed** (create the `cache`/`sessions` tables); **queues are SQS** — no Redis service.
 > - `apps/api` is a **composer** project (NOT a pnpm workspace package). Install Laravel Boost (`--dev`).
-> - **`packages/contracts` is populated by `php artisan typescript:transform`** (run later by `contracts-author`), not hand-authored Zod. Still create `packages/contracts` as a TS package consumed by `apps/web`.
-> - The Turbo `contracts` task shells to `php artisan typescript:transform`; `apps/web` `dependsOn: ["contracts"]`.
+> - **`packages/contracts` is hand-written TypeScript** kept in lockstep with the API Resources (no `spatie/laravel-data`, no codegen). Create `packages/contracts` as a TS package consumed by `apps/web`; `contracts-author` authors the `.ts` files.
+> - No Turbo `contracts` codegen task is needed; `apps/web` just imports `@<scope>/contracts`.
 > - **`apps/web` scaffold + the full shadcn primitive install below are UNCHANGED.**
 > Verify: `php artisan serve` boots and `/api/v1/health` returns 200 (instead of the Nest `pnpm start:dev` + `/health` check).
 >
 > **Frontend sub-choice (Step A.5c) for the Laravel backend:**
 > - **`frontend_stack == Inertia` (default):** scaffold ONE Laravel app via the **React starter kit** (`laravel new` → React → Inertia 3 + React 19 + TS + Tailwind 4 + shadcn). The frontend lives in **`resources/js/`** — there is **NO `apps/web`, NO pnpm web package, NO `packages/contracts`, and NO Turbo `contracts` task**. shadcn (incl. the sidebar block) ships with the kit — **do NOT re-init shadcn**. Run `npm install && npm run build`. Frontend types are hand-written in `resources/js/types/` by `inertia-module-builder` (no `typescript:transform`). See `~/.claude/skills/design-to-laravel/references/inertia-scaffolding.md`.
-> - **`frontend_stack == Next.js`:** use the `apps/api` (Laravel) + `apps/web` (Next.js) + `packages/contracts` layout exactly as described in the box above (the `typescript:transform` contract pipeline + the shadcn install on `apps/web` apply).
+> - **`frontend_stack == Next.js`:** use the `apps/api` (Laravel) + `apps/web` (Next.js) + `packages/contracts` layout exactly as described in the box above (hand-written `packages/contracts` TS + the shadcn install on `apps/web` apply).
 
 ## Your inputs
 

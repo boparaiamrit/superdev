@@ -84,7 +84,7 @@ What that means in practice:
 - **Dates are ISO 8601 strings.** Convert to `Date` at the render site if needed; the type is never `Date | undefined`.
 - **Genuinely nullable fields are explicit.** `domain: string | null` is fine; `domain?: string` is a smell.
 
-> **D4 trade-off (important):** unlike the Next.js path, this contract is **not** machine-generated. The Next.js path derives types from `laravel-data` → `packages/contracts` (codegen, machine-checked). Here, prop types are **hand-written** in `resources/js/types/` per starter-kit convention, and the "no `?.`" rule is a **discipline** — the controller's `Inertia::render` shape and the hand-written type must be kept in lockstep by the author, the `inertia-module-builder`, and a review/lint pass for `?.`/`??` on prop fields. Do not introduce `laravel-data`→TS as the frontend contract for the monolith. See `references/typed-props.md`.
+> **D4 trade-off (important):** this contract is **not** machine-generated. As of v1.6.0 the decoupled Next.js path also hand-writes its TS in `packages/contracts` (authored from the API Resources, no codegen). Prop types here are **hand-written** in `resources/js/types/` per starter-kit convention, and the "no `?.`" rule is a **discipline** — the controller's `Inertia::render` shape and the hand-written type must be kept in lockstep by the author, the `inertia-module-builder`, and a review/lint pass for `?.`/`??` on prop fields. Do not introduce a codegen pipeline as the frontend contract for the monolith. See `references/typed-props.md`.
 
 ### 4. Wayfinder typed routes — routing is server-driven
 
