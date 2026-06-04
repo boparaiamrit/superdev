@@ -44,7 +44,7 @@ functions:
 
 **Timeout.** API Gateway's integration timeout is 29 seconds. Set `timeout: 28` on the web function so Lambda times out slightly before the gateway cuts the connection, giving you a clean Lambda error rather than an ambiguous gateway 504.
 
-**Reserved concurrency.** CockroachDB serverless has per-account connection limits. Under a sudden traffic spike, each concurrent Lambda invocation opens its own connection. To prevent connection fan-out from exhausting the free-tier connection pool, set `reservedConcurrency` on the web function:
+**Reserved concurrency.** Managed PostgreSQL has per-host connection limits. Under a sudden traffic spike, each concurrent Lambda invocation opens its own connection. To prevent connection fan-out from exhausting the managed PostgreSQL connection pool, set `reservedConcurrency` on the web function:
 
 ```yaml
 functions:
@@ -53,12 +53,12 @@ functions:
     runtime: php-84-fpm
     timeout: 28
     memorySize: 1024
-    reservedConcurrency: 20   # tune based on CockroachDB connection limit; see cockroachdb-serverless-connection.md
+    reservedConcurrency: 20   # tune based on managed PostgreSQL connection limit; see postgres-timescale-connection.md
     events:
       - httpApi: '*'
 ```
 
-There is no RDS Proxy available without a VPC, so bounded concurrency is the primary connection-count control. Start at 20 and raise after load testing. See `references/cockroachdb-serverless-connection.md` for the full connection-limit discussion.
+There is no RDS Proxy available without a VPC, so bounded concurrency is the primary connection-count control. Start at 20 and raise after load testing. See `references/postgres-timescale-connection.md` for the full connection-limit discussion.
 
 ## `worker` — the SQS queue function
 
@@ -240,6 +240,6 @@ The `web` and `artisan` functions appear under `functions:`; the `worker` appear
 - **Hard-coding layer ARNs.** Layer ARNs are region- and architecture-specific and change with every Bref release. Always use the shorthand `runtime:` key and let the Bref plugin resolve the ARN.
 - **Setting `timeout` above 29 s on `web`.** API Gateway's httpApi integration timeout is 29 seconds. A Lambda timeout above that means Lambda might still be running when the gateway has already returned a 504 to the client.
 - **Running a `queue:work` daemon.** Lambda functions are stateless and short-lived. There is no persistent process. The SQS event source mapping in `serverless-lift` handles invocation automatically.
-- **Skipping `reservedConcurrency` on `web`.** Without it, a traffic spike can open hundreds of simultaneous DB connections and exhaust CockroachDB serverless's connection limit. Bound concurrency first, then raise it based on load-test results.
+- **Skipping `reservedConcurrency` on `web`.** Without it, a traffic spike can open hundreds of simultaneous DB connections and exhaust managed PostgreSQL's connection limit. Bound concurrency first, then raise it based on load-test results.
 - **Setting `memorySize` below 1024 MB on `web`.** Lower memory means proportionally less CPU. Cold starts get longer and warm requests get slower. 1024 MB is the recommended floor for the FPM web function.
 - **Invoking one-off Artisan commands by hitting the HTTP endpoint.** Use `osls bref:cli --args="..."` (or `bref cli --args="..."` for Bref Cloud) to invoke Artisan on the console Lambda directly. HTTP endpoints are for the application, not for ops commands.

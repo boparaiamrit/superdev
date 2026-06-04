@@ -5,7 +5,7 @@ Read this when the Laravel app is a **fullstack Inertia monolith** (Step A.5c ch
 ## What's the same
 
 - The three functions from `serverless-yml.md`: `web` (`php-84-fpm`), SQS `worker` (`php-84` + `QueueHandler`), `artisan` (`php-84-console`).
-- EventBridge `schedule:run`; SSM secrets; CockroachDB serverless over the public internet (no VPC); database-backed cache/sessions/queues→SQS.
+- EventBridge `schedule:run`; SSM secrets; managed PostgreSQL + TimescaleDB over the public internet (no VPC); database-backed cache/sessions/queues→SQS.
 - Assets to **S3 + CloudFront** (`storage-s3-cloudfront.md`) — same mechanism.
 
 ## What's added for Inertia
@@ -30,7 +30,7 @@ The Vite `public/build/` output is uploaded to S3 and served via CloudFront (see
 The Inertia monolith uses **Fortify session auth** (not Sanctum tokens), so sessions must persist across stateless Lambda invocations:
 
 ```dotenv
-SESSION_DRIVER=database          # sessions table in CockroachDB (NOT file/ /tmp)
+SESSION_DRIVER=database          # sessions table in PostgreSQL (NOT file/ /tmp)
 APP_URL=https://your-domain
 SESSION_DOMAIN=your-domain       # so the session cookie is valid for the app domain
 SESSION_SECURE_COOKIE=true
@@ -45,7 +45,7 @@ In addition to the steps in `deploy-checklist.md`:
 - [ ] `npm install && npm run build` ran and `public/build/manifest.json` exists (Vite).
 - [ ] Vite assets synced to S3; `ASSET_URL` points at CloudFront; CloudFront invalidated.
 - [ ] `SESSION_DRIVER=database`, `APP_URL`, `SESSION_DOMAIN`, `SESSION_SECURE_COOKIE` set (via SSM).
-- [ ] `sessions` table migrated on CockroachDB.
+- [ ] `sessions` table migrated on PostgreSQL.
 - [ ] Smoke test: load a page (Inertia HTML shell renders), log in (Fortify session persists across requests), navigate via `<Link>` (XHR prop responses), submit a `useForm` (validation errors surface).
 
 ## Anti-patterns

@@ -27,7 +27,7 @@ Store every secret that must not be committed:
 | Parameter path | Laravel env var | Notes |
 |---|---|---|
 | `/app/APP_KEY` | `APP_KEY` | Base64 encryption key — generate once, never rotate unless forced |
-| `/app/DATABASE_URL` | `DATABASE_URL` | Full CockroachDB serverless DSN including cluster routing and SSL cert path |
+| `/app/DATABASE_URL` | `DATABASE_URL` | Full PostgreSQL DSN including host, port 5432, database name, and `sslmode=require` |
 | `/app/AWS_ACCESS_KEY_ID` | `AWS_ACCESS_KEY_ID` | IAM key for SQS / S3 access (if not using Lambda role) |
 | `/app/AWS_SECRET_ACCESS_KEY` | `AWS_SECRET_ACCESS_KEY` | Paired with above |
 | `/app/AWS_REGION` | `AWS_DEFAULT_REGION` | Optional — region is often an env var, not a secret, but SSM keeps it consistent |
@@ -125,15 +125,15 @@ Do not run `php artisan key:generate` without `--show` — the plain `key:genera
 
 ## Storing the DATABASE_URL
 
-CockroachDB serverless uses a DSN that includes cluster routing and SSL mode. It contains the password in plaintext — it must be a SecureString in SSM.
+The managed PostgreSQL + TimescaleDB DSN contains the password in plaintext — it must be a SecureString in SSM. The host is a self-managed Postgres instance (e.g. Timescale Cloud) reached over the public internet from Bref; no VPC or RDS Proxy is involved.
 
 ```bash
-# Full CockroachDB serverless DSN format:
-# postgresql://<user>:<password>@<host>:26257/<cluster>.<database>?sslmode=verify-full
+# PostgreSQL + TimescaleDB DSN format (Timescale Cloud or self-managed):
+# postgresql://<user>:<password>@<host>:5432/<database>?sslmode=require
 
 aws ssm put-parameter \
   --name "/app/DATABASE_URL" \
-  --value "postgresql://app_user:s3cr3t@free-tier.aws-us-east-1.cockroachlabs.cloud:26257/clustername.defaultdb?sslmode=verify-full" \
+  --value "postgresql://app_user:s3cr3t@your-db-host.timescaledb.io:5432/app_production?sslmode=require" \
   --type "SecureString" \
   --region us-east-1
 ```
@@ -196,7 +196,7 @@ On a local machine Laravel still reads from `.env`. The SSM values live in `.env
 ```ini
 # .env.example — local overrides; production values are in SSM
 APP_KEY=                # run: php artisan key:generate (writes to .env directly, fine locally)
-DATABASE_URL=           # local CockroachDB via docker-compose: postgresql://root@localhost:26257/defaultdb?sslmode=disable
+DATABASE_URL=           # local Postgres via docker-compose: postgresql://root@localhost:5432/app_local?sslmode=disable
 AWS_ACCESS_KEY_ID=      # local dev AWS profile or empty for queue emulation
 AWS_SECRET_ACCESS_KEY=
 ```

@@ -4,7 +4,7 @@ Ordered pre-deploy and post-deploy steps for shipping a Bref-based Laravel app t
 
 ## Mental model
 
-```
+```text
 Pre-deploy
   1. Publish serverless config
   2. Clear local config cache
@@ -57,9 +57,31 @@ Never commit `bootstrap/cache/config.php`. On Lambda the filesystem is read-only
 
 ### Step 3 — Run migrations BEFORE deploy
 
-Migrations run against the live CockroachDB database before the new code is deployed. This preserves the invariant: at every moment the running code understands the schema it sees.
+Migrations run against the live PostgreSQL + TimescaleDB database before the new code is deployed. This preserves the invariant: at every moment the running code understands the schema it sees.
 
 **Rule: never run migrations during boot.** Lambda cold starts are not safe for migrations — concurrent invocations will race, timeouts are short, and a failed migration may leave the schema in a partial state with hundreds of already-live Lambdas pointing at it.
+
+**First deploy only — TimescaleDB extension + `audit_logs` hypertable.** The very first migration must enable the TimescaleDB extension and create the `audit_logs` hypertable (with compression and retention policies). Subsequent migrations run normally.
+
+```php
+// database/migrations/0001_01_01_000000_enable_timescaledb.php
+DB::statement('CREATE EXTENSION IF NOT EXISTS timescaledb');
+
+// database/migrations/0001_01_01_000001_create_audit_logs_table.php
+DB::statement("CREATE TABLE audit_logs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    action text NOT NULL, subject text NOT NULL, status text NOT NULL,
+    duration_ms int, workspace_id uuid, user_id uuid, request_id text, ip text,
+    context jsonb, occurred_at timestamptz NOT NULL DEFAULT now()
+)");
+DB::statement("SELECT create_hypertable('audit_logs', 'occurred_at')");
+DB::statement("CREATE INDEX ON audit_logs (workspace_id, occurred_at DESC)");
+DB::statement("ALTER TABLE audit_logs SET (timescaledb.compress, timescaledb.compress_segmentby = 'workspace_id')");
+DB::statement("SELECT add_compression_policy('audit_logs', INTERVAL '7 days')");
+DB::statement("SELECT add_retention_policy('audit_logs', INTERVAL '180 days')");
+```
+
+The host must support the TimescaleDB extension (Timescale Cloud or self-managed Postgres+Timescale). See `references/postgres-timescale-connection.md`.
 
 **OSS Serverless (`osls`):**
 
@@ -68,7 +90,7 @@ Migrations run against the live CockroachDB database before the new code is depl
 osls bref:cli --args="migrate --force" --stage prod
 ```
 
-`osls bref:cli` connects to the existing artisan Lambda function and runs the artisan command inside the Lambda environment, reaching CockroachDB over the public internet exactly as the web function does.
+`osls bref:cli` connects to the existing artisan Lambda function and runs the artisan command inside the Lambda environment, reaching the Postgres host over the public internet exactly as the web function does.
 
 **Bref Cloud (`bref deploy`):**
 
@@ -76,7 +98,7 @@ osls bref:cli --args="migrate --force" --stage prod
 bref cli artisan -- migrate --force
 ```
 
-Both commands reach CockroachDB serverless over the public internet (no VPC). Confirm the migration ran cleanly in the output before proceeding.
+Both commands reach the managed Postgres + TimescaleDB host over the public internet (no VPC). Confirm the migration ran cleanly in the output before proceeding.
 
 > If a migration fails partway, do not proceed with the deploy. Fix the migration, verify on a staging stage first, then re-run.
 
@@ -138,19 +160,19 @@ functions:
 
 ### Step 5 — Reserved concurrency check (optional but recommended before first production deploy)
 
-CockroachDB serverless has a connection limit. Under Lambda concurrency spikes, the `web` function can open more connections than CockroachDB allows. Set a bounded reserved concurrency to cap fan-out.
+Managed Postgres + TimescaleDB hosts (Timescale Cloud and self-managed) enforce a connection limit. Under Lambda concurrency spikes, the `web` function can open more connections than the host allows. Set a bounded reserved concurrency to cap fan-out.
 
 ```yaml
 # serverless.yml — add to the web function
 functions:
   web:
-    reservedConcurrency: 20   # tune based on CockroachDB connection limits + load test
+    reservedConcurrency: 20   # tune based on Postgres max_connections + load test
     memorySize: 1024
     timeout: 28
     ...
 ```
 
-See `references/cockroachdb-serverless-connection.md` for the fan-out analysis. No RDS Proxy — the stack uses no VPC.
+See `references/postgres-timescale-connection.md` for the fan-out analysis. No RDS Proxy — the stack uses no VPC.
 
 ---
 
@@ -224,7 +246,7 @@ Invalidations take ~30 s to propagate globally. Wait before running the smoke te
 
 ### Step 8 — Smoke-test `/api/v1/health`
 
-Confirm the `web` Lambda is responding and can reach CockroachDB and the database cache:
+Confirm the `web` Lambda is responding and can reach PostgreSQL + TimescaleDB and the database cache:
 
 ```bash
 # Replace with your API Gateway URL (from osls deploy output or AWS console)
@@ -248,10 +270,18 @@ Failure triage:
 | Symptom | Likely cause |
 |---|---|
 | 502 Bad Gateway | Lambda crash on boot — check CloudWatch `/aws/lambda/<service>-prod-web` |
-| `"database":"down"` | CockroachDB DSN wrong in SSM, or SSL cert path missing |
+| `"database":"down"` | Postgres DSN wrong in SSM, `sslmode` mismatch, or host unreachable |
 | `"cache":"down"` | `cache` table missing (migration not run) |
 | 504 Timeout | Memory too low (< 1024 MB) or cold start > 28 s timeout |
 | Stale HTML/assets | CloudFront invalidation not run (Step 7) |
+
+**Post-deploy hypertable check (first deploy only).** Verify the `audit_logs` hypertable was created by the first migration:
+
+```bash
+osls bref:cli --args="tinker --execute=\"DB::select('SELECT hypertable_name FROM timescaledb_information.hypertables WHERE hypertable_name = ?', ['audit_logs'])\"" --stage prod
+```
+
+Expected: one row with `hypertable_name = audit_logs`. If the result is empty, the TimescaleDB extension was not enabled on the host or the migration did not run successfully — check CloudWatch logs for the migration output.
 
 ### Step 9 — Verify SQS worker
 
@@ -296,7 +326,7 @@ aws logs tail /aws/lambda/<service>-prod-artisan --follow --since 3m
 
 Expected log line:
 
-```
+```text
 [info] Running scheduled command: schedule:run
 ```
 
@@ -343,7 +373,7 @@ If logs are plain text (Laravel default), set the log channel in `config/logging
 
 And in `.env` / SSM:
 
-```
+```bash
 LOG_CHANNEL=stderr
 LOG_LEVEL=info    # use 'debug' only in staging
 ```

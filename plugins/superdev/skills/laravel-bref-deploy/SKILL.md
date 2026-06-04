@@ -1,13 +1,13 @@
 ---
 name: laravel-bref-deploy
-description: Deploy a Laravel backend to AWS Lambda serverless with Bref 3.x. Produces a serverless.yml with three functions — a php-84-fpm web function (httpApi), a php-84 SQS queue worker using Bref's QueueHandler, and a php-84-console Artisan function — plus an EventBridge schedule running schedule:run every minute, public HTML and static assets copied to S3 and served via CloudFront, secrets in AWS SSM Parameter Store, database-backed cache and sessions, and CockroachDB serverless reached over the public internet with no VPC. Defaults to the free OSS Serverless CLI (osls deploy) with Bref Cloud (bref deploy) documented as the simpler managed alternative. Use whenever the user wants to deploy, ship, or configure serverless hosting for a Laravel app; mentions Bref, AWS Lambda, serverless.yml, SQS workers, EventBridge scheduling, S3/CloudFront assets, SSM secrets, or serverless Laravel.
+description: Deploy a Laravel backend to AWS Lambda serverless with Bref 3.x. Produces a serverless.yml with three functions — a php-84-fpm web function (httpApi), a php-84 SQS queue worker using Bref's QueueHandler, and a php-84-console Artisan function — plus an EventBridge schedule running schedule:run every minute, public HTML and static assets copied to S3 and served via CloudFront, secrets in AWS SSM Parameter Store, database-backed cache and sessions, and managed Postgres+TimescaleDB reached over the public internet with no VPC. Defaults to the free OSS Serverless CLI (osls deploy) with Bref Cloud (bref deploy) documented as the simpler managed alternative. Use whenever the user wants to deploy, ship, or configure serverless hosting for a Laravel app; mentions Bref, AWS Lambda, serverless.yml, SQS workers, EventBridge scheduling, S3/CloudFront assets, SSM secrets, or serverless Laravel.
 ---
 
 # Laravel Bref Deploy
 
 A phased pipeline for deploying a Laravel 13 backend to AWS Lambda with **Bref 3.x**. It produces a working `serverless.yml`, the supporting AWS topology (SQS, EventBridge, S3/CloudFront, SSM), and a repeatable migrate-then-deploy workflow. Walk the phases in order; skipping them produces deploys that "work" on the first push and then break on the first queued job, the first scheduled command, the first asset request, or the first `php artisan migrate` during boot.
 
-This is the deployment counterpart to `laravel-enterprise-backend`. That skill builds the app (Eloquent on CockroachDB, SQS jobs, `#[Audit]`, laravel-data contracts); this skill ships it. Do not build domain modules from here — the app is the input, the running serverless stack is the output.
+This is the deployment counterpart to `laravel-enterprise-backend`. That skill builds the app (Eloquent on PostgreSQL + TimescaleDB, SQS jobs, `#[Audit]`, API Resource contracts); this skill ships it. Do not build domain modules from here — the app is the input, the running serverless stack is the output.
 
 ## How to invoke this skill
 
@@ -21,9 +21,9 @@ When `prd-design-build-orchestrator` reaches its ship phase (Phase D) and the op
 
 For shipping an existing Laravel app without the orchestrator, start a Claude Code session:
 
-```
+```text
 Deploy this Laravel app to AWS Lambda with Bref, using the patterns from this skill.
-It uses CockroachDB serverless, SQS queues, and database-backed cache/sessions.
+It uses managed PostgreSQL + TimescaleDB, SQS queues, and database-backed cache/sessions.
 ```
 
 The main session reads this `SKILL.md` and walks the seven phases. The app must already follow the `laravel-enterprise-backend` conventions (database-backed cache/sessions, SQS queues, no Redis, no Horizon) — Bref does not retrofit those.
@@ -32,13 +32,13 @@ The main session reads this `SKILL.md` and walks the seven phases. The app must 
 
 Bref 3.x uses the simplified `runtime:` key (shorthand for the underlying layers). The deploy is **three functions, three runtimes** — never one Lambda for everything:
 
-```
+```text
 web      runtime php-84-fpm      httpApi event → FPM → public/index.php       (HTTP traffic)
 worker   runtime php-84          Bref\LaravelBridge\Queue\QueueHandler ← SQS    (serverless-lift queue construct)
 artisan  runtime php-84-console  one-off commands + EventBridge rate(1 minute) → schedule:run
 ```
 
-- **`web`** — the FPM function. Handles all HTTP via API Gateway `httpApi`. Memory ≥ 1024 MB; bounded **reserved concurrency** so DB connection fan-out to CockroachDB stays sane (no RDS Proxy without a VPC).
+- **`web`** — the FPM function. Handles all HTTP via API Gateway `httpApi`. Memory ≥ 1024 MB; bounded **reserved concurrency** so DB connection fan-out to the managed PostgreSQL + TimescaleDB host stays sane (no RDS Proxy without a VPC).
 - **`worker`** — the SQS consumer. Created by the serverless-lift `queue` construct, which provisions the queue + DLQ and wires the event source. The handler is Bref's `Bref\LaravelBridge\Queue\QueueHandler` (not `queue:work`).
 - **`artisan`** — the console function. `php-84-console` is a **composite of the `php-84` layer + the console layer**. Runs one-off commands and is the EventBridge target for `schedule:run`.
 
@@ -46,7 +46,7 @@ artisan  runtime php-84-console  one-off commands + EventBridge rate(1 minute) �
 
 ## The seven-phase pipeline
 
-```
+```text
 Phase 1: Install Bref          → composer require bref/bref bref/laravel-bridge; vendor:publish serverless-config; install serverless-lift.
 Phase 2: Configure functions   → web (php-84-fpm), worker (php-84 QueueHandler), artisan (php-84-console) in serverless.yml.
 Phase 3: SQS + scheduler       → serverless-lift queue construct (+ DLQ); EventBridge rate(1 minute) → schedule:run.
@@ -93,21 +93,21 @@ The Lambda filesystem is **read-only except `/tmp`**, so `public/` cannot serve 
 
 See `references/secrets-ssm.md`.
 
-Secrets live in **AWS SSM Parameter Store** (free tier), never in the repo or `serverless.yml`. Reference them at deploy time with `${ssm:/app/...}` or resolve them at runtime with the `bref-ssm:` prefix via `bref/secrets-loader`. `APP_KEY` (`php artisan key:generate`, then store), `DATABASE_URL` (the CockroachDB DSN), and AWS config all come from SSM.
+Secrets live in **AWS SSM Parameter Store** (free tier), never in the repo or `serverless.yml`. Reference them at deploy time with `${ssm:/app/...}` or resolve them at runtime with the `bref-ssm:` prefix via `bref/secrets-loader`. `APP_KEY` (`php artisan key:generate`, then store), `DATABASE_URL` (the PostgreSQL + TimescaleDB DSN), and AWS config all come from SSM.
 
 ## Phase 6 — Migrate, then deploy
 
-See `references/deploy-checklist.md` and `references/cockroachdb-serverless-connection.md`.
+See `references/deploy-checklist.md` and `references/postgres-timescale-connection.md`.
 
-**Run migrations BEFORE the deploy, never during boot.** A boot-time `migrate` races every cold-starting Lambda. Migrate against CockroachDB, then deploy:
+**Run migrations BEFORE the deploy, never during boot.** A boot-time `migrate` races every cold-starting Lambda. Migrate against the managed PostgreSQL + TimescaleDB host, then deploy:
 
 ```bash
 php artisan config:clear
-osls bref:cli --args="migrate --force"     # migrate FIRST, against CockroachDB
+osls bref:cli --args="migrate --force"     # migrate FIRST, against the managed Postgres host
 osls deploy --stage prod                    # then deploy
 ```
 
-Audit the deploy package against the **250 MB** Lambda limit (watch `aws/aws-sdk-php` — pin to the services you use). CockroachDB serverless is reached over the **public internet with no VPC** (avoids ~$32/mo NAT + ENI cold starts); the trade-off is bounded reserved concurrency on `web` to cap connection fan-out.
+Audit the deploy package against the **250 MB** Lambda limit (watch `aws/aws-sdk-php` — pin to the services you use). The managed PostgreSQL + TimescaleDB host is reached over the **public internet with no VPC** (avoids ~$32/mo NAT + ENI cold starts); the trade-off is bounded reserved concurrency on `web` to cap connection fan-out.
 
 ## Phase 7 — Verify
 
@@ -148,7 +148,7 @@ bref deploy
 | `references/scheduler-eventbridge.md` | Phase 3 (EventBridge `rate(1 minute)` → `schedule:run`; cron defs in `routes/console.php`; audit prune) |
 | `references/storage-s3-cloudfront.md` | Phase 4 (read-only FS; copy `public/` → S3 + CloudFront; `ASSET_URL`; presigned uploads) — owns D8 |
 | `references/secrets-ssm.md` | Phase 5 (SSM Parameter Store; `${ssm:/app/...}` vs runtime `bref-ssm:`; `APP_KEY` / `DATABASE_URL`) |
-| `references/cockroachdb-serverless-connection.md` | Phase 6 (public-internet / no-VPC connection, `sslmode=verify-full`, bounded reserved concurrency) |
+| `references/postgres-timescale-connection.md` | Phase 6 (managed Postgres + TimescaleDB over public internet, `sslmode=require`, bounded reserved concurrency) |
 | `references/deploy-checklist.md` | Phase 6–7 (migrate-before-deploy, package < 250 MB, `osls deploy` / `bref deploy`, post-deploy smoke tests) |
 | `references/inertia-monolith-deploy.md` | When deploying a fullstack **Inertia monolith** — Vite `npm run build` (client-only), asset sync, session-auth config |
 
@@ -162,7 +162,7 @@ bref deploy
 - [ ] **Public HTML + static assets are copied to S3 and served via CloudFront**; `ASSET_URL` is set; CloudFront is invalidated on deploy (D8)
 - [ ] **Secrets are in SSM Parameter Store** (`APP_KEY`, `DATABASE_URL`, AWS config); nothing committed; `${ssm:/app/...}` or runtime `bref-ssm:`
 - [ ] **Cache + sessions are database-backed** (`CACHE_STORE=database`, `SESSION_DRIVER=database`); no `/tmp`, no Redis
-- [ ] CockroachDB is reached **over the public internet with no VPC**; `web` has bounded **reserved concurrency**; `sslmode=verify-full`
+- [ ] Managed PostgreSQL + TimescaleDB is reached **over the public internet with no VPC**; `web` has bounded **reserved concurrency**; `sslmode=require`
 - [ ] **Migrations run BEFORE deploy** (`osls bref:cli --args="migrate --force"`), never during boot
 - [ ] Deploy **package < 250 MB** (audited `aws/aws-sdk-php`); `architecture: arm64`; `web` `memorySize >= 1024`
 - [ ] Deploy command documented for **both** `osls deploy --stage prod` (default) and `bref deploy` (Bref Cloud); the original Serverless Framework is **not** used
@@ -178,7 +178,7 @@ bref deploy
 
 **A3 — Serving `public/` from Lambda.** The Lambda filesystem is read-only except `/tmp`. Static assets must be copied to S3 + CloudFront; set `ASSET_URL` and use `asset()`. Never write app data outside `/tmp`.
 
-**A4 — Putting the app in a VPC for CockroachDB.** CockroachDB serverless is on the public internet; a VPC adds ~$32/mo NAT cost and ENI cold-start latency for no benefit. Stay VPC-less and bound `web` reserved concurrency instead.
+**A4 — Putting the app in a VPC for the database.** Managed PostgreSQL + TimescaleDB (Timescale Cloud or self-managed) is reached over the public internet; a VPC adds ~$32/mo NAT cost and ENI cold-start latency for no benefit. Stay VPC-less and bound `web` reserved concurrency instead.
 
 **A5 — Using `queue:work` or Horizon.** Both assume a long-running daemon and Redis. The Bref SQS worker is event-driven via `QueueHandler`; the DLQ + CloudWatch alarms replace the Horizon dashboard.
 
