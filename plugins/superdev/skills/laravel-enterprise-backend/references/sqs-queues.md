@@ -14,6 +14,8 @@ SQS delivers at-least-once. Every job must be **idempotent**. No Redis. No Horiz
 
 Laravel equivalent of BullMQ: `QUEUE_CONNECTION=sqs` + `aws/aws-sdk-php` + Bref `QueueHandler`. No `queue:work` needed.
 
+> **Why SQS and not the database queue driver?** On real Postgres the `database` driver is technically viable — `SKIP LOCKED` works, and there is no longer any DB-level blocker. SQS is still the right choice here because Bref Lambda cannot run a long-lived `queue:work` daemon. SQS integrates natively with Lambda event-source mappings: AWS invokes the worker function per message batch, no polling process required.
+
 ## Install
 
 ```bash
@@ -183,7 +185,7 @@ SQS guarantees at-least-once delivery. A message may be received more than once 
 
 Three patterns in order of preference:
 
-**1. Natural idempotency (best):** the operation is a pure insert keyed on a business ID. If the row already exists, `INSERT … ON CONFLICT DO NOTHING` (CockroachDB supports this) or a guard check at the top of `handle()`.
+**1. Natural idempotency (best):** the operation is a pure insert keyed on a business ID. If the row already exists, `INSERT … ON CONFLICT DO NOTHING` or a guard check at the top of `handle()`.
 
 **2. Idempotency table (reliable):** insert a deduplication key before doing work; skip if it already exists.
 
@@ -285,9 +287,6 @@ Cron schedules live in `routes/console.php`, not in jobs. EventBridge fires the 
 ```php
 // routes/console.php
 use Illuminate\Support\Facades\Schedule;
-
-// Audit log prune — keep last 180 days (see audit-attribute.md for the SQL)
-Schedule::command('audit:prune')->daily()->withoutOverlapping();
 
 // Daily rollup metrics
 Schedule::command('metrics:rollup')->dailyAt('02:00')->withoutOverlapping();

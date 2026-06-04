@@ -102,7 +102,7 @@ class Deal extends Model
 
 - **PHP enum backing values are Title Case strings.** `'Proposal Sent'`, `'In Progress'`, `'Email Sent'`. Spaces are legal in PHP string enums, JSON, and PostgreSQL `STRING` columns.
 - **Eloquent `casts()` reads/writes the enum via `->value` automatically.** No manual serialization.
-- **The `spatie/laravel-data` Data class passes the enum directly.** `public Industry $industry` serializes to `"industry": "Technology"` in the JSON response — the value is the label.
+- **The API Resource `toArray()` passes the enum value directly.** `'industry' => $this->industry` serializes to `"industry": "Technology"` in the JSON response — the value is the label.
 - **Query filters use the enum directly.** `Company::where('industry', Industry::Technology)` or `->where('industry', Industry::Technology->value)`. No lowercase conversion.
 - **Spaces are legal.** `"In Progress"`, `"Proposal Sent"`, `"Email Sent"` — TypeScript string literal types, JSON, and `STRING` columns all preserve them.
 - **Numeric ranges stay as ranges.** `"1-10"`, `"51-200"`, `"1000+"` — render naturally, no conversion needed.
@@ -132,39 +132,39 @@ Schema::create('deals', function (Blueprint $table) {
 });
 ```
 
-**Rationale:** Native PostgreSQL `ENUM` types require a separate `ALTER TYPE … ADD VALUE` migration every time a new case is added, and CockroachDB cross-type-cast behavior around native enums adds friction. `STRING` columns sidestep this entirely. Validation is PHP-layer (the enum cast rejects invalid values at hydration; laravel-data rejects invalid inputs at the request layer). The canonical value set lives in the PHP enum — one place, no DDL coordination needed.
+**Rationale:** Native PostgreSQL `ENUM` types require a separate `ALTER TYPE … ADD VALUE` migration every time a new case is added. `STRING` columns sidestep this entirely — portable and simple. Validation is PHP-layer: the enum cast rejects invalid values at hydration; `FormRequest` rules reject invalid inputs at the request layer. The canonical value set lives in the PHP enum — one place, no DDL coordination needed.
 
 ---
 
-## TypeScript emit via `typescript:transform`
+## TypeScript contract — hand-written string-literal union
 
-When `php artisan typescript:transform` runs, `spatie/laravel-typescript-transformer` emits a TypeScript union type from each PHP enum that carries the `#[TypeScript]` attribute (or is auto-discovered through `CompanyData`'s typed properties).
-
-```php
-// Mark the enum for TS emission (or let the Data class pull it automatically)
-use Spatie\TypeScriptTransformer\Attributes\TypeScript;
-
-#[TypeScript]
-enum Industry: string
-{
-    case Technology = 'Technology';
-    case Healthcare = 'Healthcare';
-    case Finance    = 'Finance';
-    case Logistics  = 'Logistics';
-    case Other      = 'Other';
-}
-```
-
-The emitted output in `packages/contracts/src/generated.ts` is:
+There is no code-generation pipeline. Each PHP enum maps to a **hand-written TypeScript string-literal union** in the contract package, using exactly the same values.
 
 ```ts
-export type Industry = 'Technology' | 'Healthcare' | 'Finance' | 'Logistics' | 'Other';
-export type Stage = 'New' | 'Qualified' | 'Proposal Sent' | 'Negotiation' | 'Won' | 'Lost';
+// packages/contracts/src/companies.ts  (decoupled Next.js)
+// resources/js/types/companies.ts      (Inertia)
+
+export type Industry = 'Technology' | 'Healthcare' | 'Finance' | 'Logistics' | 'Other'
+export type Stage    = 'New' | 'Qualified' | 'Proposal Sent' | 'Negotiation' | 'Won' | 'Lost'
 ```
 
-This is identical to what the old Zod enum approach produced: `z.enum(['Technology', 'Healthcare', ...])` inferred the same string-literal union. The Next.js frontend uses these generated types directly — no Zod runtime parsing, no conversion, the value is the label.
+The values are identical to the PHP enum backing values — no conversion, no mapping. The API Resource's `toArray()` outputs the raw `->value` string; the TS type accepts exactly those strings; the UI renders them directly.
 
-See `laravel-data-contracts.md` for the full `typescript:transform` wiring and the Turbo `contracts` task that runs the transform before every web build.
+A **Pest contract test** locks the Resource to the documented shape so the hand-written TS stays in sync:
+
+```php
+// tests/Feature/CompanyContractTest.php
+it('CompanyResource matches the published contract shape', function () {
+    $company = Company::factory()->create();
+    $array = (new CompanyResource($company->loadCount('contacts')))->toArray(request());
+
+    expect($array)->toHaveKeys(['id','name','domain','industry','counts','last_activity','created_at','updated_at'])
+        ->and($array['industry'])->toBeString()
+        ->and($array['counts']['contacts'])->toBeInt();
+});
+```
+
+The TS types are authored by hand and kept in lockstep with the Resource; the contract test is the guard. See `api-resources.md` for the full Resource + contract workflow.
 
 ---
 

@@ -4,7 +4,7 @@ How to enforce workspace isolation so every tenant-scoped query is filtered auto
 
 ## The model
 
-Every tenant-scoped table carries a plain `workspace_id` reference column (no FK constraint, no cascade — D9). Isolation is enforced in two coordinated places:
+Every tenant-scoped table carries a plain `workspace_id` reference column (no FK constraint, no cascade — D5). Isolation is enforced in two coordinated places:
 
 1. **`ResolveWorkspace` middleware** — resolves the current workspace from the authenticated user and binds it into the container as `workspace.id`, once per request.
 2. **`BelongsToWorkspace` trait** — adds an Eloquent global scope that appends `where workspace_id = <current>` to *every* query on the model, plus a `creating` hook that stamps `workspace_id` on inserts.
@@ -63,7 +63,7 @@ public function handle($request, \Closure $next)
 }
 ```
 
-The user's `workspace_id` comes from the authenticated Sanctum token's owning user (see `auth-sanctum-permissions.md`). Unauthenticated requests never bind `workspace.id`, so the global scope's `if ($wid …)` guard leaves the query unscoped — which is fine because such routes are public (e.g. `/api/v1/health`) and don't touch tenant tables.
+The user's `workspace_id` comes from the authenticated user resolved per request — via a Sanctum token (decoupled Next.js) or a Fortify session cookie (Inertia) — see `auth-sanctum-permissions.md`. Unauthenticated requests never bind `workspace.id`, so the global scope's `if ($wid …)` guard leaves the query unscoped — which is fine because such routes are public (e.g. `/api/v1/health`) and don't touch tenant tables.
 
 ## Registering the middleware
 
@@ -148,5 +148,5 @@ Without `withoutGlobalScopes()`, a setup helper running under a bound workspace 
 - ❌ Trusting a client-supplied `workspace_id` in the request body. The `creating` hook stamps it from the bound workspace; never let the payload set it.
 - ❌ Using `withoutGlobalScopes()` in application/controller code to "see across workspaces." It belongs in test setup and admin/console maintenance only.
 - ❌ Resolving the workspace before authentication. `ResolveWorkspace` must run after `auth:sanctum` so `$request->user()` is populated.
-- ❌ Adding a hard FK constraint or cascade on `workspace_id`. It's a plain reference column (D9); orphan cleanup is handled in application code.
+- ❌ Adding a hard FK constraint or cascade on `workspace_id`. It's a plain reference column (D5); orphan cleanup is handled in application code.
 - ❌ Shipping a feature without the cross-workspace 404 test. It is THE test that proves tenancy works.

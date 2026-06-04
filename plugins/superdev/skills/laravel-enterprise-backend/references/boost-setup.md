@@ -26,7 +26,7 @@ php artisan boost:install
 
 The interactive prompt asks which features to enable. Enable all three:
 
-```
+```text
  Which Boost features would you like to enable?
  ┌──────────────────────┬────────────┐
  │  Guidelines          │ ✓ enabled  │
@@ -78,7 +78,7 @@ claude mcp list
 
 Within a Claude Code session you can confirm the server is active:
 
-```
+```text
 /mcp
 # laravel-boost: connected
 ```
@@ -108,10 +108,10 @@ The `.ai/guidelines/` directory is where your team stores persistent conventions
 
 Suggested starter files:
 
-```
+```text
 apps/api/.ai/guidelines/
 ├── domain-conventions.md     ← app/Domains/<Feature>/ layout, naming rules
-├── data-presenter-rules.md   ← never return a model; always CompanyData::fromModel()
+├── data-presenter-rules.md   ← never return a model; always return an API Resource
 ├── audit-rules.md            ← every mutation must use AuditManager::run()
 ├── enum-rules.md             ← Title Case string-backed enums, no _LABELS maps
 └── workspace-isolation.md    ← BelongsToWorkspace on every tenant model
@@ -136,19 +136,20 @@ Example team convention (`.ai/guidelines/data-presenter-rules.md`):
 ```markdown
 # Data Presenter Rules
 
-- Every controller response MUST return a `spatie/laravel-data` `Data` class, never a raw
+- Every controller response MUST return an Eloquent API Resource (`JsonResource`), never a raw
   Eloquent model or plain array.
-- Use `CompanyData::fromModel($model)` (or the relevant feature Data class).
-- Nullable fields are declared `?string $field` — never omitted from the constructor.
-- Run `php artisan typescript:transform` after adding or changing any `Data` class; commit
-  the updated `packages/contracts/src/generated.ts`.
+- Use `CompanyResource::make($model)` (or the relevant feature Resource class).
+- Nullable fields are declared explicitly in `toArray()` — never omitted from the output.
+- Keep the hand-written TS contract in lockstep with your API Resources (no codegen); update
+  `packages/contracts/src/<feature>.ts` (decoupled) or `resources/js/types/` (Inertia) by hand
+  and run the Pest contract test to verify the shape.
 ```
 
 ---
 
 ## Step 6 — Update Boost after adding packages
 
-Whenever you add a `composer require` package that Boost has built-in knowledge for (e.g., `spatie/laravel-data`, `spatie/laravel-permission`, `laravel/sanctum`), run:
+Whenever you add a `composer require` package that Boost has built-in knowledge for (e.g., `spatie/laravel-permission`, `laravel/sanctum`), run:
 
 ```bash
 php artisan boost:update --discover
@@ -159,8 +160,7 @@ php artisan boost:update --discover
 Workflow integration — add it to the scaffolding checklist in `references/scaffolding.md` and note it in the Phase 3 steps:
 
 ```bash
-# After: composer require spatie/laravel-data spatie/laravel-typescript-transformer \
-#   laravel/sanctum spatie/laravel-permission aws/aws-sdk-php
+# After: composer require laravel/sanctum spatie/laravel-permission aws/aws-sdk-php
 php artisan boost:update --discover
 ```
 
@@ -180,7 +180,7 @@ php artisan list boost
 
 Inside a Claude Code session, ask:
 
-```
+```text
 What Laravel version does this project use?
 ```
 
@@ -218,6 +218,6 @@ package:
 
 - **Committing `.mcp.json` or `CLAUDE.md`.** These contain absolute local paths and machine-specific settings. Every developer regenerates them with `boost:install`.
 - **Committing `.ai/*/` wholesale then hand-editing the generated files.** Generated content gets overwritten on `boost:update`. Own your conventions in `.ai/guidelines/` (committed) and leave the rest gitignored.
-- **Skipping `boost:update --discover` after `composer require`.** Boost's guidelines for `spatie/laravel-data`, `spatie/laravel-permission`, and Sanctum are only activated once Boost knows those packages are present.
+- **Skipping `boost:update --discover` after `composer require`.** Boost's guidelines for `spatie/laravel-permission` and Sanctum are only activated once Boost knows those packages are present.
 - **Moving `laravel/boost` to `require`.** It bloats the deploy package, introduces dev tooling into production, and breaks the principle that `php artisan boost:mcp` should only be reachable in development environments.
 - **Registering the MCP server with `-s project` scope.** Project-scoped MCP registration writes `.claude/settings.json`, which may end up committed. Use `-s local` so the registration lives in `~/.claude/` and is never accidentally pushed.
