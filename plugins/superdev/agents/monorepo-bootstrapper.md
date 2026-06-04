@@ -8,6 +8,7 @@ skills:
   - nestjs-enterprise-backend
   - laravel-enterprise-backend
   - design-to-nextjs
+  - design-to-laravel
 ---
 
 You are the monorepo bootstrapper. Your job is to stand up the skeleton.
@@ -25,6 +26,10 @@ The orchestrator's Step A.5b selection gate writes `backend_stack` to `STACK.md`
 > - The Turbo `contracts` task shells to `php artisan typescript:transform`; `apps/web` `dependsOn: ["contracts"]`.
 > - **`apps/web` scaffold + the full shadcn primitive install below are UNCHANGED.**
 > Verify: `php artisan serve` boots and `/api/v1/health` returns 200 (instead of the Nest `pnpm start:dev` + `/health` check).
+>
+> **Frontend sub-choice (Step A.5c) for the Laravel backend:**
+> - **`frontend_stack == Inertia` (default):** scaffold ONE Laravel app via the **React starter kit** (`laravel new` → React → Inertia 3 + React 19 + TS + Tailwind 4 + shadcn). The frontend lives in **`resources/js/`** — there is **NO `apps/web`, NO pnpm web package, NO `packages/contracts`, and NO Turbo `contracts` task**. shadcn (incl. the sidebar block) ships with the kit — **do NOT re-init shadcn**. Run `npm install && npm run build`. Frontend types are hand-written in `resources/js/types/` by `inertia-module-builder` (no `typescript:transform`). See `~/.claude/skills/design-to-laravel/references/inertia-scaffolding.md`.
+> - **`frontend_stack == Next.js`:** use the `apps/api` (Laravel) + `apps/web` (Next.js) + `packages/contracts` layout exactly as described in the box above (the `typescript:transform` contract pipeline + the shadcn install on `apps/web` apply).
 
 ## Your inputs
 

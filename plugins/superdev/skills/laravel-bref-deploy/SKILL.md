@@ -150,6 +150,7 @@ bref deploy
 | `references/secrets-ssm.md` | Phase 5 (SSM Parameter Store; `${ssm:/app/...}` vs runtime `bref-ssm:`; `APP_KEY` / `DATABASE_URL`) |
 | `references/cockroachdb-serverless-connection.md` | Phase 6 (public-internet / no-VPC connection, `sslmode=verify-full`, bounded reserved concurrency) |
 | `references/deploy-checklist.md` | Phase 6–7 (migrate-before-deploy, package < 250 MB, `osls deploy` / `bref deploy`, post-deploy smoke tests) |
+| `references/inertia-monolith-deploy.md` | When deploying a fullstack **Inertia monolith** — Vite `npm run build` (client-only), asset sync, session-auth config |
 
 ---
 

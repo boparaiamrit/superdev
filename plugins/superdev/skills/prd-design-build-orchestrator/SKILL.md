@@ -1,6 +1,6 @@
 ---
 name: prd-design-build-orchestrator
-description: Multi-agent orchestration for full-stack monorepo builds. Audits a PRD against a design handoff (HTML, screenshots, claude.ai/design output) to find gaps, writes an execution plan, and dispatches parallel subagents through 4 phases. Coordinates ALL 15 superdev skills — design-preservation (when source is a prototype, not Claude Design), design-to-nextjs (shadcn translation when source is Claude Design), nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas, exploratory-qa, systematic-debugging (on any bug found mid-build), product-completeness-audit (between QA and ship), brutal-exhaustive-audit (final pass before declaring done). Reads `.claude/memory/superdev-learned/` before every subagent dispatch and threads project-specific lessons into agent prompts so the system avoids repeating past mistakes (self-learning loop via superdev-self-learning skill).
+description: Multi-agent orchestration for full-stack monorepo builds. Audits a PRD against a design handoff (HTML, screenshots, claude.ai/design output) to find gaps, writes an execution plan, and dispatches parallel subagents through 4 phases. Coordinates ALL 16 superdev skills — design-preservation (when source is a prototype, not Claude Design), design-to-nextjs (shadcn translation when source is Claude Design), nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas, exploratory-qa, systematic-debugging (on any bug found mid-build), product-completeness-audit (between QA and ship), brutal-exhaustive-audit (final pass before declaring done). Reads `.claude/memory/superdev-learned/` before every subagent dispatch and threads project-specific lessons into agent prompts so the system avoids repeating past mistakes (self-learning loop via superdev-self-learning skill).
 ---
 
 # PRD ↔ Design Audit + Build Orchestrator
@@ -31,7 +31,7 @@ See [`superdev-self-learning/references/orchestrator-integration.md`](../../supe
 
 ## Skill routing — when to delegate to which sibling skill
 
-The orchestrator coordinates 15 skills. Use this table to decide which to invoke and when:
+The orchestrator coordinates 16 skills. Use this table to decide which to invoke and when:
 
 | When… | Invoke skill | Why |
 |---|---|---|
@@ -41,6 +41,7 @@ The orchestrator coordinates 15 skills. Use this table to decide which to invoke
 | User has PRD + prototype (HTML/Figma/existing app) | `design-preservation` (Phase B.0) THEN `design-to-nextjs` (Phase C, wiring only) | Preserve source verbatim |
 | Backend selection gate (Step A.5b) chose **Nest.js** | `nestjs-enterprise-backend` (Phase C, backend wave) | Postgres17+Timescale / Drizzle / Redis+BullMQ / CASL patterns |
 | Backend selection gate (Step A.5b) chose **Laravel** | `laravel-enterprise-backend` (Phase C build) + `laravel-bref-deploy` (Phase D ship) | Laravel 13 / CockroachDB (stock pgsql) / DB cache+sessions / SQS / Bref serverless; laravel-data contracts; #[Audit]; global-scope tenancy |
+| Laravel backend + **Inertia** frontend (Step A.5c) | `design-to-laravel` (Phase C) + `inertia-module-builder` | Inertia React monolith; Fortify session; hand-written typed props; shadcn starter kit |
 | Existing prototype with JSON fixtures to productionize | `prototype-to-saas` + `design-preservation` + `frontend-refactoring` (Phase B.5 — decompose BEFORE rewiring) | Migration + UI preservation + structural decomposition |
 | Any bug found mid-build | `systematic-debugging` (interrupt current phase) | Verified-root-cause-before-fix discipline |
 | Phase D security pass | `security-review-and-fix` | 6-phase audit |
@@ -447,13 +448,30 @@ If `EXECUTION_PLAN.md` contains backend modules, the orchestrator asks the opera
 > - **Nest.js** — Postgres 17 + TimescaleDB + Drizzle + Redis/BullMQ + CASL (`nestjs-enterprise-backend`)
 > - **Laravel** — Laravel 13 + CockroachDB (stock `pgsql`) + database cache/sessions + SQS, deployed via Bref (`laravel-enterprise-backend` + `laravel-bref-deploy`)
 
-Persist the answer to `STACK.md` and a `backend_stack:` field in `EXECUTION_PLAN.md` so every later phase — and any resume — reads the same value. **All backend routing in Phases B/C/D below is conditioned on `backend_stack`.** The frontend half (design-to-nextjs, frontend-modular-architecture, QA/security/audit) is unaffected — it consumes the generated contracts identically regardless of backend stack.
+Persist the answer to `STACK.md` and a `backend_stack:` field in `EXECUTION_PLAN.md` so every later phase — and any resume — reads the same value. **All backend routing in Phases B/C/D below is conditioned on `backend_stack`.** When the backend is **Nest.js**, the frontend is always Next.js and the frontend half (design-to-nextjs, frontend-modular-architecture, QA/security/audit) is unaffected. When the backend is **Laravel**, the frontend stack is chosen separately at **Step A.5c** (Inertia monolith vs decoupled Next.js).
 
 The agents this gate re-routes:
 - `monorepo-bootstrapper` (B.1) — Nest scaffold vs Laravel scaffold (see its stack-aware section).
 - `contracts-author` (B.2) — hand-authored Zod vs `spatie/laravel-data` classes emitted to TS.
 - backend module builder (C.2) — `backend-module-builder` (Nest) vs `laravel-module-builder` (Laravel).
 - Phase D ship — add `laravel-bref-deploy` when the stack is Laravel.
+
+### Step A.5c — Frontend-stack selection gate (Laravel only)
+
+If `backend_stack == Laravel` AND the plan has frontend modules, the orchestrator asks — **before Phase B** — which frontend to build, using `AskUserQuestion`:
+
+> **Frontend for the Laravel backend?**
+> - **Inertia monolith (default)** — one Laravel app, React via Inertia (`design-to-laravel`); Fortify session auth; one Bref deploy.
+> - **Decoupled Next.js** — separate `apps/web` (`design-to-nextjs`); Sanctum token auth; Laravel API + Next.js.
+
+Persist `frontend_stack` to `STACK.md` / `EXECUTION_PLAN.md`. Routing when `frontend_stack == Inertia`:
+- **bootstrap:** a single Laravel app via the React starter kit (frontend in `resources/js/`; no `apps/web`, no pnpm web package) — see `monorepo-bootstrapper`.
+- **auth:** **Fortify session + `spatie/laravel-permission`** (see `laravel-enterprise-backend/references/inertia-variant.md`), NOT Sanctum tokens.
+- **frontend builder (C.2):** `inertia-module-builder` (not `frontend-module-builder`).
+- **contracts:** hand-written typed props in `resources/js/types/` — no `packages/contracts`, no `laravel-data`→TS.
+- **deploy (Phase D):** `laravel-bref-deploy` single-app Inertia flow (Vite `npm run build`, assets → S3/CloudFront, client-only).
+
+When `frontend_stack == Next.js` (with Laravel), use the decoupled path exactly as the backend-stack gate describes. When `backend_stack == Nest.js`, this gate does not run (frontend is always Next.js).
 
 ## Phase B — BOOTSTRAP
 
