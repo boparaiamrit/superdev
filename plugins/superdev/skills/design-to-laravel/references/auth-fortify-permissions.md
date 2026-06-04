@@ -96,7 +96,7 @@ The same rules from the backend skill apply unchanged:
 - **A failed Policy check** throws `AuthorizationException` → Laravel renders a 403. With Inertia, that surfaces as an Inertia error response, not a JSON body.
 - **Policy classes, the permission seeder, the User-model `HasRoles` trait, and Policy registration are shared** with the decoupled path — author them per `laravel-enterprise-backend/references/auth-sanctum-permissions.md`. The User model keeps `HasRoles` + `BelongsToWorkspace`; for the Inertia monolith it does **not** need `HasApiTokens` (no Sanctum tokens).
 
-`CompanyData::collect(...)` may still be used to shape the data passed into `Inertia::render` (laravel-data is fine backend-side for validation/shaping), but the **frontend contract** is the hand-written prop type in `resources/js/types/`, not generated TS — see `typed-props.md` and decision D4.
+The controller shapes the data passed into `Inertia::render` with an **Eloquent API Resource**, but the **frontend contract** is the hand-written prop type in `resources/js/types/`, not generated TS — see `typed-props.md` and decision D4.
 
 ---
 

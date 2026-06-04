@@ -53,7 +53,7 @@ Rules that keep the frontend honest:
 - **Enum values arrive Title-Cased and render directly** — no label maps. (See `references/typed-props.md`.)
 - The prop keys you pass here are the prop names the page destructures. They are the contract — and that contract is hand-written in `resources/js/types/` (decision D4), so it is your job to keep `Inertia::render`'s shape and the type file in lockstep.
 
-> `CompanyData` (a `laravel-data` object) is used here only to **shape/validate on the backend**. It is NOT the frontend type source for the Inertia path — frontend types are hand-written. See `references/typed-props.md`.
+> An **Eloquent API Resource** is used here only to **shape the data on the backend**. It is NOT the frontend type source for the Inertia path — frontend types are hand-written. See `references/typed-props.md`.
 
 ---
 

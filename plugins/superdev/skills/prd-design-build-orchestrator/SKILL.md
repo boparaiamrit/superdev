@@ -40,7 +40,7 @@ The orchestrator coordinates 16 skills. Use this table to decide which to invoke
 | User has PRD + Claude Design output | `design-to-nextjs` (Phase C, frontend wave) | Translate to shadcn |
 | User has PRD + prototype (HTML/Figma/existing app) | `design-preservation` (Phase B.0) THEN `design-to-nextjs` (Phase C, wiring only) | Preserve source verbatim |
 | Backend selection gate (Step A.5b) chose **Nest.js** | `nestjs-enterprise-backend` (Phase C, backend wave) | Postgres17+Timescale / Drizzle / Redis+BullMQ / CASL patterns |
-| Backend selection gate (Step A.5b) chose **Laravel** | `laravel-enterprise-backend` (Phase C build) + `laravel-bref-deploy` (Phase D ship) | Laravel 13 / CockroachDB (stock pgsql) / DB cache+sessions / SQS / Bref serverless; laravel-data contracts; #[Audit]; global-scope tenancy |
+| Backend selection gate (Step A.5b) chose **Laravel** | `laravel-enterprise-backend` (Phase C build) + `laravel-bref-deploy` (Phase D ship) | Laravel 13 / PostgreSQL+TimescaleDB (stock pgsql) / DB cache+sessions / SQS / Bref serverless; Eloquent API Resources + hand-written TS contracts; #[Audit] → hypertable; global-scope tenancy |
 | Laravel backend + **Inertia** frontend (Step A.5c) | `design-to-laravel` (Phase C) + `inertia-module-builder` | Inertia React monolith; Fortify session; hand-written typed props; shadcn starter kit |
 | Existing prototype with JSON fixtures to productionize | `prototype-to-saas` + `design-preservation` + `frontend-refactoring` (Phase B.5 — decompose BEFORE rewiring) | Migration + UI preservation + structural decomposition |
 | Any bug found mid-build | `systematic-debugging` (interrupt current phase) | Verified-root-cause-before-fix discipline |
@@ -446,13 +446,13 @@ If `EXECUTION_PLAN.md` contains backend modules, the orchestrator asks the opera
 
 > **Backend stack?**
 > - **Nest.js** — Postgres 17 + TimescaleDB + Drizzle + Redis/BullMQ + CASL (`nestjs-enterprise-backend`)
-> - **Laravel** — Laravel 13 + CockroachDB (stock `pgsql`) + database cache/sessions + SQS, deployed via Bref (`laravel-enterprise-backend` + `laravel-bref-deploy`)
+> - **Laravel** — Laravel 13 + PostgreSQL + TimescaleDB (stock `pgsql`) + database cache/sessions + SQS, deployed via Bref (`laravel-enterprise-backend` + `laravel-bref-deploy`)
 
 Persist the answer to `STACK.md` and a `backend_stack:` field in `EXECUTION_PLAN.md` so every later phase — and any resume — reads the same value. **All backend routing in Phases B/C/D below is conditioned on `backend_stack`.** When the backend is **Nest.js**, the frontend is always Next.js and the frontend half (design-to-nextjs, frontend-modular-architecture, QA/security/audit) is unaffected. When the backend is **Laravel**, the frontend stack is chosen separately at **Step A.5c** (Inertia monolith vs decoupled Next.js).
 
 The agents this gate re-routes:
 - `monorepo-bootstrapper` (B.1) — Nest scaffold vs Laravel scaffold (see its stack-aware section).
-- `contracts-author` (B.2) — hand-authored Zod vs `spatie/laravel-data` classes emitted to TS.
+- `contracts-author` (B.2) — hand-authored Zod (Nest) vs Eloquent API Resources + hand-written TS (Laravel).
 - backend module builder (C.2) — `backend-module-builder` (Nest) vs `laravel-module-builder` (Laravel).
 - Phase D ship — add `laravel-bref-deploy` when the stack is Laravel.
 
@@ -468,7 +468,7 @@ Persist `frontend_stack` to `STACK.md` / `EXECUTION_PLAN.md`. Routing when `fron
 - **bootstrap:** a single Laravel app via the React starter kit (frontend in `resources/js/`; no `apps/web`, no pnpm web package) — see `monorepo-bootstrapper`.
 - **auth:** **Fortify session + `spatie/laravel-permission`** (see `laravel-enterprise-backend/references/inertia-variant.md`), NOT Sanctum tokens.
 - **frontend builder (C.2):** `inertia-module-builder` (not `frontend-module-builder`).
-- **contracts:** hand-written typed props in `resources/js/types/` — no `packages/contracts`, no `laravel-data`→TS.
+- **contracts:** hand-written typed props in `resources/js/types/` — no `packages/contracts`, no codegen.
 - **deploy (Phase D):** `laravel-bref-deploy` single-app Inertia flow (Vite `npm run build`, assets → S3/CloudFront, client-only).
 
 When `frontend_stack == Next.js` (with Laravel), use the decoupled path exactly as the backend-stack gate describes. When `backend_stack == Nest.js`, this gate does not run (frontend is always Next.js).
@@ -483,7 +483,7 @@ Dispatch `monorepo-bootstrapper`:
 
 > "Use the monorepo-bootstrapper subagent to read EXECUTION_PLAN.md, then scaffold the pnpm workspace per nestjs-enterprise-backend/references/monorepo-setup.md, scaffold apps/api per nestjs-enterprise-backend/references/scaffolding.md, and scaffold apps/web per design-to-nextjs/references/scaffolding.md. Stop after pnpm install + first health check pass."
 
-**If `backend_stack == Laravel`** (Step A.5b): instead scaffold `apps/api` as a Laravel 13 app per `laravel-enterprise-backend/references/scaffolding.md` + `monorepo-setup.md` (composer, Laravel Boost, stock `pgsql`/CockroachDB, database cache/session tables, single-node CockroachDB compose for local), and `packages/contracts` is populated by `php artisan typescript:transform` rather than hand-authored Zod. See the stack-aware section in the `monorepo-bootstrapper` agent definition.
+**If `backend_stack == Laravel`** (Step A.5b): instead scaffold `apps/api` as a Laravel 13 app per `laravel-enterprise-backend/references/scaffolding.md` + `monorepo-setup.md` (composer, Laravel Boost, stock `pgsql` → managed PostgreSQL + TimescaleDB, database cache/session tables, single-node Postgres+Timescale compose for local), and `packages/contracts` is hand-written TS kept in lockstep with the Eloquent API Resources (no codegen). See the stack-aware section in the `monorepo-bootstrapper` agent definition.
 
 This is sequential and foundational — it must finish before contracts-author runs.
 
@@ -493,11 +493,11 @@ The orchestrator dispatches `contracts-author`:
 
 > "Use the contracts-author subagent to read EXECUTION_PLAN.md and, for each feature module, author the Zod schemas in `packages/contracts/src/<feature>.ts` following the view-shape contract in nestjs-enterprise-backend/references/view-presenter.md and the contracts patterns in nestjs-enterprise-backend/references/monorepo-setup.md."
 
-**If `backend_stack == Laravel`** (Step A.5b): `contracts-author` instead authors `spatie/laravel-data` classes under `apps/api/app/Domains/<feature>/Data/` per `laravel-enterprise-backend/references/laravel-data-contracts.md`, then runs `php artisan typescript:transform` to emit the TS types into `packages/contracts/src/generated.ts`. It does NOT hand-author Zod. See the stack-aware section in the `contracts-author` agent definition.
+**If `backend_stack == Laravel`** (Step A.5b): `contracts-author` instead authors **Eloquent API Resources** under `apps/api/app/Domains/<feature>/Http/Resources/` plus the matching **hand-written TypeScript** in `packages/contracts/src/<feature>.ts` (decoupled Next.js) — or `resources/js/types/` for the Inertia monolith — per `laravel-enterprise-backend/references/api-resources.md`. A Pest contract test locks each Resource to its TS shape. **No `spatie/laravel-data`, no codegen.** See the stack-aware section in the `contracts-author` agent definition.
 
-Why all contracts up front? Because module builders in Phase C depend on `@<scope>/contracts` (Nest) / the generated TS contracts (Laravel) being complete. If contracts are written piecemeal alongside modules, the backend builder for module X can race the contracts for module Y.
+Why all contracts up front? Because module builders in Phase C depend on the shared contracts (`@<scope>/contracts` for Nest and decoupled-Laravel; `resources/js/types` for the Inertia monolith) being complete. If contracts are written piecemeal alongside modules, the backend builder for module X can race the contracts for module Y.
 
-After contracts-author finishes, run `pnpm --filter @<scope>/contracts build` (Nest) or confirm `php artisan typescript:transform` produced `packages/contracts/src/generated.ts` (Laravel) before parallel builders depend on it.
+After contracts-author finishes, run `pnpm --filter @<scope>/contracts build` (Nest) or confirm the hand-written `packages/contracts` TS type-checks and the Pest contract test passes (Laravel) before parallel builders depend on it.
 
 ## Phase C — EXECUTE (the parallel phase)
 
