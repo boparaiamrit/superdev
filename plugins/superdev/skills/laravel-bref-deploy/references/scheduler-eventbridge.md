@@ -102,7 +102,7 @@ Schedule::command('reports:weekly')->weeklyOn(0, '06:00')->withoutOverlapping();
 // key in the database cache and exits without running the command again.
 ```
 
-Because cache is **database-backed** (`CACHE_STORE=database`) and CockroachDB is accessible from Lambda over the public internet (no VPC needed), this overlap key is durable across Lambda instances — it actually works, unlike an in-memory cache on an ephemeral container.
+Because cache is **database-backed** (`CACHE_STORE=database`) and the managed PostgreSQL host is accessible from Lambda over the public internet (no VPC needed), this overlap key is durable across Lambda instances — it actually works, unlike an in-memory cache on an ephemeral container.
 
 ### 2. Business-level idempotency in the command itself
 
@@ -177,13 +177,13 @@ class PruneAuditLogs extends Command
 
 Notes:
 - `audit:prune` runs as a system action — there is no authenticated user. `AuditManager::run()` is not needed here (read-only endpoints and maintenance commands are not themselves audited; see `audit-attribute.md` for the anti-pattern list).
-- If the free-tier CockroachDB RU budget is a concern, batch the delete using a subquery loop. CockroachDB (PostgreSQL wire) does not support `DELETE ... LIMIT` — use a `WHERE id IN (SELECT id ... LIMIT n)` pattern instead:
+- On high-volume tables, batch the delete using a subquery loop. PostgreSQL does not support `DELETE ... LIMIT` — use a `WHERE id IN (SELECT id ... LIMIT n)` pattern instead:
 
 ```php
 public function handle(): int
 {
     do {
-        // CockroachDB/PostgreSQL: no DELETE…LIMIT; use a subquery to batch.
+        // PostgreSQL: no DELETE…LIMIT; use a subquery to batch.
         $deleted = DB::affectingStatement(
             "DELETE FROM audit_logs
              WHERE id IN (
@@ -237,4 +237,4 @@ No `app/Console/Kernel.php` `$commands` array is needed in Laravel 11+.
 - **Using `->runInBackground()` on Lambda.** This spawns a child process on the host OS — it does not work inside a Lambda container. Async work goes to SQS jobs.
 - **Registering crons as SQS-style repeatable jobs.** Laravel crons belong in `routes/console.php`. The EventBridge tick drives them; there is no BullMQ-style job scheduler in this stack.
 - **Assuming local-timezone scheduling.** Lambda runs in UTC. All `dailyAt()`/`weeklyOn()` times in `routes/console.php` are UTC. Document the offset if operators expect a local business time.
-- **Running `audit:prune` without batching on high-volume tables.** A single unbounded `DELETE` against millions of rows can exhaust CockroachDB free-tier RUs in one shot. Batch in chunks of 1 000–5 000 rows using the subquery pattern (`DELETE WHERE id IN (SELECT id ... LIMIT n)`) — CockroachDB does not support `DELETE ... LIMIT` directly.
+- **Running `audit:prune` without batching on high-volume tables.** A single unbounded `DELETE` against millions of rows can hold long-running locks and cause timeouts. Batch in chunks of 1 000–5 000 rows using the subquery pattern (`DELETE WHERE id IN (SELECT id ... LIMIT n)`) — PostgreSQL does not support `DELETE ... LIMIT` directly.

@@ -21,7 +21,7 @@ Three locked facts:
 2. **Worker runtime is `php-84`** (the plain event runtime — *not* `php-84-fpm`, which is for HTTP, and *not* `php-84-console`, which is for Artisan).
 3. **Handler is `Bref\LaravelBridge\Queue\QueueHandler`** — shipped by `bref/laravel-bridge`. It receives the raw SQS event, hydrates the Laravel job, and executes it inside the framework.
 
-No Horizon. No `queue:work`. No database queue driver (CockroachDB has no `SKIP LOCKED`). SQS only.
+No Horizon. No `queue:work`. No database queue driver (Bref Lambda cannot run a long-lived `queue:work` daemon). SQS only.
 
 ## The `queue` construct in `serverless.yml`
 
@@ -191,7 +191,7 @@ This removes per-call `->onQueue(...)` and centralizes routing — but with a **
 
 ## Reserved concurrency for the worker
 
-Workers open database connections too. Under a burst, the worker fans out exactly like the web function and can exhaust CockroachDB serverless connections (there is no RDS Proxy without a VPC — see `cockroachdb-serverless-connection.md`). Bound the worker's reserved concurrency so the queue drains at a safe rate:
+Workers open database connections too. Under a burst, the worker fans out exactly like the web function and can exhaust managed PostgreSQL connection limits (there is no RDS Proxy without a VPC — see `postgres-timescale-connection.md`). Bound the worker's reserved concurrency so the queue drains at a safe rate:
 
 ```yaml
 constructs:
@@ -204,7 +204,7 @@ constructs:
       reservedConcurrency: 5     # cap simultaneous workers -> bounded DB connections
 ```
 
-Tune the cap against your CockroachDB connection budget and the queue's acceptable drain latency.
+Tune the cap against your managed PostgreSQL connection budget and the queue's acceptable drain latency.
 
 ## Verifying the worker after deploy
 
@@ -224,6 +224,6 @@ The full ordered deploy steps live in `deploy-checklist.md`.
 - **Jobs longer than 60 s.** SQS redelivers and you double-process. Fan out, or move the work to a scheduled console command.
 - **No DLQ alarm.** Without `alarm:` or an explicit CloudWatch alarm, failed jobs pile up on the DLQ silently.
 - **Hardcoding the queue URL.** Use `${construct:<name>.queueUrl}` so the same file works across stages and accounts.
-- **Database queue driver.** CockroachDB lacks `SKIP LOCKED`; the DB-queue driver will not work correctly. SQS only.
+- **Database queue driver.** Bref Lambda cannot run a long-lived `queue:work` daemon; the DB-queue driver is not viable in a serverless Lambda environment. SQS only.
 - **Unbounded worker concurrency.** A burst opens unbounded DB connections. Set `reservedConcurrency` on the worker.
 - **A logical-only "queue" expected to have its own DLQ.** Routing to a queue name without a matching construct shares the default queue's DLQ and alarm. Create a construct per queue that needs isolation.
