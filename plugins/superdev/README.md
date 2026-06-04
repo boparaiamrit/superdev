@@ -30,7 +30,7 @@ See `../../CODEX.md` for the Codex adapter notes.
 | `product-completeness-audit` | "A beautiful UI with hardcoded data is a demo" — distinguishes REAL / MOCKED / HYBRID in production mode |
 | `brutal-exhaustive-audit` | Every file / route / flow / data path / edge case — disk-tracked checklists |
 | `superdev-self-learning` | The meta-loop — writes `.claude/memory/superdev-learned/` from frustration / verifier signals |
-| `laravel-enterprise-backend` 🆕 v1.4.0 | **Laravel 13** backend alternative — CockroachDB (stock `pgsql`) + DB cache/sessions + SQS, `spatie/laravel-data` presenter+contract (→ TS), `#[Audit]` attribute, Sanctum + `spatie/laravel-permission`, `BelongsToWorkspace` global-scope tenancy, Title-Case enums, Laravel Boost |
+| `laravel-enterprise-backend` 🆕 v1.4.0 · reworked v1.6.0 | **Laravel 13** backend alternative — **PostgreSQL + TimescaleDB** (stock `pgsql`) + DB cache/sessions + SQS, **Eloquent API Resources** presenter + hand-written TS contract, `#[Audit]` → `audit_logs` hypertable, Sanctum + `spatie/laravel-permission`, `BelongsToWorkspace` global-scope tenancy, Title-Case enums, Laravel Boost |
 | `laravel-bref-deploy` 🆕 v1.4.0 | **Serverless deploy** of the Laravel backend on AWS Lambda via **Bref 3.x** — web/SQS-worker/console functions, EventBridge scheduler, S3/CloudFront assets, SSM secrets, no VPC; OSS Serverless (`osls`) default |
 | `design-to-laravel` 🆕 v1.5.0 | Translate **Claude Design** → **Laravel + Inertia 3 + React 19** monolith (React starter kit: TS, Tailwind 4, shadcn). Typed-props pages via `Inertia::render`, Wayfinder routing, `useForm`, Fortify session + spatie/permission + `#[Authorize]`; reuses design-to-nextjs token-extraction + shadcn; client-only on Bref. Default Laravel frontend |
 
@@ -148,7 +148,7 @@ For other entry points:
 | Standalone QA pass | "Run a production-readiness QA pass" |
 | Frontend-only from design | "Convert this Claude Design output to a Next.js codebase" |
 | Backend-only build (Nest.js) | "Build a Nest.js backend with these patterns: ..." |
-| Backend-only build (Laravel) | "Build a Laravel backend with these patterns: ..." (CockroachDB + SQS, deploy via Bref) |
+| Backend-only build (Laravel) | "Build a Laravel backend with these patterns: ..." (PostgreSQL + TimescaleDB + SQS, deploy via Bref) |
 
 ## Agent teams (optional)
 
@@ -172,13 +172,13 @@ See each skill's "Agent teams (optional)" section for the exact invocation promp
 6. **CASL authorization + `@Audit` decorator** — every endpoint protected, every mutation audited
 7. **Dual-mode adapter** — `NEXT_PUBLIC_API_MODE=demo` reads JSON fixtures; `production` hits backend
 
-> 🐘 **Laravel backend variant (v1.4.0)** preserves all seven commitments with Laravel mechanisms: shared contract via `spatie/laravel-data` → generated TS in `packages/contracts` (1); `laravel-data` presenters (2); PHP Title-Case enums (3); `spatie/laravel-permission` + Policies + `#[Audit]` (6). It diverges where the serverless target requires it: CockroachDB + database cache/sessions + SQS instead of Docker Postgres/Redis (5), and Bref/AWS Lambda for production instead of Docker. See `laravel-enterprise-backend` / `laravel-bref-deploy`.
+> 🐘 **Laravel backend variant (v1.4.0, reworked v1.6.0)** preserves all seven commitments with Laravel mechanisms: hand-written TS contract in `packages/contracts` kept in lockstep with **Eloquent API Resources** (1); API Resource presenters (2); PHP Title-Case enums (3); `spatie/laravel-permission` + Policies + `#[Audit]` → `audit_logs` hypertable (6). It diverges where the serverless target requires it: managed **PostgreSQL + TimescaleDB** + database cache/sessions + SQS instead of Docker Postgres/Redis (5), and Bref/AWS Lambda for production instead of Docker. See `laravel-enterprise-backend` / `laravel-bref-deploy`.
 
 ## Tech stack baked in
 
 - **Frontend:** Next.js 14+ App Router, Tailwind, TanStack Query/Table, Zustand, Zod, RHF, shadcn/ui
 - **Backend (default):** Nest.js 10+, PG17 + TimescaleDB, Drizzle ORM, Redis 7+, BullMQ, CASL, nestjs-zod, JWT+argon2, Pino, Prometheus
-- **Backend (alternative) 🆕 v1.4.0:** Laravel 13 (PHP 8.3+), CockroachDB free tier (stock `pgsql`), database cache/sessions, SQS queues, Eloquent, `spatie/laravel-data` (presenter + TS contracts), Sanctum, `spatie/laravel-permission`, `#[Audit]` attribute, Laravel Boost — deployed serverless on AWS Lambda via **Bref 3.x** (`laravel-enterprise-backend` + `laravel-bref-deploy`)
+- **Backend (alternative) 🆕 v1.4.0 · reworked v1.6.0:** Laravel 13 (PHP 8.3+), managed **PostgreSQL + TimescaleDB** (stock `pgsql`, self-managed), database cache/sessions, SQS queues, Eloquent + **API Resources** (presenter) + hand-written TS contracts, Sanctum, `spatie/laravel-permission`, `#[Audit]` → `audit_logs` hypertable, Laravel Boost — deployed serverless on AWS Lambda via **Bref 3.x** (`laravel-enterprise-backend` + `laravel-bref-deploy`)
 - **Tooling:** pnpm workspaces, Turborepo
 - **QA:** Playwright (via MCP server scoped to QA agents only)
 

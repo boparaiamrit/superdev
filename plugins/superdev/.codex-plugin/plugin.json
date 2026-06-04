@@ -1,7 +1,7 @@
 {
   "name": "superdev",
-  "version": "1.5.0",
-  "description": "16-skill full-stack toolkit plus 51 bundled role prompts for monorepo builds, audits, migrations, QA, debugging, and frontend refactoring. v1.4.0 adds a Laravel backend option — laravel-enterprise-backend (Laravel 13 + CockroachDB + database cache/sessions + SQS; spatie/laravel-data contracts; #[Audit] attribute; Title-Case enums; Laravel Boost) and laravel-bref-deploy (AWS Lambda serverless via Bref 3.x) — selectable through a backend-stack gate in the orchestrator. v1.5.0 adds design-to-laravel (Claude Design → Laravel + Inertia 3 + React 19 monolith) as the default frontend for the Laravel option, selectable via an orchestrator frontend-stack gate (Inertia vs Next.js).",
+  "version": "1.6.0",
+  "description": "16-skill full-stack toolkit plus 51 bundled role prompts for monorepo builds, audits, migrations, QA, debugging, and frontend refactoring. v1.4.0 adds a Laravel backend option — laravel-enterprise-backend (Laravel 13 + PostgreSQL/TimescaleDB + database cache/sessions + SQS; Eloquent API Resources + hand-written TS contracts; #[Audit] attribute; Title-Case enums; Laravel Boost) and laravel-bref-deploy (AWS Lambda serverless via Bref 3.x) — selectable through a backend-stack gate in the orchestrator. v1.5.0 adds design-to-laravel (Claude Design → Laravel + Inertia 3 + React 19 monolith) as the default frontend for the Laravel option, selectable via an orchestrator frontend-stack gate (Inertia vs Next.js). v1.6.0 reworks the Laravel backend to PostgreSQL + TimescaleDB (audit_logs as a hypertable with compression + retention) and Eloquent API Resources with hand-written TS contracts — dropping CockroachDB and spatie/laravel-data.",
   "author": {
     "name": "Amritpal Singh Boparai",
     "url": "https://github.com/boparaiamrit"
@@ -29,7 +29,6 @@
     "laravel",
     "bref",
     "serverless",
-    "cockroachdb",
     "eloquent",
     "sanctum",
     "aws-lambda",
@@ -37,7 +36,9 @@
     "react",
     "fortify",
     "vite",
-    "fullstack"
+    "fullstack",
+    "postgresql",
+    "timescaledb"
   ],
   "skills": "./skills/",
   "interface": {
