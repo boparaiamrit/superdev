@@ -21,7 +21,7 @@ This contract is **non-negotiable** — every error path returns this shape, inc
 
 ## Error codes
 
-The backend owns the authoritative list of error codes. The same codes used in the Nest.js variant are reused here — they are defined in the generated `packages/contracts/src/generated.ts` for the frontend and mirrored in a PHP enum for use in backend logic.
+The backend owns the authoritative list of error codes. The same codes used in the Nest.js variant are reused here — they are hand-written in `packages/contracts/src/errors.ts` for the frontend and mirrored in a PHP enum for use in backend logic.
 
 **PHP error codes enum** (`app/Support/ErrorCode.php`):
 
@@ -401,7 +401,7 @@ The `code` field flows through to the frontend, where it can show context-aware 
 | `findOrFail()` on another workspace's record | **404** | `NOT_FOUND` |
 | `#[Authorize]` / policy returns false | **403** | `FORBIDDEN` |
 | Missing `Authorization` header / expired token | **401** | `UNAUTHORIZED` |
-| laravel-data `ValidationException` | **422** | `VALIDATION_FAILED` |
+| `Illuminate\Validation\ValidationException` (from a FormRequest) | **422** | `VALIDATION_FAILED` |
 | Unique constraint violated (`23505`) | **409** | `DUPLICATE` |
 | Domain rule violation (MailboxNotWarmed, etc.) | **422** | _(typed domain code)_ |
 | Uncaught `\Throwable` | **500** | `INTERNAL_ERROR` |
@@ -434,7 +434,7 @@ Prefer `findOrFail()` and `#[Authorize]` over manual throws — the handler norm
 
 ## Validation error shape
 
-laravel-data's `ValidationException` includes field-level errors in `details`. The frontend can render them inline:
+Laravel's validator (FormRequest) includes field-level errors in `errors()`, surfaced as `details`. The frontend can render them inline:
 
 ```json
 {
@@ -448,7 +448,7 @@ laravel-data's `ValidationException` includes field-level errors in `details`. T
 }
 ```
 
-See `references/validation.md` for the laravel-data input class setup that produces this output.
+See `references/validation.md` for the FormRequest setup that produces this output.
 
 ## Production safety
 

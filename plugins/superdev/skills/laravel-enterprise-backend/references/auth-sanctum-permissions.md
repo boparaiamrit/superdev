@@ -71,8 +71,8 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
 // app/Domains/Auth/Http/AuthController.php
 namespace App\Domains\Auth\Http;
 
-use App\Domains\Auth\Data\LoginData;
-use App\Domains\Auth\Data\TokenData;
+use App\Domains\Auth\Http\Requests\LoginRequest;
+use App\Domains\Auth\Http\Resources\TokenResource;
 use App\Domains\Users\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -81,25 +81,22 @@ use Illuminate\Validation\ValidationException;
 class AuthController
 {
     // Login and logout are on a separate non-protected route group — no #[Authorize] here
-    public function login(LoginData $input): TokenData
+    public function login(LoginRequest $request): TokenResource
     {
-        $user = User::where('email', $input->email)->first();
+        $user = User::where('email', $request->validated('email'))->first();
 
-        if (! $user || ! Hash::check($input->password, $user->password)) {
+        if (! $user || ! Hash::check($request->validated('password'), $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
         }
 
         // Revoke any existing tokens for this device
-        $user->tokens()->where('name', $input->device_name)->delete();
+        $user->tokens()->where('name', $request->validated('device_name'))->delete();
 
-        $token = $user->createToken($input->device_name)->plainTextToken;
+        $token = $user->createToken($request->validated('device_name'))->plainTextToken;
 
-        return new TokenData(
-            token: $token,
-            token_type: 'Bearer',
-        );
+        return new TokenResource(['token' => $token, 'token_type' => 'Bearer']);
     }
 
     public function logout(Request $request): \Illuminate\Http\Response
@@ -113,23 +110,45 @@ class AuthController
 ```
 
 ```php
-// app/Domains/Auth/Data/TokenData.php
-namespace App\Domains\Auth\Data;
+// app/Domains/Auth/Http/Requests/LoginRequest.php
+namespace App\Domains\Auth\Http\Requests;
 
-use Spatie\LaravelData\Data;
-use Spatie\TypeScriptTransformer\Attributes\TypeScript;
+use Illuminate\Foundation\Http\FormRequest;
 
-#[TypeScript]
-class TokenData extends Data
+class LoginRequest extends FormRequest
 {
-    public function __construct(
-        public string $token,
-        public string $token_type,
-    ) {}
+    public function authorize(): bool { return true; }
+
+    public function rules(): array
+    {
+        return [
+            'email'       => ['required', 'email'],
+            'password'    => ['required', 'string'],
+            'device_name' => ['required', 'string', 'max:255'],
+        ];
+    }
 }
 ```
 
-`LoginData` and `TokenData` follow the same laravel-data + `typescript:transform` pattern as every other contract (see `laravel-data-contracts.md`).
+```php
+// app/Domains/Auth/Http/Resources/TokenResource.php
+namespace App\Domains\Auth\Http\Resources;
+
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class TokenResource extends JsonResource
+{
+    public function toArray($request): array
+    {
+        return [
+            'token'      => $this->resource['token'],
+            'token_type' => $this->resource['token_type'],
+        ];
+    }
+}
+```
+
+`LoginRequest` is a FormRequest; `TokenResource` is an Eloquent API Resource. The hand-written TS contract lives in `packages/contracts/src/auth.ts` (decoupled Next.js) or `resources/js/types/auth.ts` (Inertia) — see `api-resources.md`.
 
 ### Token abilities (scopes)
 
@@ -320,45 +339,46 @@ namespace App\Domains\Companies\Http;
 
 use App\Domains\Companies\Actions\CreateCompany;
 use App\Domains\Companies\Actions\UpdateCompany;
-use App\Domains\Companies\Data\CompanyData;
+use App\Domains\Companies\Http\Requests\StoreCompanyRequest;
+use App\Domains\Companies\Http\Requests\UpdateCompanyRequest;
+use App\Domains\Companies\Http\Resources\CompanyResource;
 use App\Domains\Companies\Models\Company;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Routing\Attributes\Controllers\Authorize;
-use Spatie\LaravelData\PaginatedDataCollection;
 
 class CompanyController
 {
     #[Authorize('viewAny', Company::class)]
-    public function index(): PaginatedDataCollection
+    public function index(): AnonymousResourceCollection
     {
-        return CompanyData::collect(
+        return CompanyResource::collection(
             Company::query()
                 ->withCount(['contacts', 'openLeads as open_leads_count'])
                 ->paginate(),
-            PaginatedDataCollection::class,
         );
     }
 
     #[Authorize('view', 'company')]   // 'company' is the route parameter name
-    public function show(Company $company): CompanyData
+    public function show(Company $company): CompanyResource
     {
-        return CompanyData::fromModel($company->loadCount('contacts'));
+        return new CompanyResource($company->loadCount('contacts'));
     }
 
     #[Authorize('create', Company::class)]
     public function store(
-        \App\Domains\Companies\Data\CreateCompanyData $data,
+        StoreCompanyRequest $request,
         CreateCompany $action,
-    ): CompanyData {
-        return $action->execute($data);
+    ): CompanyResource {
+        return new CompanyResource($action->execute($request->validated()));
     }
 
     #[Authorize('update', 'company')]
     public function update(
-        \App\Domains\Companies\Data\UpdateCompanyData $data,
+        UpdateCompanyRequest $request,
         Company $company,
         UpdateCompany $action,
-    ): CompanyData {
-        return $action->execute($data, $company);
+    ): CompanyResource {
+        return new CompanyResource($action->execute($request->validated(), $company));
     }
 
     #[Authorize('delete', 'company')]
@@ -377,12 +397,14 @@ When a policy check fails, Laravel throws `AuthorizationException` and the globa
 Use `$this->authorize()` when the authorization decision depends on data that is only available inside the handler body — for instance, checking a loaded sub-resource. This requires the controller to use the `AuthorizesRequests` trait (or extend `App\Http\Controllers\Controller` which includes it):
 
 ```php
-public function addContact(Company $company, \App\Domains\Contacts\Models\Contact $contact): CompanyData
+public function addContact(Company $company, \App\Domains\Contacts\Models\Contact $contact): \App\Domains\Companies\Http\Resources\CompanyResource
 {
     $this->authorize('update', $company);   // explicit call instead of attribute
 
     // ... add the contact
-    return CompanyData::fromModel($company->fresh()->loadCount('contacts'));
+    return new \App\Domains\Companies\Http\Resources\CompanyResource(
+        $company->fresh()->loadCount('contacts')
+    );
 }
 ```
 
@@ -398,16 +420,16 @@ The rule is explicit: **every endpoint — including `GET /me` — must have aut
 // app/Http/Controllers/Auth/MeController.php
 namespace App\Http\Controllers\Auth;
 
-use App\Domains\Users\Data\UserData;
+use App\Domains\Users\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Attributes\Controllers\Authorize;
 
 class MeController
 {
     #[Authorize('view', 'user')]   // UserPolicy::view — at minimum checks auth()->check()
-    public function show(Request $request): UserData
+    public function show(Request $request): UserResource
     {
-        return UserData::fromModel($request->user());
+        return new UserResource($request->user());
     }
 }
 ```
@@ -495,7 +517,7 @@ it('logout revokes the current token', function () {
 
 - **Hand-rolling role checks in controllers or services.** `if ($user->hasRole('Admin'))` in business logic is a Policy bypass. Put every condition in the Policy method.
 - **Skipping `#[Authorize]` on "obviously safe" endpoints.** `GET /me`, list endpoints, and read-only routes must all be authorized. Explicit is always safer than implicit.
-- **Returning the User model or a raw array from `GET /me`.** Return a `UserData` (laravel-data) class; the TS type is generated from it.
+- **Returning the User model or a raw array from `GET /me`.** Return a `UserResource` (Eloquent API Resource); the TS type is hand-written in the contract (no codegen).
 - **Storing tokens in `localStorage` on the frontend.** Use `Authorization: Bearer` in memory (React state / a secure store) for the access token. Never expose tokens to localStorage or cookies without `HttpOnly`.
 - **Issuing tokens with unlimited lifetime.** Set an expiry on personal-access tokens: `$user->createToken('name', ['*'], now()->addDays(30))`.
 - **Assigning roles from user-controlled input.** Role assignment is admin-only via a protected endpoint. Never expose `assignRole()` to an unauthenticated or unprivileged path.

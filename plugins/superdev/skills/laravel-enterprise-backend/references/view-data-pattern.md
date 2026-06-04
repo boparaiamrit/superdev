@@ -1,139 +1,151 @@
 # View Data Pattern
 
-The discipline that enforces the "no `?.` or `??` on the frontend" contract. Every action/service method runs Eloquent models through a `Data` class that produces the rich, view-ready response shape defined in `packages/contracts`. Read this in Phase 5 — every module needs a fully-populated Data presenter.
+The discipline that enforces the "no `?.` or `??` on the frontend" contract. Every list/detail endpoint runs Eloquent models through an **API Resource** (`Illuminate\Http\Resources\Json\JsonResource`) that produces the rich, view-ready response shape published in the hand-written TS contract. Read this in Phase 5 — every module needs a fully-populated Resource presenter.
 
-The mechanics of `spatie/laravel-data` (class definition, `typescript:transform` emit, TS type generation) live in `laravel-data-contracts.md`. This file covers the **view-shape rules** — what must be present, how counts/labels/unions are built, and how the no-null contract is verified.
+The mechanics of API Resources (class skeleton, `collection()`, the hand-written `packages/contracts` / `resources/js/types` TS shape, and the Pest contract test) live in `api-resources.md`. This file covers the **view-shape rules** — what must be present, how counts/labels/unions are built inside `toArray()`, and how the no-null contract is verified.
+
+> Migration note: the presenter was a `spatie/laravel-data` `Data` class in ≤v1.5; from v1.6 it is a plain Eloquent API Resource. The view-shape discipline below is unchanged.
 
 ## The contract
 
-1. Action/service eager-loads relations and calls `withCount()` on the Eloquent query
-2. Action calls `CompanyData::fromModel($model)` → gets a fully-populated Data object
-3. Controller returns the Data object — never the model or a plain array
+1. The controller/action eager-loads relations and calls `withCount()` on the Eloquent query
+2. It wraps the model in the Resource — `new CompanyResource($company)` (or `CompanyResource::collection($paginator)`)
+3. The Resource's `toArray()` builds a fully-populated view shape — never the model or a plain array
 
-The frontend renders `company.counts.contacts` directly. No optional chains. No nullish coalescing. The Data class has already built every label, every count, every discriminated-union variant before the response leaves PHP.
+The frontend renders `company.counts.contacts` directly. No optional chains. No nullish coalescing. The Resource has already built every label, every count, every discriminated-union variant before the response leaves PHP.
 
-## Why a Data class, not a service method
+## Why a Resource, not an inline transform in the controller
 
 Three reasons:
 
-1. **Testability** — `CompanyData::fromModel()` is a pure static factory. Unit tests pass Eloquent model fixtures, assert the view shape.
-2. **Composition** — list responses, detail responses, and nested includes (e.g. `campaign.contacts[i]`) all reuse the same Data class.
-3. **Discipline** — moving the transformation to a named class makes it impossible to "forget" and accidentally return a raw Eloquent model from an action.
+1. **Testability** — `(new CompanyResource($model))->toArray(request())` is a pure mapping over a loaded model. Tests pass an Eloquent factory model, assert the view shape.
+2. **Composition** — list responses, detail responses, and nested includes (e.g. `campaign.contacts[i]` via `ContactResource::collection(...)`) all reuse the same Resource.
+3. **Discipline** — moving the transformation into a named Resource makes it impossible to "forget" and accidentally return a raw Eloquent model from a controller.
 
 ## View-shape rules (non-negotiable)
 
-### 1. Eager-load relations and `withCount()` before passing to `fromModel()`
+### 1. Eager-load relations and `withCount()` before wrapping in the Resource
 
-Always resolve counts at the query level so the Data class receives concrete integers. Never compute counts from a lazy-loaded collection inside `fromModel()`.
+Always resolve counts at the query level so the Resource receives concrete integers. Never compute counts from a lazy-loaded collection inside `toArray()` — that is an N+1 waiting to happen.
 
 ```php
-// action / service
+// controller / action
 $company = Company::query()
-    ->withCount(['contacts', 'openLeads as open_leads_count', 'wonDeals as won_deals_count'])
+    ->withCount(['contacts', 'leads as open_leads_count', 'deals as won_deals_count'])
     ->with(['lastActivityLog'])
-    ->findOrFail($id);
+    ->findOrFail($id);   // 404 if missing or filtered by the BelongsToWorkspace scope
 
-return CompanyData::fromModel($company);
+return new CompanyResource($company);
 ```
 
-The `_count` magic attributes are integers when `withCount()` was called, or absent when it was not. Default to `0` explicitly inside `fromModel()` with the null-coalescing cast `(int) ($model->contacts_count ?? 0)` — never leave the count nullable in the Data class.
+The `_count` magic attributes are integers when `withCount()` was called, or absent when it was not. Default to `0` explicitly inside `toArray()` with `(int) ($this->contacts_count ?? 0)` — never let a count reach the frontend as `null`.
+
+> Reference-field model (v1.6): `contacts`/`leads`/`deals` are ordinary `hasMany` relations declared for read enrichment. There are no DB-level FK constraints — eager-loading, `withCount`, and joins still work on stock Postgres. See `postgres-timescale-eloquent.md`.
 
 ### 2. Counts are always integers, never null
 
-```php
-// CompanyCountsData.php
-#[TypeScript]
-class CompanyCountsData extends Data
-{
-    public function __construct(
-        public int $contacts,    // always int; defaults to 0 if withCount() was not called
-        public int $open_leads,
-        public int $won_deals,
-    ) {}
-}
-```
-
-Inside `fromModel()`:
+Build the `counts` sub-object inside `toArray()`, casting each magic attribute and defaulting to `0`:
 
 ```php
-counts: new CompanyCountsData(
-    contacts:   (int) ($model->contacts_count ?? 0),
-    open_leads: (int) ($model->open_leads_count ?? 0),
-    won_deals:  (int) ($model->won_deals_count ?? 0),
-),
+'counts' => [
+    'contacts'   => (int) ($this->contacts_count ?? 0),   // withCount(); 0 if not loaded
+    'open_leads' => (int) ($this->open_leads_count ?? 0),
+    'won_deals'  => (int) ($this->won_deals_count ?? 0),
+],
 ```
+
+The hand-written TS types this as `counts: { contacts: number; open_leads: number; won_deals: number }` — all required, none optional. See `api-resources.md` for the contract file and the Pest test that locks it.
 
 ### 3. Discriminated-union `kind` payloads
 
-Every polymorphic sub-shape uses a `kind` string that is a Title Case value — matching the enum pattern used everywhere in this stack. The frontend switches on `kind` and accesses only the fields defined for that variant. Build the union in the Data class; the frontend never derives it.
+Every polymorphic sub-shape uses a `kind` string that is a Title Case value — matching the enum pattern used everywhere in this stack. The frontend switches on `kind` and accesses only the fields defined for that variant. Build the union inside the Resource; the frontend never derives it.
+
+Extract the union into a private builder so `toArray()` stays readable:
 
 ```php
-// app/Domains/Companies/Data/LastActivityData.php
-#[TypeScript]
-class LastActivityData extends Data
-{
-    public function __construct(
-        public string $kind,    // 'None' | 'Email Sent' | 'Email Received' | 'Deal Won'
-        public ?string $at,
-        public ?string $label,
-        public ?string $subject,   // only when kind = 'Email Sent'
-        public ?string $preview,   // only when kind = 'Email Received'
-        public ?string $amount_label, // only when kind = 'Deal Won'
-    ) {}
+// app/Domains/Companies/Http/Resources/CompanyResource.php
+namespace App\Domains\Companies\Http\Resources;
 
-    public static function fromModel(\App\Domains\Companies\Models\Company $company): self
+use Carbon\CarbonInterface;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class CompanyResource extends JsonResource
+{
+    public function toArray($request): array
     {
-        $log = $company->lastActivityLog; // pre-loaded via ->with(['lastActivityLog'])
+        return [
+            'id'       => $this->id,
+            'name'     => $this->name,
+            'domain'   => $this->domain,        // nullable: explicit, never omitted
+            'industry' => $this->industry->value, // Title-Case enum value = label
+            'counts' => [
+                'contacts'   => (int) ($this->contacts_count ?? 0),
+                'open_leads' => (int) ($this->open_leads_count ?? 0),
+                'won_deals'  => (int) ($this->won_deals_count ?? 0),
+            ],
+            'last_activity' => $this->lastActivityPayload(), // discriminated union { kind, ... }
+            'created_at' => $this->created_at->toIso8601String(),
+            'updated_at' => $this->updated_at->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Build the last_activity discriminated union. Every branch returns the same
+     * key set so the shape is uniform; only `kind` varies in meaning downstream.
+     */
+    private function lastActivityPayload(): array
+    {
+        $log = $this->lastActivityLog; // pre-loaded via ->with(['lastActivityLog'])
 
         if (! $log) {
-            return new self(kind: 'None', at: null, label: null,
-                subject: null, preview: null, amount_label: null);
+            return ['kind' => 'None', 'at' => null, 'label' => null,
+                'subject' => null, 'preview' => null, 'amount_label' => null];
         }
 
         $at = $log->occurred_at->toIso8601String();
 
         return match ($log->type) {
-            'Email Sent' => new self(
-                kind: 'Email Sent',
-                at: $at,
-                label: "Sent \"{$log->subject}\" " . self::relativeTime($log->occurred_at),
-                subject: $log->subject,
-                preview: null,
-                amount_label: null,
-            ),
-            'Email Received' => new self(
-                kind: 'Email Received',
-                at: $at,
-                label: 'Replied ' . self::relativeTime($log->occurred_at),
-                subject: null,
-                preview: $log->preview,
-                amount_label: null,
-            ),
-            'Deal Won' => new self(
-                kind: 'Deal Won',
-                at: $at,
-                label: 'Won deal — ' . self::formatMoney($log->amount_cents, $log->currency)
-                    . ' ' . self::relativeTime($log->occurred_at),
-                subject: null,
-                preview: null,
-                amount_label: self::formatMoney($log->amount_cents, $log->currency),
-            ),
-            default => new self(kind: 'None', at: null, label: null,
-                subject: null, preview: null, amount_label: null),
+            'Email Sent' => [
+                'kind'    => 'Email Sent',
+                'at'      => $at,
+                'label'   => "Sent \"{$log->subject}\" " . $this->relativeTime($log->occurred_at),
+                'subject' => $log->subject,
+                'preview' => null,
+                'amount_label' => null,
+            ],
+            'Email Received' => [
+                'kind'    => 'Email Received',
+                'at'      => $at,
+                'label'   => 'Replied ' . $this->relativeTime($log->occurred_at),
+                'subject' => null,
+                'preview' => $log->preview,
+                'amount_label' => null,
+            ],
+            'Deal Won' => [
+                'kind'    => 'Deal Won',
+                'at'      => $at,
+                'label'   => 'Won deal — ' . $this->formatMoney($log->amount_cents, $log->currency)
+                    . ' ' . $this->relativeTime($log->occurred_at),
+                'subject' => null,
+                'preview' => null,
+                'amount_label' => $this->formatMoney($log->amount_cents, $log->currency),
+            ],
+            default => ['kind' => 'None', 'at' => null, 'label' => null,
+                'subject' => null, 'preview' => null, 'amount_label' => null],
         };
     }
 
-    private static function relativeTime(\Carbon\Carbon $d): string
+    private function relativeTime(CarbonInterface $d): string
     {
         $seconds = now()->diffInSeconds($d);
-        if ($seconds < 60)       return 'just now';
-        if ($seconds < 3600)     return floor($seconds / 60) . 'm ago';
-        if ($seconds < 86400)    return floor($seconds / 3600) . 'h ago';
-        if ($seconds < 604800)   return floor($seconds / 86400) . 'd ago';
+        if ($seconds < 60)     return 'just now';
+        if ($seconds < 3600)   return floor($seconds / 60) . 'm ago';
+        if ($seconds < 86400)  return floor($seconds / 3600) . 'h ago';
+        if ($seconds < 604800) return floor($seconds / 86400) . 'd ago';
         return $d->format('M j');
     }
 
-    private static function formatMoney(int $cents, string $currency): string
+    private function formatMoney(int $cents, string $currency): string
     {
         return '$' . number_format($cents / 100, 2);
     }
@@ -143,31 +155,33 @@ class LastActivityData extends Data
 Notice:
 - Every `kind` variant is handled, including `'None'` when there is no activity.
 - Labels are built server-side. The frontend renders `last_activity.label` and is done.
-- Fields that do not apply to a given `kind` are `null` — **but they are declared `?string` not omitted** (rule 4 below).
+- Fields that do not apply to a given `kind` are still present as `null` (rule 4 below) — the key set is identical across branches.
 
 ### 4. Nullable is explicit; fields are never missing
 
-The TypeScript type emitted by `typescript:transform` reflects the PHP property types exactly. A field declared `?string` becomes `string | null` in TypeScript. A field that is simply absent from the constructor would not appear in the emitted type — and the frontend build would catch it.
+The hand-written TS contract reflects the Resource `toArray()` exactly. A `null` field is typed `string | null`; a field that is simply absent from `toArray()` would be missing from the contract — and the Pest contract test in `api-resources.md` would fail.
 
 Rule: **every field that exists in the view shape must be present in every response, even if its value is `null`.** Omitting optional fields and having the frontend guard with `?.` violates the contract.
 
 ```php
 // WRONG — field is conditionally present; frontend must use ?.preview
 if ($log?->preview) {
-    $data['preview'] = $log->preview;
+    $payload['preview'] = $log->preview;
 }
 
 // CORRECT — field is always present; null when not applicable
-preview: $log?->preview ?? null,
+'preview' => $log?->preview ?? null,
 ```
+
+Do not use `$this->whenLoaded()` / `$this->when()` for fields the contract declares as required — those make the key conditionally absent, which is exactly the `?.`-forcing behavior this discipline forbids. Eager-load up front (rule 1) and emit the field unconditionally.
 
 ### 5. Dates are ISO 8601 strings
 
-Carbon instances must be converted at the boundary. Use `->toIso8601String()` (includes timezone offset) or `->toDateTimeString()` for date-only values. Never return a Carbon object directly — `spatie/laravel-data` serializes them, but the format is framework-defined, not contract-defined.
+Carbon instances must be converted at the boundary. Use `->toIso8601String()` (includes timezone offset) or `->toDateString()` for date-only values. Never return a Carbon object directly — Laravel will serialize it, but the format is framework-defined, not contract-defined.
 
 ```php
-created_at: $model->created_at->toIso8601String(),
-updated_at: $model->updated_at->toIso8601String(),
+'created_at' => $this->created_at->toIso8601String(),
+'updated_at' => $this->updated_at->toIso8601String(),
 ```
 
 ### 6. Never return a model or plain array from a controller
@@ -176,172 +190,152 @@ updated_at: $model->updated_at->toIso8601String(),
 // WRONG — raw model leaks DB structure; frontend has no type contract
 return response()->json($company);
 
-// WRONG — plain array loses the TypeScript contract entirely
+// WRONG — plain array loses the published TS contract entirely
 return response()->json($company->toArray());
 
-// CORRECT — Data class is the response; Eloquent is an implementation detail
-return CompanyData::fromModel($company);
+// CORRECT — the Resource is the response; Eloquent is an implementation detail
+return new CompanyResource($company);
 ```
 
-## Full `fromModel()` example
+## Controller using the Resource presenter
+
+The presenter is wired at the controller boundary. List endpoints use `::collection()` on a paginator (the Resource maps each item; pagination meta is preserved):
 
 ```php
-// app/Domains/Companies/Data/CompanyData.php
-namespace App\Domains\Companies\Data;
+// app/Domains/Companies/Http/Controllers/CompanyController.php
+namespace App\Domains\Companies\Http\Controllers;
 
-use Spatie\LaravelData\Data;
-use Spatie\TypeScriptTransformer\Attributes\TypeScript;
-use App\Domains\Companies\Enums\Industry;
+use App\Domains\Companies\Http\Resources\CompanyResource;
 use App\Domains\Companies\Models\Company;
 
-#[TypeScript]
-class CompanyData extends Data
+final class CompanyController
 {
-    public function __construct(
-        public string  $id,
-        public string  $name,
-        public ?string $domain,           // nullable: explicit, not missing
-        public Industry $industry,        // Title Case enum → TS union
-        public CompanyCountsData $counts, // always present; counts default to 0
-        public LastActivityData $last_activity, // discriminated union
-        public string  $created_at,       // ISO 8601 string
-        public string  $updated_at,
-    ) {}
-
-    public static function fromModel(Company $company): self
+    public function index()
     {
-        return new self(
-            id:            $company->id,
-            name:          $company->name,
-            domain:        $company->domain,
-            industry:      $company->industry,
-            counts:        new CompanyCountsData(
-                contacts:   (int) ($company->contacts_count ?? 0),
-                open_leads: (int) ($company->open_leads_count ?? 0),
-                won_deals:  (int) ($company->won_deals_count ?? 0),
-            ),
-            last_activity: LastActivityData::fromModel($company),
-            created_at:    $company->created_at->toIso8601String(),
-            updated_at:    $company->updated_at->toIso8601String(),
+        return CompanyResource::collection(
+            Company::query()
+                ->withCount(['contacts', 'leads as open_leads_count', 'deals as won_deals_count'])
+                ->with(['lastActivityLog'])
+                ->paginate()   // scoped by BelongsToWorkspace; never returns cross-workspace rows
         );
     }
-}
-```
 
-Notice:
-- Every field in `CompanyData` is built field-by-field. No `->toArray()` spread.
-- Counts default to `0`, never `null`.
-- The `last_activity` discriminated union covers all variants including `'None'`.
-- Labels are constructed inside the Data class. The frontend renders and is done.
-- Carbon instances are converted to ISO strings at the boundary.
-
-## Action using the Data presenter
-
-```php
-// app/Domains/Companies/Actions/GetCompanyAction.php
-namespace App\Domains\Companies\Actions;
-
-use App\Domains\Companies\Data\CompanyData;
-use App\Domains\Companies\Models\Company;
-
-final class GetCompanyAction
-{
-    public function execute(string $id): CompanyData
+    public function show(string $id)
     {
         $company = Company::query()
-            ->withCount(['contacts', 'openLeads as open_leads_count', 'wonDeals as won_deals_count'])
+            ->withCount(['contacts', 'leads as open_leads_count', 'deals as won_deals_count'])
             ->with(['lastActivityLog'])
-            ->findOrFail($id);  // 404 if not found or filtered by BelongsToWorkspace scope
+            ->findOrFail($id); // 404 if missing or filtered by the workspace scope
 
-        return CompanyData::fromModel($company);
+        return new CompanyResource($company);
     }
 }
 ```
+
+Write actions reload with counts/relations before wrapping, so `toArray()` has everything it needs:
 
 ```php
 // app/Domains/Companies/Actions/CreateCompanyAction.php
 namespace App\Domains\Companies\Actions;
 
 use App\Audit\AuditManager;
-use App\Domains\Companies\Data\CompanyData;
-use App\Domains\Companies\Data\CreateCompanyData;
+use App\Domains\Companies\Http\Resources\CompanyResource;
 use App\Domains\Companies\Models\Company;
-use App\Support\CockroachRetry;
+use Illuminate\Support\Facades\DB;
 
 final class CreateCompanyAction
 {
     public function __construct(private AuditManager $audit) {}
 
-    public function execute(CreateCompanyData $input): CompanyData
+    public function execute(array $attributes): CompanyResource
     {
-        return $this->audit->run('company.create', 'Company', function () use ($input) {
-            $company = CockroachRetry::transaction(
-                fn () => Company::create($input->toArray())
-            );
-            // Reload with counts/relations so fromModel() has everything it needs
-            $company->loadCount(['contacts', 'openLeads as open_leads_count', 'wonDeals as won_deals_count']);
-            return CompanyData::fromModel($company);
+        return $this->audit->run('company.create', 'Company', function () use ($attributes) {
+            $company = DB::transaction(fn () => Company::create($attributes));
+
+            // Reload with counts/relations so toArray() is fully populated
+            $company->loadCount(['contacts', 'leads as open_leads_count', 'deals as won_deals_count'])
+                ->load('lastActivityLog');
+
+            return new CompanyResource($company);
         });
     }
 }
 ```
 
-Every method that returns data calls `fromModel()`. No exceptions.
+Every endpoint that returns data wraps the model in a Resource. No exceptions. Validation of the input array is handled by a FormRequest (see `validation.md`); the audit wrapper and a plain `DB::transaction()` are standard Postgres semantics (see `audit-attribute.md`).
 
-## Pest test — the no-null contract
+## Pest test — the presenter no-null contract
 
-This test is mandatory for every module. It proves the Data class satisfies the contract for the required fields.
+This test is mandatory for every module. It proves the Resource's `toArray()` carries the required keys, that counts are integers, that the discriminated union has a string `kind`, and that no required field is `null`.
 
 ```php
-// tests/Feature/Companies/CompanyDataTest.php
-it('company data contains no nulls for required fields and matches the contract', function () {
+// tests/Feature/Companies/CompanyResourceTest.php
+use App\Domains\Companies\Http\Resources\CompanyResource;
+use App\Domains\Companies\Models\Company;
+
+it('CompanyResource toArray has required keys, no null on required fields', function () {
     $company = Company::factory()->create();
-    $data = CompanyData::fromModel($company->loadCount('contacts'))->toArray();
-    expect($data)->not->toContain(null)             // spot-check required keys
-        ->and($data['counts']['contacts'])->toBeInt()
-        ->and($data['last_activity']['kind'])->toBeString();
+    $array = (new CompanyResource(
+        $company->loadCount(['contacts', 'leads as open_leads_count', 'deals as won_deals_count'])
+                ->load('lastActivityLog')
+    ))->toArray(request());
+
+    expect($array)->toHaveKeys([
+        'id', 'name', 'domain', 'industry', 'counts', 'last_activity', 'created_at', 'updated_at',
+    ]);
+
+    // counts default to 0 and are integers
+    expect($array['counts']['contacts'])->toBeInt()
+        ->and($array['counts']['open_leads'])->toBeInt()
+        ->and($array['counts']['won_deals'])->toBeInt();
+
+    // discriminated union always carries a string kind
+    expect($array['last_activity']['kind'])->toBeString();
+
+    // required fields are never null (domain is intentionally nullable, so exclude it)
+    foreach (['id', 'name', 'industry', 'counts', 'last_activity', 'created_at', 'updated_at'] as $key) {
+        expect($array[$key])->not->toBeNull();
+    }
+    expect($array['created_at'])->toBeString();
 });
 ```
 
-Pair this with the cross-workspace 404 and authz-negative tests from `multitenancy-global-scope.md`. The three together form the minimum Pest suite for every module.
+Pair this with the published-contract test from `api-resources.md` (which asserts `toArray()` matches the hand-written TS shape), plus the cross-workspace 404 and authz-negative tests from `multitenancy-global-scope.md`. Together they form the minimum Pest suite for every module.
 
 ## Cross-module data composition
 
 A campaign view might include a `mailbox` summary owned by the Mailboxes domain. Two patterns:
 
-1. **Service-level composition** — the Campaigns action calls `MailboxData::fromModel($campaign->mailbox)` and passes it into `CampaignData::fromModel()` as a resolved value. This is the default.
-2. **Eager-load + map** — the Campaigns query eager-loads `mailbox` via `->with(['mailbox'])`, then `CampaignData::fromModel()` calls `MailboxData::fromModel($campaign->mailbox)` internally.
+1. **Nested Resource** — the Campaigns query eager-loads `mailbox` via `->with(['mailbox'])`, then `CampaignResource::toArray()` embeds `new MailboxResource($this->mailbox)` (or `(new MailboxResource(...))->toArray($request)` for a plain sub-array). This is the default.
+2. **Resolved value** — the Campaigns action resolves a `MailboxResource` from its own domain and passes the already-loaded model into the Campaigns query result before wrapping.
 
-Default to (1) for clarity; switch to (2) when the eager-load is simpler than an additional service call. In both cases, the Campaigns action assembles the final `CampaignData` shape — the frontend never sees the raw join.
+Default to (1) for clarity; switch to (2) when the eager-load is awkward. In both cases the Campaigns Resource assembles the final shape — the frontend never sees the raw join.
 
 ```php
-// Pattern 1: service-level composition
-final class GetCampaignAction
-{
-    public function execute(string $id): CampaignData
-    {
-        $campaign = Campaign::query()
-            ->withCount(['recipients', 'openedEmails as opened_count'])
-            ->findOrFail($id);
-
-        // Fetch the mailbox summary from its own domain
-        $mailboxData = MailboxData::fromModel(
-            Mailbox::findOrFail($campaign->mailbox_id)
-        );
-
-        return CampaignData::fromModel($campaign, $mailboxData);
-    }
-}
+// Nested Resource inside CampaignResource::toArray()
+return [
+    'id'   => $this->id,
+    'name' => $this->name,
+    'counts' => [
+        'recipients' => (int) ($this->recipients_count ?? 0),
+        'opened'     => (int) ($this->opened_count ?? 0),
+    ],
+    // mailbox is its own Resource — eager-loaded via ->with(['mailbox'])
+    'mailbox' => (new MailboxResource($this->mailbox))->toArray($request),
+    'created_at' => $this->created_at->toIso8601String(),
+    'updated_at' => $this->updated_at->toIso8601String(),
+];
 ```
 
-Note: cross-domain Data composition happens at the **action/service layer**, not inside `fromModel()` of the parent class. Keep each `fromModel()` focused on its own model's data.
+Keep each Resource focused on its own model. A parent Resource composes child Resources; it does not reach into another domain's columns directly.
 
 ## Anti-patterns
 
-- Returning a raw Eloquent model from an action or controller. The whole pattern exists to prevent this.
-- Spreading `$model->toArray()` into the response. Field-by-field construction is intentional — it surfaces missed transformations.
-- Building view labels in the controller. Controllers call the action and return the Data object; they do not transform data.
-- Skipping the no-null Pest test. That is how contract drift is caught before it reaches the frontend.
-- Making a field `?string` and then not setting it when the object would otherwise be complete. If the field is `null` only for a particular `kind`, keep the `?string` type but always populate it (as `null`) — never omit it from the constructor call.
-- Lazy-loading relations inside `fromModel()`. The query layer owns the loading; the Data class owns the mapping.
+- Returning a raw Eloquent model from a controller or action (`return $company;` / `response()->json($company)`). The whole pattern exists to prevent this — wrap it in a Resource.
+- Spreading the model into the response (`['...' => $this->resource->toArray()]` or `array_merge($this->resource->getAttributes(), [...])`). Field-by-field construction in `toArray()` is intentional — it surfaces missed transformations.
+- Building view labels in the controller. Controllers eager-load and wrap; the Resource owns every label, count, and union.
+- Skipping the presenter no-null Pest test (and the contract test in `api-resources.md`). That is how contract drift is caught before it reaches the frontend.
+- Using `$this->when()` / `$this->whenLoaded()` for fields the contract declares required. Conditional keys force the frontend back to `?.`. Eager-load up front and emit the field unconditionally.
+- Making a field nullable in the shape and then omitting it for some `kind`. If a field is `null` only for a particular variant, still emit it as `null` — never drop the key.
+- Lazy-loading relations inside `toArray()`. The query layer owns the loading (`with`/`withCount`); the Resource owns the mapping. A lazy access in `toArray()` is an N+1 across a collection.
 - Letting the frontend compute things the backend can compute. If both sides need "growing vs declining", the backend computes once and the frontend renders `last_activity.label` directly.

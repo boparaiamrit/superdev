@@ -10,7 +10,7 @@ Lambda functions are stateless and short-lived. Redis requires a persistent TCP 
 - Elastic Network Interface (ENI) attachment latency on cold starts (~200–400 ms extra)
 - Additional infrastructure to manage and secure
 
-CockroachDB is reached over the **public internet** (no VPC). Putting the cache and session tables in the same CockroachDB cluster means:
+PostgreSQL + TimescaleDB is reached over the **public internet** (no VPC). Putting the cache and session tables in the same Postgres database means:
 
 - Zero extra infra to provision or pay for
 - No cold-start ENI penalty
@@ -30,13 +30,13 @@ SESSION_DRIVER=database
 # Queue is SQS (not database, not Redis)
 QUEUE_CONNECTION=sqs
 
-# DB (CockroachDB serverless — see cockroachdb-eloquent.md for full connection config)
-DB_HOST=free-tier.aws-us-east-1.cockroachlabs.cloud
-DB_PORT=26257
-DB_DATABASE=clustername.defaultdb
+# DB (PostgreSQL + TimescaleDB — see postgres-timescale-eloquent.md for full connection config)
+DB_HOST=your-postgres-host.example.com
+DB_PORT=5432
+DB_DATABASE=your_database
 DB_USERNAME=app_user
 DB_PASSWORD=
-DB_SSLMODE=verify-full
+DB_SSLMODE=require
 
 # SQS (see sqs-queues.md)
 SQS_PREFIX=https://sqs.us-east-1.amazonaws.com/123456789
@@ -63,11 +63,7 @@ This produces two migration files under `database/migrations/`:
 - `xxxx_create_cache_table.php` — creates `cache` and `cache_locks` tables
 - `xxxx_create_sessions_table.php` — creates `sessions` table
 
-The generated migrations use standard Laravel schema helpers; no changes are needed for CockroachDB because:
-
-- The tables use `VARCHAR`/`TEXT`/`INTEGER` columns — all supported
-- There are no `SEQUENCE`-backed auto-increment primary keys on these tables (Laravel uses string keys for cache; sessions use a string `id`)
-- `cache_locks` uses an expiration integer column + `SELECT FOR UPDATE` locking — CockroachDB supports `SELECT FOR UPDATE` under serializable isolation
+The generated migrations use standard Laravel schema helpers and work with Postgres without modification. The tables rely on `VARCHAR`/`TEXT`/`INTEGER` columns; Laravel uses string keys for cache and a string `id` for sessions — no sequence-backed integer PKs.
 
 Do not convert these tables to UUID PKs. They are Laravel-owned infrastructure, not domain entities.
 
@@ -98,14 +94,14 @@ Laravel's default `config/cache.php` and `config/session.php` read from env; not
 'connection' => env('SESSION_CONNECTION'),   // null → uses default connection
 ```
 
-Both configurations point at the same CockroachDB connection (the default `pgsql` connection) unless you explicitly set `DB_CACHE_CONNECTION` or `SESSION_CONNECTION`. Using the default connection is fine for most deployments.
+Both configurations point at the same Postgres connection (the default `pgsql` connection) unless you explicitly set `DB_CACHE_CONNECTION` or `SESSION_CONNECTION`. Using the default connection is fine for most deployments.
 
-## TTL and locking behavior under CockroachDB serverless
+## TTL and locking behavior
 
 **Cache TTL.** Laravel's database cache store writes an `expiration` unix timestamp column. Expired entries are not automatically pruned — stale rows accumulate until overwritten or explicitly pruned. Run the built-in prune command on a schedule to keep the table lean:
 
-```bash
-# routes/console.php — add alongside the audit prune command
+```php
+// routes/console.php
 Schedule::command('cache:prune-stale-tags')->hourly();
 ```
 
@@ -118,15 +114,15 @@ Schedule::call(function () {
 })->daily()->name('prune-expired-cache');
 ```
 
-**Cache locks.** The `cache_locks` table uses `expiresAt` comparisons; Laravel's `Cache::lock()` uses a `SELECT + INSERT OR UPDATE` pattern that works correctly under CockroachDB's serializable isolation. If two requests race for the same lock, one will get a 40001 serialization error — this is handled transparently by the CockroachDB retry wrapper (see `cockroachdb-eloquent.md`). Do not wrap lock acquisition in `CockroachRetry::transaction()`; that would cause double-retry semantics. Let the lock driver retry natively.
+**Cache locks.** The `cache_locks` table uses `expiresAt` comparisons; Laravel's `Cache::lock()` uses a `SELECT + INSERT OR UPDATE` pattern that works correctly under Postgres serializable isolation. `SELECT FOR UPDATE` and `SKIP LOCKED` are both available. Let the lock driver handle contention natively — do not add a custom retry wrapper around lock acquisition.
 
-**Sessions.** Session reads are `SELECT … WHERE id = ?` — point lookups on the primary key. Session writes are `INSERT … ON CONFLICT DO UPDATE` (upsert). Both are safe under serializable isolation. Session data is stored serialized in a `TEXT` column; keep session payloads small (auth state, flash messages, CSRF token — nothing else).
+**Sessions.** Session reads are `SELECT … WHERE id = ?` — point lookups on the primary key. Session writes are `INSERT … ON CONFLICT DO UPDATE` (upsert). Both are safe under standard Postgres isolation. Session data is stored serialized in a `TEXT` column; keep session payloads small (auth state, flash messages, CSRF token — nothing else).
 
 ## Cache invalidation
 
 The database cache driver supports **tagged caches** and **keyed deletes**. Use one or both depending on the invalidation granularity needed.
 
-**The Nest/Redis pattern that does NOT map:** the Nest caching reference uses `delByPattern()` with Redis `SCAN` to bulk-delete keys matching a glob. There is no SQL equivalent that is both safe and efficient. Do not try to replicate it with `LIKE` queries on the cache table — this is a table scan that locks under serializable isolation.
+**The Nest/Redis pattern that does NOT map:** the Nest caching reference uses `delByPattern()` with Redis `SCAN` to bulk-delete keys matching a glob. There is no SQL equivalent that is both safe and efficient. Do not try to replicate it with `LIKE` queries on the cache table — this is a table scan.
 
 Use these patterns instead:
 
@@ -154,23 +150,23 @@ class CompanyService
         return "ws:{$workspaceId}:company:list:" . md5(serialize($filters));
     }
 
-    public function find(string $workspaceId, string $id): CompanyData
+    public function find(string $workspaceId, string $id): array
     {
         return Cache::remember(
             $this->cacheKey($workspaceId, $id),
             ttl: 60,
-            callback: fn () => CompanyData::fromModel(
+            callback: fn () => (new CompanyResource(
                 Company::withCount(['contacts', 'openLeads as open_leads_count'])
                        ->findOrFail($id)
-            )
+            ))->toArray(request())
         );
     }
 
-    public function update(string $workspaceId, string $id, UpdateCompanyData $input): CompanyData
+    public function update(string $workspaceId, string $id, UpdateCompanyRequest $input): array
     {
-        $company = \App\Support\CockroachRetry::transaction(function () use ($id, $input) {
+        $company = DB::transaction(function () use ($id, $input) {
             $c = Company::findOrFail($id);
-            $c->update($input->toArray());
+            $c->update($input->validated());
             return $c;
         });
 
@@ -179,7 +175,7 @@ class CompanyService
         Cache::forget($this->listCacheKey($workspaceId));  // forget the no-filter list
         // If you track filter hashes, store them in a side-channel set and delete each
 
-        return CompanyData::fromModel($company->loadCount('contacts'));
+        return (new CompanyResource($company->loadCount('contacts')))->toArray(request());
     }
 }
 ```
@@ -195,7 +191,7 @@ Laravel's database cache driver supports cache tags. Use them when you want to g
 Cache::tags(["ws:{$workspaceId}:companies"])->remember(
     "ws:{$workspaceId}:company:{$id}",
     ttl: 60,
-    callback: fn () => CompanyData::fromModel(Company::findOrFail($id))
+    callback: fn () => (new CompanyResource(Company::findOrFail($id)))->toArray(request())
 );
 
 // Invalidate all keys tagged for this workspace's companies
@@ -229,11 +225,11 @@ When a write to one resource invalidates a view of another, the producing servic
 
 ```php
 // app/Domains/Contacts/Services/ContactService.php
-public function create(string $workspaceId, CreateContactData $input): ContactData
+public function create(string $workspaceId, CreateContactRequest $input): array
 {
     return app(AuditManager::class)->run('contact.create', 'Contact', function () use ($workspaceId, $input) {
-        $contact = \App\Support\CockroachRetry::transaction(
-            fn () => Contact::create([...$input->toArray(), 'workspace_id' => $workspaceId])
+        $contact = DB::transaction(
+            fn () => Contact::create([...$input->validated(), 'workspace_id' => $workspaceId])
         );
 
         // Parent company view embeds contacts count — invalidate
@@ -241,17 +237,17 @@ public function create(string $workspaceId, CreateContactData $input): ContactDa
             Cache::forget("ws:{$workspaceId}:company:{$contact->company_id}");
         }
 
-        return ContactData::fromModel($contact);
+        return (new ContactResource($contact))->toArray(request());
     });
 }
 ```
 
 ## Anti-patterns
 
-- **Do not use `LIKE '%key%'` on the cache table.** This is a full table scan that acquires row-level locks under serializable isolation. Use keyed deletes or tagged caches.
+- **Do not use `LIKE '%key%'` on the cache table.** This is a full table scan. Use keyed deletes or tagged caches.
 - **Do not add `REDIS_*` variables.** This stack has no Redis. Adding Redis vars implies a Redis connection that does not exist.
 - **Do not cache mutation responses.** Return them fresh; the next read repopulates.
 - **Do not cache across tenants.** Every key must be prefixed with `workspaceId`.
-- **Do not cache the Eloquent model/raw DB row.** Cache the `Data` view shape. Cache hits then skip both the DB query and the presenter computation.
-- **Do not rely on stale-entry expiry alone.** CockroachDB serverless has no background job to reap expired cache rows. Prune actively or write-through-overwrite ensures the table stays bounded.
+- **Do not cache the raw Eloquent model or DB row.** Cache the Resource `toArray()` shape. Cache hits then skip both the DB query and the presenter computation.
+- **Do not rely on stale-entry expiry alone.** Postgres has no background job to reap expired cache rows. Prune actively or write-through-overwrite ensures the table stays bounded.
 - **Do not use `Cache::flush()` without a tag.** A global flush clears cache for all tenants and workspaces. Always scope flushes to a tag or delete specific keys.

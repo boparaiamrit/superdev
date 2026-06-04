@@ -6,8 +6,8 @@ Read this when the orchestrator's **Step A.5c** chose `frontend_stack == Inertia
 
 Everything that makes this an enterprise backend is **unchanged**:
 
-- CockroachDB via the stock `pgsql` driver, UUID PKs (`gen_random_uuid()`), the 40001 serialization-retry wrapper, additive migrations (`cockroachdb-eloquent.md`).
-- `#[Audit]` attribute → `AuditManager` → SQS `AuditWrite` job → partitioned `audit_logs` (`audit-attribute.md`).
+- PostgreSQL + TimescaleDB via the stock `pgsql` driver, UUID PKs (`HasUuids`), reference-field migrations (`postgres-timescale-eloquent.md`).
+- `#[Audit]` attribute → `AuditManager` → SQS `AuditWrite` job → TimescaleDB `audit_logs` hypertable with native compression + retention policies (`audit-attribute.md`).
 - `BelongsToWorkspace` global-scope tenancy + the cross-workspace 404 test (`multitenancy-global-scope.md`).
 - Title-Case PHP string-backed enums (`enums-title-case.md`).
 - `spatie/laravel-permission` + Policies for authorization (`auth-sanctum-permissions.md` — the role/permission/Policy parts).
@@ -19,9 +19,9 @@ Everything that makes this an enterprise backend is **unchanged**:
 |---|---|---|
 | App layout | `apps/api` (Laravel) + `apps/web` (Next.js) | **One Laravel app**; frontend in `resources/js/` (no `apps/web`) |
 | Auth | **Laravel Sanctum tokens** (cross-domain, `Authorization: Bearer`, CORS) | **Laravel Fortify (session)** — login/register/reset/2FA scaffolded by the React starter kit |
-| Response shape | JSON API; `spatie/laravel-data` → TS in `packages/contracts`, fetched via TanStack Query | **Inertia props**: controllers `return Inertia::render('page', $props)`; types hand-written in `resources/js/types/` (no `packages/contracts`, no `typescript:transform`) |
+| Response shape | JSON API; Eloquent API Resources → hand-written TS in `packages/contracts`, fetched via TanStack Query | **Inertia props**: controllers `return Inertia::render('page', $props)`; types hand-written in `resources/js/types/` (no `packages/contracts`) |
 | Authorization surface | `#[Authorize]` on JSON API controllers | `#[Authorize]` on the **Inertia controllers**; permissions also shared as `auth.permissions` props for UI gating (see `design-to-laravel/references/auth-fortify-permissions.md`) |
-| Session driver | (tokens; sessions optional) | **`SESSION_DRIVER=database`** (CockroachDB) — required for stateless Lambda |
+| Session driver | (tokens; sessions optional) | **`SESSION_DRIVER=database`** (Postgres) — required for stateless Lambda |
 
 ## Auth: Fortify session instead of Sanctum tokens
 
@@ -31,7 +31,7 @@ For the Inertia monolith, **do not** issue Sanctum personal-access tokens. The R
 
 ## Contracts: props, not `packages/contracts`
 
-In the monolith there is no shared TS contract package. Controllers shape exhaustive, view-ready props (the same view-shape discipline — counts default to 0, related entities populated, discriminated unions, ISO dates) and the frontend types them by hand in `resources/js/types/`. `spatie/laravel-data` may still be used **server-side** for request validation and for shaping the props object, but it is **not** the emitted FE contract source here. Keep the controller's `Inertia::render` props and the hand-written types in lockstep.
+In the monolith there is no shared TS contract package. Controllers shape exhaustive, view-ready props (the same view-shape discipline — counts default to 0, related entities populated, discriminated unions, ISO dates) and the frontend types them by hand in `resources/js/types/`. Validation uses **FormRequests**; prop shaping uses **Eloquent API Resources** where a presenter layer is warranted, or plain arrays for simple pages. Keep the controller's `Inertia::render` props and the hand-written types in lockstep.
 
 ## Anti-patterns
 

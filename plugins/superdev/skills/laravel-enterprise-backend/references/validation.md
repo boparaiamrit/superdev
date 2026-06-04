@@ -1,190 +1,154 @@
 # Validation
 
-How to wire input validation into Laravel 13 so that one class carries input rules, response shape, and the TypeScript contract. Read in Phase 5 when generating feature modules.
+How to wire input validation into Laravel 13 using FormRequests. Read in Phase 5 when generating feature modules.
 
-## One class, three jobs
+## One class per action
 
-In the Nest stack, `nestjs-zod` shares a Zod schema between the DTO (input validation), the response presenter, and the frontend type. The Laravel equivalent is `spatie/laravel-data`:
+Validation lives in a dedicated `FormRequest` class named after the action: `CreateCompanyRequest`, `UpdateCompanyRequest`, `ListCompaniesRequest`. Each class lives in `app/Domains/<Feature>/Http/Requests/`. The controller type-hints the request class — Laravel resolves it, runs `authorize()`, validates the rules, and injects the populated request object. The controller body never calls `validate()` manually.
 
-- **Input rules** — a `rules()` static method on the same Data class gates bad requests at the controller boundary.
-- **Response shape** — the controller returns the Data object directly; it serialises to JSON automatically.
-- **TypeScript contract** — `php artisan typescript:transform` reads `#[TypeScript]`-annotated Data classes and emits a union type into `packages/contracts/src/generated.ts`.
+The request is validated **before** the controller body runs. By the time your controller receives the request, all input is clean and typed. The API Resource (`CompanyResource`) is only instantiated after the action/service completes — validation precedes the presenter.
 
-A single class in `app/Domains/<Feature>/Data/` owns all three. There is no separate DTO file, no hand-written TS, and no schema duplication.
-
-## Input Data classes
-
-Name input classes after the action: `CreateCompanyData`, `UpdateCompanyData`, `ListCompaniesData`. They live alongside view Data classes in the same `Data/` folder. The class is used as a controller parameter — Laravel resolves and validates it automatically when you type-hint it in the method signature.
+## CreateCompanyRequest
 
 ```php
-// app/Domains/Companies/Data/CreateCompanyData.php
-namespace App\Domains\Companies\Data;
+// app/Domains/Companies/Http/Requests/CreateCompanyRequest.php
+namespace App\Domains\Companies\Http\Requests;
 
-use Spatie\LaravelData\Data;
-use Spatie\LaravelData\Attributes\Validation\Max;
-use Spatie\LaravelData\Attributes\Validation\Min;
-use Spatie\LaravelData\Attributes\Validation\Rule;
-use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use App\Domains\Companies\Enums\Industry;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-#[TypeScript]
-class CreateCompanyData extends Data
+class CreateCompanyRequest extends FormRequest
 {
-    public function __construct(
-        #[Min(1), Max(120)]
-        public string $name,
+    public function authorize(): bool
+    {
+        return $this->user()->can('create', \App\Domains\Companies\Models\Company::class);
+    }
 
-        #[Rule(['nullable', 'regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i'])]
-        public ?string $domain,
+    public function rules(): array
+    {
+        $workspaceId = $this->user()->workspace_id;
 
-        public Industry $industry,         // Title Case enum; enum type-hint validates it automatically
-    ) {}
+        return [
+            'name'     => ['required', 'string', 'min:1', 'max:120'],
+            'domain'   => [
+                'nullable',
+                'string',
+                'regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i',
+                Rule::unique('companies', 'domain')
+                    ->where('workspace_id', $workspaceId)
+                    ->whereNull('deleted_at'),
+            ],
+            'industry' => ['required', Rule::enum(Industry::class)],
+        ];
+    }
 }
 ```
 
 A few points about this class:
 
-- **The enum is validated for free.** Laravel resolves `Industry $industry` and rejects any value that is not a valid `Industry` case before your controller body runs. No extra `Rule::enum(Industry::class)` needed.
-- **`?string $domain` is explicitly nullable.** The client must send `"domain": null` to express absence; the field is never silently missing from the payload.
-- **No `$fillable` bypass.** The Data class is constructed from the request; it never calls `Model::fill()` directly. The action/service maps from the Data object to the model.
+- **`Rule::enum(Industry::class)`** rejects any value that is not a valid `Industry` case (e.g. `'TECHNOLOGY'` fails; `'Technology'` passes). Title-Case enum values are the documented public API — the error message will say `"The selected industry is invalid."`.
+- **`'domain' => ['nullable', ...]`** the client must send `"domain": null` to express absence. The field is never silently missing from the payload.
+- **`authorize()`** delegates to the Policy. For standard CRUD you can also use the `#[Authorize]` attribute on the controller method (see `references/auth-sanctum-permissions.md`) — pick one approach per endpoint, not both.
 
-## The `rules()` method for cross-field rules
+## Using the request in the controller
 
-For rules that span multiple fields — uniqueness within a workspace, conditional requirements, custom error messages — add a `public static function rules(): array` method to the Data class. spatie/laravel-data merges these with the attribute-level rules automatically before validating the request:
-
-```php
-// app/Domains/Companies/Data/CreateCompanyData.php
-// Add this import at the top of the file (after namespace declaration):
-// use Illuminate\Validation\Rule as LaravelRule;
-
-// Add this method inside the CreateCompanyData class:
-public static function rules(): array
-{
-    // Workspace-scoped uniqueness: domain must be unique within the current workspace.
-    $workspaceId = app()->bound('workspace.id') ? app('workspace.id') : null;
-
-    return [
-        'domain' => [
-            'nullable',
-            'regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i',
-            LaravelRule::unique('companies', 'domain')
-                ->where('workspace_id', $workspaceId)
-                ->whereNull('deleted_at'),
-        ],
-    ];
-}
-```
-
-Keep `rules()` focused on cross-field and database-level constraints. Attribute-based rules handle the straightforward per-field checks.
-
-## Using the input class in a controller
-
-Type-hint the input Data class as a parameter. Laravel resolves it from the request body, runs validation, and injects the typed object. No manual `$request->validate()` call needed.
+Type-hint the FormRequest as the first parameter. The second parameter injects the action/service. The controller returns the API Resource, never a raw model or array.
 
 ```php
 // app/Domains/Companies/Http/CompanyController.php
 namespace App\Domains\Companies\Http;
 
 use App\Domains\Companies\Actions\CreateCompanyAction;
-use App\Domains\Companies\Data\CreateCompanyData;
-use App\Domains\Companies\Data\CompanyData;
+use App\Domains\Companies\Http\Requests\CreateCompanyRequest;
+use App\Domains\Companies\Http\Resources\CompanyResource;
 use Illuminate\Routing\Attributes\Controllers\Authorize;
 
 class CompanyController
 {
     #[Authorize('create', \App\Domains\Companies\Models\Company::class)]
-    public function store(CreateCompanyData $input, CreateCompanyAction $action): CompanyData
+    public function store(CreateCompanyRequest $request, CreateCompanyAction $action): CompanyResource
     {
-        return $action->handle($input);
+        $company = $action->handle($request->validated());
+
+        return new CompanyResource($company->loadCount('contacts'));
     }
 }
 ```
 
-The action calls `AuditManager::run()` around the write. See `references/audit-attribute.md` for the pattern. The controller never touches `$request` directly — the Data class carries the validated payload.
+`$request->validated()` returns only the keys declared in `rules()` — no raw user input leaks through. The action wraps the write inside `AuditManager::run()`; see `references/audit-attribute.md`.
 
-## Query/filter Data classes
+## Query/filter requests
 
-For list endpoints, define a separate filter class. Mark fields as optional with a default so the URL can omit them.
-
-```php
-// app/Domains/Companies/Data/ListCompaniesData.php
-namespace App\Domains\Companies\Data;
-
-use Spatie\LaravelData\Data;
-use Spatie\LaravelData\Attributes\Validation\IntegerType;
-use Spatie\LaravelData\Attributes\Validation\Min;
-use Spatie\LaravelData\Attributes\Validation\Max;
-use Spatie\TypeScriptTransformer\Attributes\TypeScript;
-use App\Domains\Companies\Enums\Industry;
-
-#[TypeScript]
-class ListCompaniesData extends Data
-{
-    public function __construct(
-        public ?string $search = null,
-        public ?Industry $industry = null,
-
-        #[IntegerType, Min(1)]
-        public int $page = 1,
-
-        #[IntegerType, Min(1), Max(100)]
-        public int $per_page = 20,
-    ) {}
-}
-```
-
-Use it as a query-string input in the controller:
+For list endpoints, define a separate request class. Mark fields as optional with defaults so the URL can omit them.
 
 ```php
-use Spatie\LaravelData\WithData;
-
-#[Authorize('viewAny', \App\Domains\Companies\Models\Company::class)]
-public function index(ListCompaniesData $filters): \Spatie\LaravelData\PaginatedDataCollection
-{
-    return CompanyData::collect(
-        Company::query()
-            ->when($filters->search, fn ($q, $s) => $q->where('name', 'ilike', "%$s%"))
-            ->when($filters->industry, fn ($q, $i) => $q->where('industry', $i))
-            ->withCount(['contacts', 'openLeads as open_leads_count'])
-            ->paginate($filters->per_page, page: $filters->page),
-        \Spatie\LaravelData\PaginatedDataCollection::class,
-    );
-}
-```
-
-## FormRequest fallback
-
-Use `FormRequest` when the validation logic is too imperative for a Data class — multi-step wizards, file uploads, or deeply conditional rules that read from multiple DB tables.
-
-```php
-// app/Domains/Companies/Http/Requests/BulkImportCompaniesRequest.php
+// app/Domains/Companies/Http/Requests/ListCompaniesRequest.php
 namespace App\Domains\Companies\Http\Requests;
 
+use App\Domains\Companies\Enums\Industry;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class BulkImportCompaniesRequest extends FormRequest
+class ListCompaniesRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return $this->user()->can('company.import');
-    }
+    public function authorize(): bool { return true; }  // Policy check is on the controller method
 
     public function rules(): array
     {
         return [
-            'file'          => ['required', 'file', 'mimes:csv', 'max:10240'],
-            'dedup_field'   => ['required', 'in:domain,name'],
-            'notify_on_end' => ['boolean'],
+            'search'   => ['nullable', 'string', 'max:200'],
+            'industry' => ['nullable', Rule::enum(Industry::class)],
+            'page'     => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }
+
+    // Coerce defaults after validation so the controller can read them cleanly.
+    public function page(): int     { return (int) ($this->input('page', 1)); }
+    public function perPage(): int  { return (int) ($this->input('per_page', 20)); }
 }
 ```
 
-The FormRequest is the controller parameter in place of the Data class. Prefer the Data class for standard create/update inputs — FormRequest is the escape hatch, not the default.
+Controller usage:
+
+```php
+#[Authorize('viewAny', \App\Domains\Companies\Models\Company::class)]
+public function index(ListCompaniesRequest $request): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+{
+    $companies = Company::query()
+        ->when($request->input('search'), fn ($q, $s) => $q->where('name', 'ilike', "%$s%"))
+        ->when($request->input('industry'), fn ($q, $i) => $q->where('industry', $i))
+        ->withCount(['contacts', 'leads as open_leads_count'])
+        ->paginate($request->perPage(), page: $request->page());
+
+    return CompanyResource::collection($companies);
+}
+```
+
+## Custom error messages and attribute names
+
+Override `messages()` and `attributes()` in the request to control the user-visible validation text:
+
+```php
+public function messages(): array
+{
+    return [
+        'industry.Illuminate\Validation\Rules\Enum' => 'Industry must be one of: Technology, Healthcare, Finance, Logistics, Other.',
+    ];
+}
+
+public function attributes(): array
+{
+    return [
+        'per_page' => 'page size',
+    ];
+}
+```
 
 ## Mapping validation errors to the error-code contract
 
-When a Data class or FormRequest fails validation, Laravel throws a `ValidationException`. The global exception handler (see `references/error-handling.md`) catches it and returns a 422 response in the shared error envelope:
+When a FormRequest fails validation, Laravel throws a `ValidationException`. The global exception handler (see `references/error-handling.md`) catches it and returns a 422 response in the shared error envelope:
 
 ```json
 {
@@ -198,68 +162,35 @@ When a Data class or FormRequest fails validation, Laravel throws a `ValidationE
 }
 ```
 
-The handler normalises this in `bootstrap/app.php` under `->withExceptions(...)`. You do not throw or catch `ValidationException` in your controllers or services — let it propagate.
+The handler normalises this in `bootstrap/app.php` under `->withExceptions(...)`. You do not throw or catch `ValidationException` in your controllers or services — let it propagate. The `VALIDATION_FAILED` code string is defined in `App\Support\ErrorCode::ValidationFailed` (PHP) and in `packages/contracts/src/errors.ts` (TS); the frontend switches on the stable `code`, never on `message`.
 
-For domain-specific validation failures that are not field-level (for example, attempting to exceed a workspace's company limit), throw a typed exception with the correct error code:
+For domain-specific violations that are not field-level (for example, attempting to exceed a workspace's company limit), throw a `DomainException` with the correct error code from the service/action:
 
 ```php
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Http\JsonResponse;
+use App\Exceptions\DomainException;
+use App\Support\ErrorCode;
 
 // In an action/service:
 if ($workspace->companies()->count() >= $workspace->company_limit) {
-    throw new \App\Exceptions\WorkspaceLimitExceededException('companies');
+    throw new DomainException(
+        errorCode:  ErrorCode::Conflict,
+        message:    'Workspace company limit reached',
+        details:    ['limit' => $workspace->company_limit],
+        httpStatus: 422,
+    );
 }
 ```
-
-```php
-// app/Exceptions/WorkspaceLimitExceededException.php
-namespace App\Exceptions;
-
-use Symfony\Component\HttpKernel\Exception\HttpException;
-
-class WorkspaceLimitExceededException extends HttpException
-{
-    public function __construct(string $resource)
-    {
-        parent::__construct(
-            422,
-            "Workspace limit reached for: $resource",
-            context: ['code' => 'WORKSPACE_LIMIT_EXCEEDED', 'resource' => $resource],
-        );
-    }
-}
-```
-
-The global handler maps this to `{ code: "WORKSPACE_LIMIT_EXCEEDED", ... }`. The frontend imports the stable `code` string from `packages/contracts/src/errors.ts` and switches on it for context-aware UI — never pattern-match on `message`.
-
-## TypeScript emission
-
-Both input and view Data classes annotated with `#[TypeScript]` are picked up by `typescript:transform`. The emitted TS for `CreateCompanyData` is a plain interface — no Zod, no runtime parsing. The frontend uses it only for compile-time type safety:
-
-```ts
-// packages/contracts/src/generated.ts (emitted — do not hand-edit)
-export interface CreateCompanyData {
-    name: string;
-    domain: string | null;
-    industry: Industry;
-}
-
-export type Industry = 'Technology' | 'Healthcare' | 'Finance' | 'Logistics' | 'Other';
-```
-
-The Next.js app imports `CreateCompanyData` as a type for its form state and fetch calls. There is no Zod `.parse()` call on the frontend — view-shape correctness is enforced server-side by the Data class and the no-null Pest test (see `references/view-data-pattern.md`).
 
 ## Pest tests for validation
 
-Write at least one feature test per input class that asserts the happy path returns 201/200, and one per validation rule that asserts 422 with the correct field in `details`.
+Write at least one feature test per request that asserts the happy path returns 201/200, and one per validation rule that asserts 422 with the correct field in `details`.
 
 ```php
 // tests/Feature/Companies/CreateCompanyTest.php
 use App\Domains\Companies\Models\Company;
 
 it('creates a company with valid input', function () {
-    $user = loginAsOperator();   // helper that actingAs + sets workspace scope
+    $user = loginAsOperator();   // helper: actingAs + sets workspace scope
 
     $response = $this->postJson('/api/v1/companies', [
         'name'     => 'Acme Corp',
@@ -273,7 +204,7 @@ it('creates a company with valid input', function () {
 });
 
 it('rejects an invalid industry value', function () {
-    $user = loginAsOperator();
+    loginAsOperator();
 
     $response = $this->postJson('/api/v1/companies', [
         'name'     => 'Acme Corp',
@@ -299,14 +230,24 @@ it('rejects a duplicate domain within the same workspace', function () {
         ->assertJsonPath('code', 'VALIDATION_FAILED')
         ->assertJsonStructure(['details' => ['domain']]);
 });
+
+it('requires name and industry', function () {
+    loginAsOperator();
+
+    $this->postJson('/api/v1/companies', [])
+        ->assertStatus(422)
+        ->assertJsonPath('code', 'VALIDATION_FAILED')
+        ->assertJsonStructure(['details' => ['name', 'industry']]);
+});
 ```
 
 ## Anti-patterns
 
-- **Returning a model from the controller instead of a Data object.** The validation class and the presenter are one class — call `CompanyData::fromModel($company)` before returning. Never return an Eloquent model or a plain array.
-- **Using `request()->validate()` or `$request->validate()` inside a controller.** Type-hint the Data class parameter instead. The controller body never calls `validate()`.
-- **Hand-editing `packages/contracts/src/generated.ts`.** The file is generated by `php artisan typescript:transform`. Any manual edit is overwritten on the next run. If the emitted type is wrong, fix the PHP Data class.
-- **Skipping `#[TypeScript]` on input Data classes.** The frontend needs the input type for typed form submissions. Add the attribute to every public-facing input class.
-- **Using `Form::old()` / session flashing for API validation errors.** This is a JSON API — validation errors go in the response body as `details`, not in the session.
-- **Duplicating rules between an input Data class and a FormRequest for the same endpoint.** Pick one. Use the Data class by default; use FormRequest only when the input can't be expressed as a constructor-parameter Data class (file uploads, deeply imperative logic).
+- **Calling `$request->validate()` or `request()->validate()` inside a controller body.** Type-hint the FormRequest as the controller parameter instead. Validation runs before the controller body — never duplicate it inside the method.
+- **Returning a raw model or array from the controller.** The controller always returns a `CompanyResource` (or collection); `$request->validated()` feeds the action, and the action returns a model that is then wrapped by the Resource.
+- **Accessing `$request->all()` or `$request->input()` without going through `validated()` first.** Use `$request->validated()` to get only the declared, clean keys. Raw access bypasses the declared rules.
+- **Skipping `authorize()`.** The method must return `true` or delegate to a Policy. An empty `return true;` is acceptable only when authorization is handled exclusively by `#[Authorize]` on the controller method — document which approach is in use.
+- **Duplicating rules between a FormRequest and an inline `validate()` call for the same endpoint.** There must be exactly one place where an endpoint's rules are declared.
 - **Catching `ValidationException` in the controller.** Let it propagate to the global handler in `references/error-handling.md`, which normalises it into the error envelope.
+- **Using `Form::old()` / session flashing for API validation errors.** This is a JSON API — validation errors go in the response body as `details`, not in the session.
+- **Putting domain-limit logic inside `rules()`.** Business-rule violations (quota exceeded, duplicate slug within a tenant) belong in the action/service as a `DomainException`, not as a Closure rule in the FormRequest.

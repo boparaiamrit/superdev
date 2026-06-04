@@ -1,6 +1,6 @@
 # Scaffolding `apps/api`
 
-Run this in Phase 3, after `references/monorepo-setup.md` has set up the workspace and `packages/contracts`. Goal: a Laravel 13 app booting on CockroachDB via the stock `pgsql` driver, database-backed cache and sessions, SQS queue connection, Sanctum auth, and `/api/v1/health` returning green.
+Run this in Phase 3, after `references/monorepo-setup.md` has set up the workspace and `packages/contracts`. Goal: a Laravel 13 app booting on PostgreSQL + TimescaleDB via the stock `pgsql` driver, database-backed cache and sessions, SQS queue connection, Sanctum auth, and `/api/v1/health` returning green.
 
 ## Step 1 — Create the app
 
@@ -15,7 +15,7 @@ laravel new apps/api \
 
 `--no-starter-kit` gives a clean API app with no Blade/Livewire. PHP 8.3+ is required for Laravel 13.x and the `#[Authorize]` / `#[Audit]` attribute patterns.
 
-> **Monorepo note:** When this skill runs inside the `prd-design-build-orchestrator`, the `docker-compose.yml` lives at the **monorepo root**. The `monorepo-bootstrapper` agent owns it. `apps/api` is a plain `composer.json` project — it is **not** a pnpm workspace package. See `references/monorepo-setup.md` for the Turbo wiring and the CockroachDB Compose service.
+> **Monorepo note:** When this skill runs inside the `prd-design-build-orchestrator`, the `docker-compose.yml` lives at the **monorepo root**. The `monorepo-bootstrapper` agent owns it. `apps/api` is a plain `composer.json` project — it is **not** a pnpm workspace package. See `references/monorepo-setup.md` for the Turbo wiring and the Postgres+TimescaleDB Compose service.
 
 ## Step 2 — Install runtime dependencies
 
@@ -24,14 +24,10 @@ cd apps/api
 
 # Core stack
 composer require \
-  spatie/laravel-data \
-  spatie/laravel-typescript-transformer \
   laravel/sanctum \
   spatie/laravel-permission \
   aws/aws-sdk-php
 
-# Verify versions support Laravel 13 (adjust majors if a newer release is available)
-# spatie/laravel-data ^4, spatie/laravel-typescript-transformer ^3.2
 # spatie/laravel-permission ^8, aws/aws-sdk-php ^3
 ```
 
@@ -52,9 +48,9 @@ Publish vendor configs needed at boot:
 ```bash
 php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
 php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
-php artisan vendor:publish --provider="Spatie\LaravelData\LaravelDataServiceProvider"
-php artisan vendor:publish --tag=typescript-transformer-config
 ```
+
+No code-generation pipeline to set up. API shapes are hand-written `JsonResource` classes; TS contracts are hand-written in `packages/contracts/src/<feature>.ts` (decoupled Next.js) or `resources/js/types/` (Inertia). See `references/api-resources.md`.
 
 ## Step 3 — Laravel Boost (AI tooling)
 
@@ -95,17 +91,16 @@ APP_URL=http://localhost:8000
 LOG_CHANNEL=stderr
 LOG_LEVEL=debug
 
-# CockroachDB serverless (stock pgsql driver — no third-party package)
-# Full DSN carries the cluster routing id and SSL cert path:
-#   postgresql://user:pass@<cluster>.cockroachlabs.cloud:26257/<cluster-name>.defaultdb?sslmode=verify-full&sslrootcert=/path/to/ca.crt
+# PostgreSQL + TimescaleDB (stock pgsql driver — host must support the TimescaleDB extension)
+# Timescale Cloud or self-managed Postgres+Timescale reachable over the public internet.
+# Neon is NOT a target for this tier (no compression/TSL support).
 DATABASE_URL=CHANGE_ME
-DB_HOST=localhost
-DB_PORT=26257
-DB_DATABASE=defaultdb
-DB_USERNAME=root
-DB_PASSWORD=
-DB_SSLMODE=verify-full
-# DB_SSLROOTCERT=/path/to/ca.crt   # path to the CockroachDB CA cert (serverless)
+DB_HOST=CHANGE_ME
+DB_PORT=5432
+DB_DATABASE=CHANGE_ME
+DB_USERNAME=CHANGE_ME
+DB_PASSWORD=CHANGE_ME
+DB_SSLMODE=require                    # managed host over the public internet
 
 # Cache — database-backed (no Redis)
 CACHE_STORE=database
@@ -133,9 +128,9 @@ SANCTUM_STATEFUL_DOMAINS=localhost,localhost:3000
 
 No `REDIS_*` variables. Cache and sessions are database-backed; the queue driver is SQS.
 
-## Step 5 — `config/database.php` — CockroachDB connection
+## Step 5 — `config/database.php` — PostgreSQL + TimescaleDB connection
 
-Edit the `pgsql` connection block in `config/database.php` to match CockroachDB's defaults. No third-party package:
+Edit the `pgsql` connection block in `config/database.php`. TimescaleDB is an extension on top of standard Postgres — no third-party driver package required:
 
 ```php
 // config/database.php — 'connections' => [ 'pgsql' => [...] ]
@@ -143,22 +138,17 @@ Edit the `pgsql` connection block in `config/database.php` to match CockroachDB'
     'driver'         => 'pgsql',
     'url'            => env('DATABASE_URL'),
     'host'           => env('DB_HOST', '127.0.0.1'),
-    'port'           => env('DB_PORT', '26257'),           // CockroachDB default
-    'database'       => env('DB_DATABASE', 'defaultdb'),
+    'port'           => env('DB_PORT', '5432'),
+    'database'       => env('DB_DATABASE'),
     'username'       => env('DB_USERNAME'),
     'password'       => env('DB_PASSWORD'),
     'charset'        => 'utf8',
-    'prefix'         => '',
-    'prefix_indexes' => true,
     'search_path'    => 'public',
-    'sslmode'        => env('DB_SSLMODE', 'verify-full'),
-    'options'        => array_filter([
-        \PDO::PGSQL_ATTR_DISABLE_PREPARES => true,        // safer under CockroachDB pooling
-    ]),
+    'sslmode'        => env('DB_SSLMODE', 'require'),   // managed host over the public internet
 ],
 ```
 
-The `DATABASE_URL` carries the cluster routing id and `sslrootcert` query param for CockroachDB serverless; no additional driver is required. See `references/cockroachdb-eloquent.md` for UUID primary keys, the 40001 serialization-retry wrapper, and additive-migration discipline.
+Standard Postgres semantics apply: sequences, joins, `SKIP LOCKED`, real transactions all work. See `references/postgres-timescale-eloquent.md` for UUID primary keys, hypertable migrations, and the reference-field model.
 
 ## Step 6 — `bootstrap/app.php` — middleware and exception handling
 
@@ -230,7 +220,7 @@ Edit `config/queue.php` to confirm the SQS driver block is present and reads fro
 
 ## Step 8 — Cache and session tables
 
-Create the database-backed cache and session tables (they live in CockroachDB alongside your application data):
+Create the database-backed cache and session tables (they live in PostgreSQL alongside your application data):
 
 ```bash
 php artisan make:cache-table
@@ -254,15 +244,35 @@ Confirm `config/session.php`:
 
 No Redis dependency. For cache invalidation: use explicit keyed deletes or cache tags with a database tag store — the Redis `SCAN`/wildcard delete pattern does not apply here. See `references/db-cache-sessions.md` for TTL and locking notes.
 
-## Step 9 — UUID primary keys base migration
+## Step 9 — Enable TimescaleDB + base migrations
 
-Every tenant-scoped table uses a UUID primary key generated server-side by CockroachDB's `gen_random_uuid()`. No `SEQUENCE`/auto-increment. Create a baseline migration for the `users` table (replace the default Laravel migration):
+The first migration enables the TimescaleDB extension. The host must support it — use Timescale Cloud or a self-managed Postgres instance with the extension installed. (Neon is not a target for this tier.)
 
 ```php
-// database/migrations/0001_01_01_000000_create_users_table.php
+// database/migrations/0001_01_01_000000_enable_timescaledb.php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        DB::statement('CREATE EXTENSION IF NOT EXISTS timescaledb');
+    }
+
+    public function down(): void
+    {
+        // Intentionally left empty — removing the extension drops all hypertables.
+    }
+};
+```
+
+Next, create the `users` table. UUID PKs are the preferred style (`HasUuids` trait fills the column server-side via PHP); Postgres sequences are available if a feature needs them:
+
+```php
+// database/migrations/0001_01_01_000001_create_users_table.php
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -270,8 +280,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
-            $table->uuid('workspace_id')->index();     // reference column — no FK constraint (D9)
+            $table->uuid('id')->primary();              // HasUuids trait fills this
+            $table->uuid('workspace_id')->index();      // reference column — no FK constraint (D5)
             $table->string('name');
             $table->string('email')->unique();
             $table->string('password');
@@ -280,7 +290,7 @@ return new class extends Migration
         });
 
         Schema::create('personal_access_tokens', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->uuidMorphs('tokenable');
             $table->string('name');
             $table->string('token', 64)->unique();
@@ -299,34 +309,25 @@ return new class extends Migration
 };
 ```
 
-The reusable trait for every tenant model:
+The reusable concern for every tenant model (uses Laravel's built-in `HasUuids`):
 
 ```php
-// app/Concerns/HasUuidPrimaryKey.php
+// app/Concerns/HasUuids.php  — re-export or use Illuminate\Database\Eloquent\Concerns\HasUuids directly
 namespace App\Concerns;
 
-trait HasUuidPrimaryKey
-{
-    public $incrementing = false;
-    protected $keyType = 'string';
-}
-```
-
-Apply it in every model:
-
-```php
-// app/Models/User.php (excerpt)
-use App\Concerns\HasUuidPrimaryKey;
+// Preferred: use Laravel's built-in trait on each model rather than wrapping it.
+// app/Models/User.php excerpt:
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Concerns\BelongsToWorkspace;
 
 class User extends Authenticatable
 {
-    use HasUuidPrimaryKey, BelongsToWorkspace;
+    use HasUuids, BelongsToWorkspace;
     // ...
 }
 ```
 
-See `references/cockroachdb-eloquent.md` for the full UUID-PK pattern and the 40001 serialization-retry wrapper you must apply around writes.
+See `references/postgres-timescale-eloquent.md` for the full UUID-PK preference, reference-field migrations (no FK constraints), and hypertable patterns.
 
 ## Step 10 — `routes/api.php` — v1 prefix and health endpoint
 
@@ -365,48 +366,15 @@ Route::prefix('v1')->group(function () {
 
 Every authenticated route group wraps `auth:sanctum`. All endpoints must carry `#[Authorize]` — see `references/auth-sanctum-permissions.md`.
 
-## Step 11 — `config/typescript-transformer.php`
+## Step 11 — Boot verify
 
-Point the TS emit at the shared contracts package so the Next.js frontend gets the generated types:
-
-```php
-// config/typescript-transformer.php (published by the package)
-return [
-    'auto_discover_types' => [
-        app_path(),
-    ],
-    'collectors' => [
-        Spatie\LaravelData\Support\TypeScriptTransformer\DataTypeScriptCollector::class,
-    ],
-    'transformers' => [
-        Spatie\LaravelData\Support\TypeScriptTransformer\DataTypeScriptTransformer::class,
-    ],
-    // Emit into the monorepo shared contracts package consumed by apps/web
-    'output_file' => base_path('../../packages/contracts/src/generated.ts'),
-    'writer'      => Spatie\TypeScriptTransformer\Writers\TypeDefinitionWriter::class,
-];
-```
-
-Run the transform whenever a Data class changes:
-
-```bash
-php artisan typescript:transform
-```
-
-This is wired into the Turbo `contracts` task so it runs automatically before `apps/web` builds. See `references/monorepo-setup.md` for the Turbo task definition and `references/laravel-data-contracts.md` for the Data-as-presenter pattern.
-
-## Step 12 — Boot verify
-
-Copy `.env.example` to `.env` and fill in your CockroachDB DSN and AWS credentials, then:
+Copy `.env.example` to `.env` and fill in your PostgreSQL DSN and AWS credentials, then:
 
 ```bash
 php artisan key:generate
 
-# Run migrations (creates cache, session, users, personal_access_tokens tables)
+# Run migrations (enables TimescaleDB extension, creates users, cache, session tables)
 php artisan migrate
-
-# Confirm the transform can find Data classes (empty output is fine at this stage)
-php artisan typescript:transform
 
 # Start the dev server
 php artisan serve
@@ -435,46 +403,49 @@ apps/api/
 ├── composer.json
 ├── composer.lock
 ├── .env                         ← local only; never committed
-├── .env.example                 ← committed; CockroachDB DSN, db cache/sessions, sqs
+├── .env.example                 ← committed; Postgres+TimescaleDB DSN, db cache/sessions, sqs
 ├── bootstrap/
 │   ├── app.php                  ← ResolveWorkspace middleware, exception renders
 │   └── providers.php
 ├── config/
-│   ├── database.php             ← pgsql block tuned for CockroachDB (port 26257, sslmode)
+│   ├── database.php             ← pgsql block (standard Postgres port 5432, sslmode)
 │   ├── cache.php                ← default: database
 │   ├── session.php              ← driver: database
-│   ├── queue.php                ← sqs block
-│   └── typescript-transformer.php   ← output_file → packages/contracts/src/generated.ts
+│   └── queue.php                ← sqs block
 ├── database/
 │   ├── migrations/
-│   │   ├── 0001_01_01_000000_create_users_table.php   ← UUID PK, workspace_id ref col
+│   │   ├── 0001_01_01_000000_enable_timescaledb.php  ← CREATE EXTENSION IF NOT EXISTS timescaledb
+│   │   ├── 0001_01_01_000001_create_users_table.php  ← UUID PK (HasUuids), workspace_id ref col
 │   │   ├── <timestamp>_create_cache_table.php
 │   │   └── <timestamp>_create_sessions_table.php
 │   ├── factories/
 │   └── seeders/
 ├── routes/
 │   ├── api.php                  ← v1 prefix, /health, feature routes added in Phase 5
-│   └── console.php              ← scheduler entries (audit prune, etc.)
+│   └── console.php              ← scheduler entries
 ├── app/
 │   ├── Models/
-│   │   └── User.php             ← HasUuidPrimaryKey + BelongsToWorkspace
+│   │   └── User.php             ← HasUuids + BelongsToWorkspace
 │   ├── Http/
-│   │   └── Middleware/
-│   │       └── ResolveWorkspace.php
+│   │   ├── Middleware/
+│   │   │   └── ResolveWorkspace.php
+│   │   └── Resources/           ← JsonResource presenters (one per feature, added in Phase 5)
 │   ├── Concerns/
-│   │   ├── HasUuidPrimaryKey.php
 │   │   └── BelongsToWorkspace.php     ← added in Phase 4
-│   ├── Support/
-│   │   └── CockroachRetry.php         ← added in Phase 4 / 6
 │   ├── Audit/
 │   │   ├── Audit.php                  ← #[Audit] attribute, added in Phase 4
 │   │   └── AuditManager.php           ← added in Phase 4
 │   └── Domains/                       ← feature modules added in Phase 5
 │       └── (Companies/, Contacts/, Deals/, …)
+│           └── Http/
+│               ├── Controllers/
+│               ├── Requests/          ← FormRequest validation
+│               └── Resources/         ← JsonResource presenters
 └── tests/
     ├── Pest.php
     ├── Feature/
-    │   └── WorkspaceIsolationTest.php  ← added in Phase 4
+    │   ├── WorkspaceIsolationTest.php        ← added in Phase 4
+    │   └── <Feature>ContractTest.php         ← locks each Resource to its TS contract shape
     └── Unit/
 ```
 
@@ -482,11 +453,10 @@ apps/api/
 
 | Anti-pattern | Why it breaks the stack |
 |---|---|
-| `composer require ylsideas/cockroachdb-laravel` | Forbidden (D4). Use the stock `pgsql` driver. CockroachDB is Postgres-wire compatible. |
 | `CACHE_STORE=redis` or `SESSION_DRIVER=redis` | No Redis in this stack. Database-backed only; Lambda is stateless and Redis needs a VPC. |
-| `QUEUE_CONNECTION=database` | CockroachDB does not support `SKIP LOCKED`; the DB queue driver relies on it. Use SQS. |
-| `$table->id()` (auto-increment) | CockroachDB sequences are a hotspot. Use `uuid('id')->primary()->default(DB::raw('gen_random_uuid()'))`. |
-| `DB::transaction($cb)` without the retry wrapper | Serialization failures (SQLSTATE 40001) will propagate. Wrap writes with `CockroachRetry::transaction()`. |
-| Returning a raw Eloquent model or `->toArray()` from a controller | Always return a `spatie/laravel-data` Data class. The model is never the public shape. |
-| Hand-editing `packages/contracts/src/generated.ts` | The file is generated by `php artisan typescript:transform`. Edit the Data class; re-run the transform. |
+| `QUEUE_CONNECTION=database` | SQS is the queue driver for the serverless/Bref deploy. Use SQS — `SKIP LOCKED` works on Postgres but a daemon-less Lambda environment needs a managed queue. |
+| `$table->id()` (auto-increment bigint) | Prefer UUID PKs (`HasUuids`) for tenant-scoped tables — consistent with the global scope pattern. Sequences are available when a feature genuinely needs them. |
+| Returning a raw Eloquent model or `->toArray()` from a controller | Always return a `JsonResource` (or `JsonResource::collection()`). Eager-load and `withCount` before passing to the resource. See `references/api-resources.md`. |
+| Hand-editing `packages/contracts/src/<feature>.ts` without updating the Resource | The TS contract is hand-written and kept in lockstep with the `JsonResource::toArray()`. The contract Pest test is the guard — run it after any Resource change. |
+| Omitting `CREATE EXTENSION IF NOT EXISTS timescaledb` in the first migration | `create_hypertable()` calls in later migrations will fail. The extension migration must run first; it is idempotent. |
 | Running `php artisan queue:work` on the server | The queue worker is a separate Bref Lambda (runtime `php-84`) consuming SQS. No daemon. |

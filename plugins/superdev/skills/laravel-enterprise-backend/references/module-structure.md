@@ -9,7 +9,7 @@ apps/api/
 ├── composer.json
 ├── artisan
 ├── serverless.yml              ← added by laravel-bref-deploy skill
-├── docker-compose.yml          ← single-node CockroachDB for local dev
+├── docker-compose.yml          ← Postgres + TimescaleDB for local dev
 ├── database/
 │   └── migrations/             ← one migration file per domain entity
 ├── routes/
@@ -17,8 +17,8 @@ apps/api/
 │   └── console.php             ← scheduler entries (cron expressions live here)
 └── app/
     ├── Audit/                  ← #[Audit] attribute + AuditManager + AuditWrite job
-    ├── Concerns/               ← HasUuidPrimaryKey, BelongsToWorkspace traits
-    ├── Support/                ← CockroachRetry, helpers
+    ├── Concerns/               ← HasUuids, BelongsToWorkspace traits
+    ├── Support/                ← helpers
     ├── Http/
     │   └── Middleware/
     │       └── ResolveWorkspace.php
@@ -37,13 +37,13 @@ app/Audit/
 └── AuditManager.php        ← wraps an action, times it, dispatches AuditWrite to SQS
 ```
 
-The `AuditWrite` job lives in `app/Jobs/AuditWrite.php` (shared, not per-domain). See `references/audit-attribute.md` for the full implementation.
+The `AuditWrite` job lives in `app/Jobs/AuditWrite.php` (shared, not per-domain). It inserts directly into the `audit_logs` hypertable via `DB::table('audit_logs')->insert([...])`. See `references/audit-attribute.md` for the full implementation.
 
 ## `app/Concerns/` — shared model traits
 
 ```
 app/Concerns/
-├── HasUuidPrimaryKey.php   ← $incrementing = false; $keyType = 'string'
+├── HasUuids.php            ← Laravel's built-in HasUuids trait alias (or extend it); UUID PKs as a preference
 └── BelongsToWorkspace.php  ← global scope + creating hook; auto-filters all tenant queries
 ```
 
@@ -56,32 +56,35 @@ Every feature is a self-contained domain module at `app/Domains/<Feature>/` (PSR
 ```
 app/Domains/Companies/
 ├── Models/
-│   └── Company.php             ← Eloquent model; uses HasUuidPrimaryKey + BelongsToWorkspace
+│   └── Company.php                     ← Eloquent model; uses HasUuids + BelongsToWorkspace
 ├── Enums/
-│   └── Industry.php            ← PHP 8.1 string-backed Title Case enum
-├── Data/
-│   ├── CompanyData.php         ← view-shape presenter (spatie/laravel-data); also the TS contract
-│   ├── CompanyCountsData.php   ← nested data object (counts always present, never null)
-│   ├── CreateCompanyData.php   ← input data class with validation() rules
-│   └── UpdateCompanyData.php   ← input data class (partial update)
-├── Actions/                    ← (or Services/ — choose one per domain, be consistent)
-│   ├── CreateCompany.php       ← single-responsibility action; wraps AuditManager::run()
+│   └── Industry.php                    ← PHP 8.1 string-backed Title Case enum
+├── Http/
+│   ├── Resources/
+│   │   └── CompanyResource.php         ← API Resource presenter (JsonResource); the view-shape contract
+│   ├── Requests/
+│   │   ├── CreateCompanyRequest.php    ← FormRequest; rules() + authorize()
+│   │   └── UpdateCompanyRequest.php    ← FormRequest (partial update)
+│   └── Controllers/
+│       └── CompanyController.php       ← thin; delegates to Action/Service; #[Authorize] on every method
+├── Actions/                            ← (or Services/ — choose one per domain, be consistent)
+│   ├── CreateCompany.php               ← single-responsibility action; wraps AuditManager::run()
 │   ├── UpdateCompany.php
 │   └── DeleteCompany.php
-├── Http/
-│   ├── Controllers/
-│   │   └── CompanyController.php   ← thin; delegates to Action/Service; #[Authorize] on every method
-│   └── Requests/
-│       └── (FormRequest subclasses if validation() on Data classes is insufficient)
 ├── Policies/
-│   └── CompanyPolicy.php       ← can(), update(), delete() — workspace condition lives here
+│   └── CompanyPolicy.php               ← can(), update(), delete() — workspace condition lives here
 ├── Jobs/
 │   └── (feature-specific background jobs, e.g. SendCompanyWelcomeEmail.php)
 └── Tests/
-    ├── CompanyDataTest.php     ← unit: no-null view-shape, correct counts, ISO dates
-    ├── CompanyActionTest.php   ← unit: action happy path + 40001 retry trigger
-    └── CompanyFeatureTest.php  ← feature: cross-workspace 404, authz-negative, CRUD happy path
+    ├── CompanyContractTest.php         ← contract: Resource toArray() matches documented TS shape
+    ├── CompanyActionTest.php           ← unit: action happy path
+    └── CompanyFeatureTest.php          ← feature: cross-workspace 404, authz-negative, CRUD happy path
 ```
+
+The hand-written TS contract lives outside the domain:
+
+- **Decoupled Next.js:** `packages/contracts/src/companies.ts`
+- **Inertia:** `resources/js/types/companies.ts`
 
 ### `Models/Company.php`
 
@@ -89,15 +92,15 @@ app/Domains/Companies/
 // app/Domains/Companies/Models/Company.php
 namespace App\Domains\Companies\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Concerns\HasUuidPrimaryKey;
 use App\Concerns\BelongsToWorkspace;
 use App\Domains\Companies\Enums\Industry;
 
 class Company extends Model
 {
-    use HasFactory, HasUuidPrimaryKey, BelongsToWorkspace;
+    use HasFactory, HasUuids, BelongsToWorkspace;
 
     protected $fillable = ['name', 'domain', 'industry', 'workspace_id'];
 
@@ -108,7 +111,7 @@ class Company extends Model
         ];
     }
 
-    // Relationships: plain reference columns — no FK constraints (D9)
+    // Relationships: plain reference columns — no FK constraints (D5)
     public function contacts()
     {
         return $this->hasMany(\App\Domains\Contacts\Models\Contact::class, 'company_id');
@@ -116,15 +119,14 @@ class Company extends Model
 }
 ```
 
+UUID PKs are a preference (`HasUuids`), not a constraint; real Postgres sequences are available if a feature wants them.
+
 ### `Enums/Industry.php`
 
 ```php
 // app/Domains/Companies/Enums/Industry.php
 namespace App\Domains\Companies\Enums;
 
-use Spatie\TypeScriptTransformer\Attributes\TypeScript;
-
-#[TypeScript]
 enum Industry: string
 {
     case Technology = 'Technology';
@@ -135,81 +137,66 @@ enum Industry: string
 }
 ```
 
-DB column is STRING (not a native PG enum type). Value = wire value = UI label; zero conversion code. See `references/enums-title-case.md`.
+DB column is a plain string (not a native PG enum type). Value = wire value = UI label; zero conversion code. The hand-written TS union mirrors these values exactly. See `references/enums-title-case.md`.
 
-### `Data/CompanyData.php`
+### `Http/Resources/CompanyResource.php`
 
 ```php
-// app/Domains/Companies/Data/CompanyData.php
-namespace App\Domains\Companies\Data;
+// app/Domains/Companies/Http/Resources/CompanyResource.php
+namespace App\Domains\Companies\Http\Resources;
 
-use Spatie\LaravelData\Data;
-use Spatie\TypeScriptTransformer\Attributes\TypeScript;
-use App\Domains\Companies\Enums\Industry;
-use App\Domains\Companies\Models\Company;
+use Illuminate\Http\Resources\Json\JsonResource;
 
-#[TypeScript]
-class CompanyData extends Data
+class CompanyResource extends JsonResource
 {
-    public function __construct(
-        public string  $id,
-        public string  $name,
-        public ?string $domain,              // nullable is explicit; never "missing"
-        public Industry $industry,
-        public CompanyCountsData $counts,    // always present — defaults to 0 server-side
-        public string  $created_at,          // ISO 8601 string, never Carbon object
-        public string  $updated_at,
-    ) {}
-
-    public static function fromModel(Company $company): self
+    public function toArray($request): array
     {
-        return new self(
-            id:         $company->id,
-            name:       $company->name,
-            domain:     $company->domain,
-            industry:   $company->industry,
-            counts: new CompanyCountsData(
-                contacts:    (int) ($company->contacts_count ?? 0),
-                open_leads:  (int) ($company->open_leads_count ?? 0),
-                won_deals:   (int) ($company->won_deals_count ?? 0),
-            ),
-            created_at: $company->created_at->toIso8601String(),
-            updated_at: $company->updated_at->toIso8601String(),
-        );
+        return [
+            'id'            => $this->id,
+            'name'          => $this->name,
+            'domain'        => $this->domain,                      // nullable explicit, never omitted
+            'industry'      => $this->industry,                    // Title-Case enum value = label
+            'counts'        => [
+                'contacts'   => (int) ($this->contacts_count ?? 0),   // withCount(); default 0
+                'open_leads' => (int) ($this->open_leads_count ?? 0),
+            ],
+            'last_activity' => $this->lastActivityPayload(),      // discriminated union { kind, ... }
+            'created_at'    => $this->created_at->toIso8601String(),
+            'updated_at'    => $this->updated_at->toIso8601String(),
+        ];
     }
 }
 ```
 
-`php artisan typescript:transform` emits this class into `packages/contracts/src/generated.ts` as a TypeScript interface. See `references/laravel-data-contracts.md`.
+Rule (same view-shape discipline as Nest's presenter): exhaustive fields, counts default 0, discriminated unions for variants, ISO dates, nullable explicit — so the frontend never needs `?.`/`??`.
 
-### `Data/CreateCompanyData.php`
+### `Http/Requests/CreateCompanyRequest.php`
 
 ```php
-// app/Domains/Companies/Data/CreateCompanyData.php
-namespace App\Domains\Companies\Data;
+// app/Domains/Companies/Http/Requests/CreateCompanyRequest.php
+namespace App\Domains\Companies\Http\Requests;
 
-use Spatie\LaravelData\Data;
-use Spatie\LaravelData\Attributes\Validation\Required;
-use Spatie\LaravelData\Attributes\Validation\StringType;
-use Spatie\LaravelData\Attributes\Validation\MaxLength;
+use Illuminate\Foundation\Http\FormRequest;
 use App\Domains\Companies\Enums\Industry;
+use Illuminate\Validation\Rules\Enum;
 
-class CreateCompanyData extends Data
+class CreateCompanyRequest extends FormRequest
 {
-    public function __construct(
-        #[Required, StringType, MaxLength(255)]
-        public string   $name,
+    public function authorize(): bool
+    {
+        return true; // #[Authorize] on the controller method handles the policy check
+    }
 
-        #[StringType, MaxLength(255)]
-        public ?string  $domain,
-
-        #[Required]
-        public Industry $industry,
-    ) {}
+    public function rules(): array
+    {
+        return [
+            'name'     => ['required', 'string', 'max:255'],
+            'domain'   => ['nullable', 'string', 'max:255'],
+            'industry' => ['required', new Enum(Industry::class)],
+        ];
+    }
 }
 ```
-
-One class is the input shape, the validation rules, and the TypeScript type. See `references/validation.md`.
 
 ### `Actions/CreateCompany.php`
 
@@ -218,28 +205,25 @@ One class is the input shape, the validation rules, and the TypeScript type. See
 namespace App\Domains\Companies\Actions;
 
 use App\Audit\AuditManager;
-use App\Domains\Companies\Data\CompanyData;
-use App\Domains\Companies\Data\CreateCompanyData;
+use App\Domains\Companies\Http\Resources\CompanyResource;
+use App\Domains\Companies\Http\Requests\CreateCompanyRequest;
 use App\Domains\Companies\Models\Company;
-use App\Support\CockroachRetry;
 
 final class CreateCompany
 {
     public function __construct(private AuditManager $audit) {}
 
-    public function handle(CreateCompanyData $input): CompanyData
+    public function handle(CreateCompanyRequest $request): CompanyResource
     {
-        return $this->audit->run('company.create', 'Company', function () use ($input) {
-            $company = CockroachRetry::transaction(
-                fn () => Company::create($input->toArray())
-            );
-            return CompanyData::fromModel($company->loadCount(['contacts']));
+        return $this->audit->run('company.create', 'Company', function () use ($request) {
+            $company = Company::create($request->validated());
+            return new CompanyResource($company->loadCount(['contacts']));
         });
     }
 }
 ```
 
-Every mutation goes through `AuditManager::run()`. Every write inside a transaction goes through `CockroachRetry::transaction()`. See `references/audit-attribute.md` and `references/cockroachdb-eloquent.md`.
+Every mutation goes through `AuditManager::run()`. Standard Postgres transactions work normally — no retry wrapper needed. See `references/audit-attribute.md`.
 
 ### `Http/Controllers/CompanyController.php`
 
@@ -250,43 +234,40 @@ namespace App\Domains\Companies\Http\Controllers;
 use App\Domains\Companies\Actions\CreateCompany;
 use App\Domains\Companies\Actions\UpdateCompany;
 use App\Domains\Companies\Actions\DeleteCompany;
-use App\Domains\Companies\Data\CompanyData;
-use App\Domains\Companies\Data\CreateCompanyData;
-use App\Domains\Companies\Data\UpdateCompanyData;
+use App\Domains\Companies\Http\Requests\CreateCompanyRequest;
+use App\Domains\Companies\Http\Requests\UpdateCompanyRequest;
+use App\Domains\Companies\Http\Resources\CompanyResource;
 use App\Domains\Companies\Models\Company;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Attributes\Controllers\Authorize;
-use Spatie\LaravelData\PaginatedDataCollection;
 
 class CompanyController
 {
     #[Authorize('viewAny', Company::class)]
-    public function index(Request $request)
+    public function index()
     {
-        return CompanyData::collect(
+        return CompanyResource::collection(
             Company::query()
-                ->withCount(['contacts', 'openLeads as open_leads_count', 'wonDeals as won_deals_count'])
-                ->paginate(),
-            PaginatedDataCollection::class,
+                ->withCount(['contacts', 'leads as open_leads_count'])
+                ->paginate()
         );
     }
 
     #[Authorize('view', 'company')]
     public function show(Company $company)
     {
-        return CompanyData::fromModel($company->loadCount(['contacts']));
+        return new CompanyResource($company->loadCount(['contacts']));
     }
 
     #[Authorize('create', Company::class)]
-    public function store(CreateCompanyData $input, CreateCompany $action)
+    public function store(CreateCompanyRequest $request, CreateCompany $action)
     {
-        return $action->handle($input);
+        return $action->handle($request);
     }
 
     #[Authorize('update', 'company')]
-    public function update(UpdateCompanyData $input, Company $company, UpdateCompany $action)
+    public function update(UpdateCompanyRequest $request, Company $company, UpdateCompany $action)
     {
-        return $action->handle($input, $company);
+        return $action->handle($request, $company);
     }
 
     #[Authorize('delete', 'company')]
@@ -301,9 +282,9 @@ class CompanyController
 Controllers stay thin:
 - Authenticate (via `auth:sanctum` middleware in `routes/api.php`)
 - Authorize (via `#[Authorize]` on every method — no exceptions)
-- Validate (via laravel-data input class injection)
+- Validate (via FormRequest injection — Laravel resolves it before the method runs)
 - Delegate to Action/Service
-- Return Data class or `noContent()`
+- Return Resource or `noContent()`
 
 No conditionals, no transformations, no direct DB calls.
 
@@ -348,6 +329,42 @@ class CompanyPolicy
 
 Roles are an input; the Policy resolves the answer. `spatie/laravel-permission` provides the role→permission mapping in the DB. See `references/auth-sanctum-permissions.md`.
 
+## Hand-written TS contract + contract test
+
+There is no codegen pipeline. The TS type is authored by hand and kept in lockstep with the Resource; the Pest contract test is the guard.
+
+```ts
+// packages/contracts/src/companies.ts  (decoupled Next.js)
+// resources/js/types/companies.ts      (Inertia)
+export type Industry = 'Technology' | 'Healthcare' | 'Finance' | 'Logistics' | 'Other'
+
+export interface CompanyView {
+  id: string
+  name: string
+  domain: string | null
+  industry: Industry
+  counts: { contacts: number; open_leads: number }
+  last_activity: { kind: 'None' } | { kind: 'Email Sent'; at: string; label: string }
+  created_at: string
+  updated_at: string
+}
+```
+
+```php
+// tests/Feature/CompanyContractTest.php (Pest) — locks the Resource to the documented contract
+it('CompanyResource matches the published contract shape', function () {
+    $company = Company::factory()->create();
+    $array = (new CompanyResource($company->loadCount('contacts')))->toArray(request());
+
+    expect($array)->toHaveKeys(['id','name','domain','industry','counts','last_activity','created_at','updated_at'])
+        ->and($array['counts']['contacts'])->toBeInt()
+        ->and($array['last_activity']['kind'])->toBeString();
+    expect(json_encode($array))->not->toContain('null,'); // spot-check required fields aren't null
+});
+```
+
+See `references/api-resources.md` for the full Resource + contract test patterns.
+
 ## `routes/api.php` — wiring the controller
 
 ```php
@@ -377,57 +394,73 @@ database/migrations/
 ├── 2026_06_01_000001_create_workspaces_table.php
 ├── 2026_06_01_000002_create_companies_table.php
 ├── 2026_06_01_000003_create_contacts_table.php
-└── 2026_06_01_000004_create_audit_logs_table.php   ← RANGE-partitioned; see audit-attribute.md
+└── 2026_06_01_000004_create_audit_logs_table.php   ← TimescaleDB hypertable; see audit-attribute.md
 ```
 
-All migrations are additive only. Never `ALTER COLUMN TYPE` on a column with an index or constraint. UUID PKs use `gen_random_uuid()` default. No foreign-key constraints — reference columns only (D9). See `references/cockroachdb-eloquent.md`.
+UUID PKs use Laravel's `HasUuids` trait (preference, not a constraint — Postgres sequences are also available). No foreign-key constraints — reference columns only (D5). See `references/postgres-timescale-eloquent.md`.
+
+Example migration for a reference-field table:
+
+```php
+Schema::create('companies', function (Blueprint $table) {
+    $table->uuid('id')->primary();                 // HasUuids fills it; sequences available too
+    $table->uuid('workspace_id')->index();         // reference column — NO ->constrained(), NO cascade
+    $table->string('name');
+    $table->string('domain')->nullable();
+    $table->string('industry');                    // plain string column; PHP enum handles casting
+    $table->timestampsTz();
+});
+```
 
 ## Canonical per-module build order (Phase 5)
 
 Work through each feature in this exact order. Each step depends on the previous.
 
 ```
-1. Data class (contract + presenter)
-   → CompanyData.php, CompanyCountsData.php
-   → CreateCompanyData.php, UpdateCompanyData.php
-   These are written first because they define the contract shape that migrations
-   and the frontend will consume. Run php artisan typescript:transform after each
-   Data class to catch transformer errors early.
-
-2. Migration
+1. Migration
    → database/migrations/YYYY_MM_DD_HHMMSS_create_companies_table.php
-   UUID PK with gen_random_uuid() default; workspace_id reference column (no FK);
-   STRING column for enum fields; timestampsTz().
+   UUID PK (HasUuids preference); workspace_id reference column (no FK);
+   string column for enum fields; timestampsTz().
 
-3. Model + enum casts
-   → Models/Company.php (HasUuidPrimaryKey, BelongsToWorkspace, casts())
+2. Model + enum casts
+   → Models/Company.php (HasUuids, BelongsToWorkspace, casts())
    → Enums/Industry.php (Title Case string-backed enum)
    Wire casts() to the enum. Verify factory generates a UUID (not an int).
 
-4. Action/Service + AuditManager
-   → Actions/CreateCompany.php, UpdateCompany.php, DeleteCompany.php
-   Every write wraps CockroachRetry::transaction(); every action wraps AuditManager::run().
-   List/show read-paths live in the controller (delegate to Eloquent directly or a
-   dedicated query class) — no AuditManager needed for reads.
+3. Http/Resources (presenter) + hand-written TS contract
+   → Http/Resources/CompanyResource.php
+   Exhaustive toArray(): every field explicit, counts default 0, ISO dates,
+   discriminated union for variants. No optional/missing keys.
+   → packages/contracts/src/companies.ts  (decoupled)
+   → resources/js/types/companies.ts      (Inertia)
+   The TS is authored by hand; the contract test (step 7) is the guard.
 
-5. Controller + #[Authorize]
+4. FormRequests (validation)
+   → Http/Requests/CreateCompanyRequest.php
+   → Http/Requests/UpdateCompanyRequest.php
+   rules() for each input shape; authorize() returns true (policy in controller).
+
+5. Action/Service + AuditManager
+   → Actions/CreateCompany.php, UpdateCompany.php, DeleteCompany.php
+   Every mutation wraps AuditManager::run(). List/show read-paths live in the
+   controller (Eloquent with withCount() + withCount()) — no AuditManager for reads.
+
+6. Controller + #[Authorize]
    → Http/Controllers/CompanyController.php
    Thin delegate; #[Authorize] on EVERY method. No conditionals.
    → Policies/CompanyPolicy.php
-   Register the policy in AuthServiceProvider (or Laravel 13 auto-discovery).
+   Register in AuthServiceProvider (or Laravel 13 auto-discovery).
 
-6. Route entry
+7. Route entry
    → routes/api.php — append Route::apiResource(...)
    One line. Edit, not rewrite.
 
-7. Pest tests
-   → Tests/CompanyDataTest.php   (no-null view-shape + correct type assertions)
-   → Tests/CompanyActionTest.php (action happy path + 40001 retry)
-   → Tests/CompanyFeatureTest.php (cross-workspace 404, authz-negative, CRUD)
+8. Pest tests
+   → Tests/CompanyContractTest.php  (Resource toArray() matches TS contract shape; no-null)
+   → Tests/CompanyActionTest.php    (action happy path)
+   → Tests/CompanyFeatureTest.php   (cross-workspace 404, authz-negative, CRUD happy path)
    Run: php artisan test --filter=Company
 ```
-
-The contracts (`packages/contracts/src/generated.ts`) are regenerated by running `php artisan typescript:transform` after step 1 (and again after any Data class change). Never hand-edit the generated file.
 
 ## One agent = one `Domains/<Feature>/` folder
 
@@ -435,10 +468,10 @@ Each `laravel-module-builder` agent invocation owns exactly one `app/Domains/<Fe
 
 - Appends a single `Route::apiResource(...)` line to `routes/api.php`.
 - Does **not** touch any other feature's folder, migration, or routes.
-- Does **not** hand-author TypeScript — it runs `php artisan typescript:transform`.
+- Authors the hand-written TS contract file for its feature only.
 - Reports the files created and the route line added.
 
-Multiple features are built in parallel waves: independent domains in the same wave; domains that depend on another domain's Data class in a subsequent wave.
+Multiple features are built in parallel waves: independent domains in the same wave; domains that depend on another domain's model in a subsequent wave.
 
 ## Naming conventions
 
@@ -449,35 +482,45 @@ Multiple features are built in parallel waves: independent domains in the same w
 | Model class | PascalCase singular | `Company` |
 | Controller | `<Entity>Controller` | `CompanyController` |
 | Action | Verb + Entity | `CreateCompany`, `UpdateCompany` |
-| Data class (view) | `<Entity>Data` | `CompanyData` |
-| Data class (input) | `<Verb><Entity>Data` | `CreateCompanyData` |
+| API Resource (presenter) | `<Entity>Resource` | `CompanyResource` |
+| FormRequest (create) | `Create<Entity>Request` | `CreateCompanyRequest` |
+| FormRequest (update) | `Update<Entity>Request` | `UpdateCompanyRequest` |
 | Policy | `<Entity>Policy` | `CompanyPolicy` |
 | Enum | PascalCase, Title Case values | `Industry::Technology = 'Technology'` |
+| TS contract type | `<Entity>View` | `CompanyView` |
+| TS contract file | `<feature>.ts` | `companies.ts` |
 | Migration | `YYYY_MM_DD_HHMMSS_create_<table>_table` | standard Laravel |
 | Audit action string | `<subject_lowercase>.<verb>` | `'company.create'` |
 | Route resource name | kebab-case plural | `companies`, `email-campaigns` |
 
 ## Where shared types come from
 
-Always import generated TS from `packages/contracts`:
+Always import hand-written TS from `packages/contracts` (decoupled Next.js):
 
 ```ts
-// apps/web — always import from the generated package
-import type { CompanyData, CreateCompanyData } from '@<scope>/contracts';
+// apps/web — always import from the contracts package
+import type { CompanyView, Industry } from '@<scope>/contracts/companies';
 ```
 
-Never hand-author or copy-paste types in `apps/web`. The backend PHP Data class is the single source of truth; `php artisan typescript:transform` keeps the generated file in sync. See `references/laravel-data-contracts.md`.
+For Inertia, consume from `resources/js/types`:
+
+```ts
+import type { CompanyView } from '@/types/companies';
+```
+
+Never duplicate type definitions across apps. The API Resource's `toArray()` is the server-side source of truth; the hand-written TS contract must mirror it exactly; the contract test enforces the match. See `references/api-resources.md`.
 
 ## Anti-patterns
 
-- Returning a raw model or array from a controller or action — always wrap in a Data class.
-- Returning `null` / omitting a required field in a view Data class — see `references/view-data-pattern.md`.
+- Returning a raw model or array from a controller or action — always wrap in an API Resource.
+- Returning `null` or omitting a required field in a Resource — see `references/view-data-pattern.md`.
 - Forgetting `#[Authorize]` on any controller method — every endpoint must be authorized, including `GET /me` and list endpoints.
 - Forgetting `AuditManager::run()` wrapping a mutation — compliance gaps appear silently.
-- Accessing `app/Domains/OtherFeature/` from within a domain module — use that domain's Data class or inject its Action via the service container; never reach into another domain's folder directly.
+- Accessing `app/Domains/OtherFeature/` from within a domain module — inject that domain's Action via the service container; never reach into another domain's folder directly.
 - Putting business logic in controllers — delegate to an Action or Service.
 - Direct `DB::` calls in controllers — go through an Action/Service.
 - Omitting `BelongsToWorkspace` on a tenant-scoped model — every query against that table will leak cross-workspace rows.
-- Hand-editing `packages/contracts/src/generated.ts` — regenerate with `php artisan typescript:transform`.
-- Using a native PG enum type for enum columns — use STRING and a PHP string-backed enum to avoid CockroachDB cross-type-cast friction.
+- Skipping the contract test — it is the only automated guard keeping the Resource and the hand-written TS in sync.
 - Skipping the cross-workspace 404 Pest test — the mandatory isolation check that catches missing global scope or policy gaps.
+- Using a native PG enum type for enum columns — use a plain string column and a PHP string-backed enum; avoids type-cast friction and keeps migrations simple.
+- Adding `->constrained()` or `->cascadeOnDelete()` to reference columns — integrity is enforced in app code, not by FK constraints (D5).
