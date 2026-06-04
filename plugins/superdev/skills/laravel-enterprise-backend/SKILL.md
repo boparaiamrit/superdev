@@ -74,7 +74,7 @@ Eloquent is the ORM. Schema is defined in Laravel migrations, models declare `ca
 
 ### 4. Fine-grained authorization — Policies + spatie/laravel-permission
 
-Authorization is not just role checks. `spatie/laravel-permission` provides DB-backed roles and permissions; **Policies/Gates** resolve the actual answer, including the workspace-match condition. Roles are an *input* to the policy, not the resolution itself. Enforcement is via the Laravel 13 `#[Authorize(...)]` controller-method attribute. **Authorize every endpoint, including `GET /me`.** See `references/auth-sanctum-permissions.md`.
+Authorization is not just role checks. `spatie/laravel-permission` provides DB-backed roles and permissions; **Policies/Gates** resolve the actual answer, including the workspace-match condition. Roles are an *input* to the policy, not the resolution itself. Enforcement is via the Laravel 13 `#[Authorize(...)]` controller-method attribute. **Authorize every endpoint, including `GET /me`.** See `references/auth-sanctum-permissions.md`. When the frontend is an **Inertia monolith** (Step A.5c), identity is **Laravel Fortify session** (not Sanctum tokens) while `spatie/laravel-permission` + Policies + `#[Authorize]` stay the same — see `references/inertia-variant.md`.
 
 > Laravel equivalent of Nest's CASL: spatie/laravel-permission + Policies. Do not bring CASL into a Laravel build.
 
@@ -288,6 +288,7 @@ CockroachDB is Postgres-wire compatible, so the **stock `pgsql` driver** is all 
 | `references/sqs-queues.md` | Phase 6 (jobs, dispatch, idempotency keys, DLQ, retry) |
 | `references/db-cache-sessions.md` | Phase 3 (database cache/session config + table migrations + cache-tag invalidation) |
 | `references/module-structure.md` | Phase 2 (planning), Phase 5 (per-module folder layout — what each file owns) |
+| `references/inertia-variant.md` | When the frontend is Inertia (Step A.5c) — Fortify session instead of Sanctum tokens, Inertia props instead of a JSON API, single-app layout |
 
 ---
 
