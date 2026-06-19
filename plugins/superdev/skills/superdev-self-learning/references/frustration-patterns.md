@@ -1,6 +1,13 @@
-# Frustration patterns — conservative detection
+# Frustration patterns — detection
 
-The `UserPromptSubmit` hook checks each user message against these patterns. Match → queue `learn-from-frustration` for the next SubagentStop.
+The `UserPromptSubmit` hook (`detect-frustration.sh`) checks each user message against these patterns. On a match it now does TWO things (previously it only touched a queue file, so the loop never closed):
+
+1. records the signal to `.claude/memory/superdev-learned/.pending.log`, and
+2. **injects an instruction into the model's context** (via `hookSpecificOutput.additionalContext`) telling the orchestrator to dispatch `learn-from-frustration` and write a lesson file before declaring the work done.
+
+The read half is enforced by the `SessionStart` hook (`superdev-session-start.sh`), which surfaces every `.claude/memory/superdev-learned/*.md` lesson + any un-captured `.pending.log` signals into context at session start — so the orchestrator no longer has to *remember* to `ls` the directory.
+
+> **Why this was rewritten:** in two real builds (4brokr, trstwork) the loop never produced a single lesson. Root causes: (a) the regex below only matched ≤40-char "no/stop/wrong" and missed the real signals (profanity, lint-suppression vetoes, "keep it / don't remove", fake-data callouts); (b) the only consumer was a `SubagentStop` matcher pinned to four agents that are not in the roster; (c) the scripts only echoed to stderr, which never reaches the model. All three are fixed.
 
 ## Strong signals (fire on match alone)
 
@@ -25,6 +32,25 @@ The `UserPromptSubmit` hook checks each user message against these patterns. Mat
 \b(this is broken)\b
 \b(this isn't working)\b
 \b(nothing works)\b
+\b(again\?|still (not|broken|wrong|the same)|keep (doing|breaking|changing))\b
+
+# Sharp dissatisfaction / profanity (the real-world signal the old set missed)
+\b(what the (fuck|hell)|wtf|this sucks|garbage|useless|terrible|awful)\b
+\b(that's not what i (asked|wanted|said))\b
+
+# Lint / type SUPPRESSION vetoes (user forbidding the shortcut)
+do ?n'?t .*(disable|suppress|ignore|warn|as any)
+\b(no (inline )?(eslint|ts).?(disable|ignore)|no suppress)\b
+fix .*(root cause|properly|professionally)
+
+# Fake / mock data callouts (demo-vs-product)
+\b(fake data|mock data|not real|still (mock|fake|dummy|hardcoded)|hardcoded|placeholder)\b
+don't (show|use) (fake|mock|dummy)
+
+# Preserve-intent ("keep it / don't remove / don't change")
+keep (the|it|them|that).*(don't remove| stay)
+don't (remove|delete|change|touch)
+\b(put|bring) (it|them) back\b
 ```
 
 ## Code revert signals (fire on detection at next Bash invocation)

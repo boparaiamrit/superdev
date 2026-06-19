@@ -1,88 +1,61 @@
 #!/usr/bin/env bash
-# maybe-learn.sh
+# maybe-learn.sh  (SubagentStop hook)
 #
-# Runs on SubagentStop for fix-applier | regression-verifier |
-# design-fidelity-auditor | audit-synthesizer.
+# Runs when one of the real roster agents that produce verdicts/fixes stops.
+# Records a learnable signal to .claude/memory/superdev-learned/.pending.log
+# (consumed by superdev-session-start.sh and detect-frustration.sh's injection)
+# and surfaces a dispatch instruction to the orchestrator via additionalContext.
 #
-# Prints a marker if learn-from-frustration should be dispatched. Three
-# triggers:
+# Triggers:
 #   1. .claude/memory/.frustration-queued exists (set by detect-frustration.sh)
-#   2. The just-finished agent's output contained a "LESSON:" line
-#   3. The agent's output contained a failure verdict (REJECT / FAIL / drift)
+#   2. the agent's output contains a "LESSON:" line (fix-applier convention)
+#   3. the agent's output contains a failure verdict (REJECT / FAIL / DEMO / drift)
 #
-# Input resolution (Claude Code's documented protocol is JSON on stdin):
-#   AGENT_NAME    ← .subagent_name || .subagent_type || $CLAUDE_SUBAGENT_NAME || $1 || "unknown"
-#   AGENT_OUTPUT  ← .tool_response.output || .output || (empty)
+# NOTE: the SubagentStop matcher in hooks.json was previously pinned to four
+# agent names that are NOT in the roster, so this never fired. It now matches
+# the real builders/verifiers (backend-module-builder, frontend-module-builder,
+# security-fixer, integration-tester, ui-auditor, qa-flow-tester, …).
 #
-# This script does NOT itself spawn an agent — agent dispatch happens in the
-# Claude Code session. The marker tells the session what to do next.
-#
-# Exits 0 always — hooks must never block subagent transitions.
+# Exits 0 always — never block a subagent transition.
 
 set -u
+. "$(dirname "$0")/_superdev-lib.sh" 2>/dev/null || true
 
-# --- Resolve AGENT_NAME and AGENT_OUTPUT ----------------------------------
-AGENT_NAME=""
-AGENT_OUTPUT=""
-
+AGENT_NAME=""; AGENT_OUTPUT=""
 if [ ! -t 0 ]; then
   JSON="$(cat 2>/dev/null || true)"
-  if [ -n "$JSON" ]; then
-    if command -v jq >/dev/null 2>&1; then
-      AGENT_NAME="$(printf '%s' "$JSON" | jq -r '.subagent_name // .subagent_type // empty' 2>/dev/null || true)"
-      AGENT_OUTPUT="$(printf '%s' "$JSON" | jq -r '.tool_response.output // .output // empty' 2>/dev/null || true)"
-    elif command -v python3 >/dev/null 2>&1; then
-      AGENT_NAME="$(printf '%s' "$JSON" | python3 -c "import json,sys
-try:
-  d=json.load(sys.stdin)
-  print(d.get('subagent_name') or d.get('subagent_type') or '')
-except Exception:
-  pass" 2>/dev/null || true)"
-      AGENT_OUTPUT="$(printf '%s' "$JSON" | python3 -c "import json,sys
-try:
-  d=json.load(sys.stdin)
-  tr=d.get('tool_response') or {}
-  print(tr.get('output') if isinstance(tr,dict) else d.get('output') or '')
-except Exception:
-  pass" 2>/dev/null || true)"
-    fi
+  if [ -n "${JSON:-}" ]; then
+    AGENT_NAME="$(sd_json_field "$JSON" '.subagent_name')"
+    [ -z "$AGENT_NAME" ] && AGENT_NAME="$(sd_json_field "$JSON" '.subagent_type')"
+    AGENT_OUTPUT="$(sd_json_field "$JSON" '.tool_response.output')"
+    [ -z "$AGENT_OUTPUT" ] && AGENT_OUTPUT="$(sd_json_field "$JSON" '.output')"
   fi
 fi
-
 [ -z "$AGENT_NAME" ] && AGENT_NAME="${CLAUDE_SUBAGENT_NAME:-}"
 [ -z "$AGENT_NAME" ] && AGENT_NAME="${1:-unknown}"
 
-# --- Decide trigger reason -------------------------------------------------
+PROJ="$(sd_project_dir)"
+DIR="$PROJ/.claude/memory/superdev-learned"
+QUEUE_FILE="$PROJ/.claude/memory/.frustration-queued"
+
 REASON=""
-QUEUE_FILE=".claude/memory/.frustration-queued"
-
-# Reason 1: frustration was queued by UserPromptSubmit hook
-if [ -f "$QUEUE_FILE" ]; then
-  REASON="user-correction"
-  rm -f "$QUEUE_FILE" 2>/dev/null
+if [ -f "$QUEUE_FILE" ]; then REASON="user-correction"; rm -f "$QUEUE_FILE" 2>/dev/null || true; fi
+if [ -z "$REASON" ] && [ -n "$AGENT_OUTPUT" ] && printf '%s' "$AGENT_OUTPUT" | grep -q "^LESSON:" 2>/dev/null; then
+  REASON="fix-pattern"
+fi
+if [ -z "$REASON" ] && [ -n "$AGENT_OUTPUT" ] && printf '%s' "$AGENT_OUTPUT" | grep -qE "Verdict: (REJECT|FAIL|DEMO|BROKEN)|drift% > 1|drift > 1%|REGRESSION found|[0-9]+ (P0|critical|high) " 2>/dev/null; then
+  case "$AGENT_NAME" in
+    regression-verifier|conversion-verifier) REASON="regression-rejected" ;;
+    design-fidelity-auditor)                 REASON="drift-failed" ;;
+    audit-synthesizer|gap-auditor)           REASON="audit-pattern" ;;
+    *)                                       REASON="verifier-failed" ;;
+  esac
 fi
 
-# Reason 2: LESSON: line in agent output (fix-applier convention)
-if [ -z "$REASON" ] && [ -n "$AGENT_OUTPUT" ]; then
-  if printf '%s' "$AGENT_OUTPUT" | grep -q "^LESSON:" 2>/dev/null; then
-    REASON="fix-pattern"
-  fi
-fi
+[ -z "$REASON" ] && exit 0
 
-# Reason 3: failure verdict in agent output
-if [ -z "$REASON" ] && [ -n "$AGENT_OUTPUT" ]; then
-  if printf '%s' "$AGENT_OUTPUT" | grep -qE "Verdict: (REJECT|FAIL|DEMO|BROKEN)|drift% > 1|REGRESSION found" 2>/dev/null; then
-    case "$AGENT_NAME" in
-      regression-verifier)        REASON="regression-rejected" ;;
-      design-fidelity-auditor)    REASON="drift-failed" ;;
-      audit-synthesizer)          REASON="audit-pattern" ;;
-      *)                          REASON="verifier-failed" ;;
-    esac
-  fi
-fi
+mkdir -p "$DIR" 2>/dev/null || true
+{ printf '%s\t%s\t(after %s)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" "$REASON" "$AGENT_NAME" >> "$DIR/.pending.log"; } 2>/dev/null || true
 
-if [ -n "$REASON" ]; then
-  echo "[superdev-self-learning] Queue: dispatch learn-from-frustration with triggered_by=${REASON} after agent ${AGENT_NAME}"
-fi
-
+sd_emit_context "SubagentStop" "🧠 superdev-self-learning: a learnable signal (triggered_by=${REASON}, after ${AGENT_NAME}) was recorded. Dispatch the learn-from-frustration agent and write .claude/memory/superdev-learned/<topic>.md before declaring this work done, then clear the matching line in .pending.log."
 exit 0
