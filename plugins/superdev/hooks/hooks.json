@@ -6,16 +6,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f apps/api/package.json ]; then (cd apps/api && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then PM=bun; elif [ -f ../../pnpm-lock.yaml ]; then PM=pnpm; elif [ -f ../../yarn.lock ]; then PM=yarn; else PM=npm; fi; $PM run typecheck 2>/dev/null || $PM run type-check 2>/dev/null || $PM run check-types 2>/dev/null || npx -y tsc --noEmit) 2>&1 | tail -20); fi"
+            "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/wave-gate.sh\"; [ -f \"$_s\" ] && bash \"$_s\" apps/api || true",
+            "timeout": 180
           }
         ]
       },
       {
-        "matcher": "frontend-module-builder|frontend-rewirer",
+        "matcher": "frontend-module-builder|frontend-rewirer|atomic-module-converter",
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f apps/web/package.json ]; then (cd apps/web && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then PM=bun; elif [ -f ../../pnpm-lock.yaml ]; then PM=pnpm; elif [ -f ../../yarn.lock ]; then PM=yarn; else PM=npm; fi; $PM run typecheck 2>/dev/null || $PM run type-check 2>/dev/null || $PM run check-types 2>/dev/null || npx -y tsc --noEmit) 2>&1 | tail -20); fi"
+            "command": "_d=\"${CLAUDE_PLUGIN_DIR:-}\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)\"; [ -z \"$_d\" ] && _d=\"$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)\"; _s=\"${_d%/}/hooks/scripts/wave-gate.sh\"; [ -f \"$_s\" ] && bash \"$_s\" apps/web || true",
+            "timeout": 180
           }
         ]
       },

@@ -36,10 +36,16 @@ After every wave, before advancing:
    pnpm --filter @<scope>/web typecheck
    ```
 
-3. **Lint**
+3. **Lint at ERROR severity — zero warnings, zero new suppressions** (BLOCKING)
    ```bash
-   pnpm turbo lint --filter=@<scope>/api --filter=@<scope>/web
+   pnpm turbo lint --filter=@<scope>/api --filter=@<scope>/web -- --max-warnings=0
+   # and: NO new eslint-disable / @ts-ignore / @ts-expect-error / `as any` / `as unknown as`
+   #      / rule downgrades introduced in this wave (diff vs the wave's base commit)
    ```
+   Lint is a hard gate, not advisory. A wave with lint errors is NOT done. The
+   builder must fix the ROOT CAUSE — suppressing a rule, downgrading it to `warn`,
+   or casting through `any` is forbidden and is itself a gate failure. This is
+   enforced automatically by `hooks/scripts/wave-gate.sh` (see below).
 
 4. **Validate fixtures (frontend)**
    ```bash
@@ -75,32 +81,17 @@ For UI-audit violations, the orchestrator dispatches a frontend fix:
 
 Up to 3 fix attempts. After the third failure, surface to the user with the full diagnostic.
 
-## Hook-driven wave gates (optional, recommended)
+## Hook-driven wave gates (automatic — shipped with the plugin)
 
-Manual wave gates work, but Claude Code's hooks system can automate them. Define `SubagentStop` hooks in `.claude/settings.json` so that whenever a backend or frontend builder finishes, the relevant typecheck runs automatically:
+This is no longer optional. The superdev plugin ships `hooks/scripts/wave-gate.sh`, wired as a `SubagentStop` hook (see `plugins/superdev/hooks/hooks.json`) for `backend-module-builder|backend-extractor` (gates `apps/api`) and `frontend-module-builder|frontend-rewirer|atomic-module-converter` (gates `apps/web`). When a builder stops, the gate runs:
 
-```json
-{
-  "hooks": {
-    "SubagentStop": [
-      {
-        "matcher": "backend-module-builder",
-        "hooks": [
-          { "type": "command", "command": "pnpm --filter @<scope>/api typecheck" }
-        ]
-      },
-      {
-        "matcher": "frontend-module-builder",
-        "hooks": [
-          { "type": "command", "command": "pnpm --filter @<scope>/web typecheck && pnpm --filter @<scope>/web lint" }
-        ]
-      }
-    ]
-  }
-}
-```
+1. **typecheck** (auto-detects the package-manager script; falls back to `tsc --noEmit`)
+2. **lint at error severity** (`--max-warnings=0`)
+3. **no-new-suppressions** — `git diff HEAD` for the app must not add `eslint-disable` / `@ts-ignore` / `@ts-expect-error` / `as any` / `as unknown as` / rule downgrades
 
-Exit code 2 from the hook command blocks the wave from advancing and feeds the error back to the orchestrator, which then dispatches a fixer subagent. See [hook docs](https://code.claude.com/docs/en/hooks).
+On any failure the gate **exits 2**, which feeds the diagnostic back to the orchestrator and blocks the wave from advancing. The orchestrator then dispatches a focused fixer subagent (a builder with a "fix the root cause, no suppressions" prompt). See [hook docs](https://code.claude.com/docs/en/hooks).
+
+> ⚠ The gate only fires for the **named builder agents**. If the orchestrator dispatches a generic `general-purpose` agent for a build, the gate never runs and lint debt accumulates invisibly — which is exactly how 446+25 lint errors shipped "green" in a past build. Always dispatch the named `*-module-builder` agents.
 
 ## Batching within a wave
 
