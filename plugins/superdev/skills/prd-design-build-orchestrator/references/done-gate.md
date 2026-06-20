@@ -47,18 +47,22 @@ Without the sentinel, the Stop gate stays dormant (so the plugin never interfere
     "completeness": "pass|fail|pending|deferred",     // product-completeness-audit
     "security":     "pass|fail|pending|deferred",     // security-review-and-fix (0 Critical/High)
     "qa":           "pass|fail|pending|deferred",     // exploratory-qa (0 Critical)
-    "brutal":       "pass|fail|pending|deferred"      // brutal-exhaustive-audit (0 open P0)
+    "brutal":       "pass|fail|pending|deferred",      // brutal-exhaustive-audit (0 open P0)
+    "readiness":    "pass|fail|pending|deferred"      // production-readiness-audit (every module >= 9)
   },
   "features": {
     "<feature>": { "built": true, "typecheck": true, "lint": true,
                    "integration": true, "completeness": true,
-                   "security": true, "qa": true, "deferred": [] }
+                   "security": true, "qa": true,
+                   "readiness_score": 9,               // production-readiness-audit; < 9 fails the gate
+                   "passes": { "wire": 9, "data": 9, "tenancy": 9, "e2e": 9, "quality": 9 },
+                   "deferred": [] }
   }
 }
 ```
 
 - A gate value of `pass` passes. `deferred` (string reason) is an **accepted risk** — allowed but reported. Anything else (`pending`/`fail`/missing) **fails** the gate.
-- A feature flag set to `false` fails. A feature's `deferred` (string or list) is reported as accepted risk.
+- A feature flag set to `false` fails, and a feature `readiness_score < 9` fails (unless that feature is explicitly `deferred` with a user-accepted reason). A feature's `deferred` (string or list) is reported as accepted risk.
 - The driver updates `head_sha`/`updated` whenever it re-runs gates after code changes — otherwise the ledger is **stale** and the gate fails (this is what stops "done" surviving a post-compaction summary that dropped the audit work).
 
 ## How the gates get to `pass`
@@ -70,8 +74,9 @@ The wave gate (`wave-gate.sh`) sets `typecheck`/`lint` per wave. The **Phase D d
 3. `security-review-and-fix` → `gates.security` (any unresolved Critical/High ⇒ `fail`)
 4. `exploratory-qa` → `gates.qa` (any unresolved Critical ⇒ `fail`)
 5. `brutal-exhaustive-audit` → `gates.brutal` (any open P0 ⇒ `fail`)
+6. `production-readiness-audit` → `gates.readiness` + per-module `readiness_score` (the iterative 5-pass loop; `pass` ONLY when every module scores ≥ 9)
 
-Because the Stop gate requires all of these to be `pass`, the ONLY way to satisfy it is to actually run Phase D — Phase D is no longer something the user has to remember to ask for.
+Because the Stop gate requires all of these to be `pass` AND every module `readiness_score ≥ 9`, the ONLY way to satisfy it is to actually run Phase D and the readiness loop — neither is something the user has to remember to ask for.
 
 ## Live checks (run by done-gate regardless of the ledger)
 
