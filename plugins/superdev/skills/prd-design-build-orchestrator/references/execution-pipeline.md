@@ -2,6 +2,8 @@
 
 How the orchestrator dispatches per-feature builders in parallel waves. This is the speed lever.
 
+> **Backend stack note:** the examples below use `backend-module-builder` (the Nest.js builder). When the Step A.5b selection gate set `backend_stack == Laravel`, substitute **`laravel-module-builder`** everywhere `backend-module-builder` appears, and the wave-gate typecheck/test commands become their Laravel equivalents (`php artisan test`, plus `npm run build` when the frontend is Inertia). The wave/batching mechanics are identical.
+
 ## The mental model
 
 Imagine a Gantt chart:
@@ -83,11 +85,20 @@ Up to 3 fix attempts. After the third failure, surface to the user with the full
 
 ## Hook-driven wave gates (automatic — shipped with the plugin)
 
-This is no longer optional. The superdev plugin ships `hooks/scripts/wave-gate.sh`, wired as a `SubagentStop` hook (see `plugins/superdev/hooks/hooks.json`) for `backend-module-builder|backend-extractor` (gates `apps/api`) and `frontend-module-builder|frontend-rewirer|atomic-module-converter` (gates `apps/web`). When a builder stops, the gate runs:
+This is no longer optional. The superdev plugin ships `hooks/scripts/wave-gate.sh`, wired as a `SubagentStop` hook (see `plugins/superdev/hooks/hooks.json`). It is **stack-aware** and fires for every builder type:
 
-1. **typecheck** (auto-detects the package-manager script; falls back to `tsc --noEmit`)
-2. **lint at error severity** (`--max-warnings=0`)
-3. **no-new-suppressions** — `git diff HEAD` for the app must not add `eslint-disable` / `@ts-ignore` / `@ts-expect-error` / `as any` / `as unknown as` / rule downgrades
+| Builder agent(s) | Target | Lane |
+|---|---|---|
+| `backend-module-builder` / `backend-extractor` / `laravel-module-builder` | `apps/api` | `auto` |
+| `frontend-module-builder` / `frontend-rewirer` / `atomic-module-converter` | `apps/web` | `auto` |
+| `inertia-module-builder` (Inertia monolith frontend lives in `apps/api/resources/js`) | `apps/api` | `js` |
+
+When a builder stops, the gate runs whichever toolchains the target has:
+
+- **JS lane** (a `package.json` is present — Nest/Next, or the Vite side of the Inertia monolith): **typecheck** (auto-detected script, falls back to `tsc --noEmit`) + **lint at error severity** (`--max-warnings=0`).
+- **PHP lane** (a `composer.json` + `artisan` are present — Laravel): **`./vendor/bin/pint --test`** (code style) + **`./vendor/bin/phpstan analyse`** (static analysis), each run only if installed. The full Pest suite is the integration gate, not the wave gate.
+- **Both lanes** (`auto` on the Inertia monolith `apps/api`, which has both).
+- **no-new-suppressions** (always) — `git diff` + new untracked files must not add `eslint-disable` / `@ts-ignore` / `@ts-expect-error` / `as any` / `as unknown as` (TS) or `@phpstan-ignore` / `@phpcs:ignore` / `@codingStandardsIgnore` (PHP).
 
 On any failure the gate **exits 2**, which feeds the diagnostic back to the orchestrator and blocks the wave from advancing. The orchestrator then dispatches a focused fixer subagent (a builder with a "fix the root cause, no suppressions" prompt). See [hook docs](https://code.claude.com/docs/en/hooks).
 

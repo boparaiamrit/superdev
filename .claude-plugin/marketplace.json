@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "superdev",
-  "description": "Superdev — a workspace-scope-agnostic, package-manager-agnostic, self-improving Claude Code plugin bundling 13 skills and 49 subagents for full-stack monorepo builds. v1.3.0 adds opinionated frontend modular architecture (no god-files, dedicated Zustand stores per module, sub-sub-components in parts/<name>/ folders with shadcn Portal primitives) and atomic one-module refactoring (single-commit conversion with zero-drift verification and hard rollback).",
+  "description": "Superdev — a workspace-scope-agnostic, package-manager-agnostic, self-improving Claude Code plugin bundling 17 skills and 51 subagents for full-stack monorepo builds. v1.7.0 makes completion enforced via a machine-checkable Definition-of-Done Stop gate, a stack-aware lint/suppression wave gate, and a self-learning loop that actually fires. v1.4.0–v1.6.0 add a Laravel/Inertia backend option selectable via orchestrator stack gates.",
   "owner": {
     "name": "Amritpal Singh Boparai",
     "email": "boparaiamrit@gmail.com",
@@ -10,8 +10,8 @@
   "plugins": [
     {
       "name": "superdev",
-      "description": "14 production-grade skills + 49 specialized subagents for full-stack monorepo builds. Workspace-scope and package-manager agnostic. Self-improving via .claude/memory/superdev-learned/. v1.4.0 makes completion ENFORCED: a Definition-of-Done Stop gate (done-gate.sh + COMPLETION_LEDGER.json + superdev-done skill) blocks any premature 'done' while typecheck/lint/build/integration/completeness/security/qa/brutal are red; the wave gate blocks lint errors + new suppressions; and the self-learning loop now actually fires. v1.3.0 adds frontend-modular-architecture + frontend-refactoring. Other skills: prd-design-build-orchestrator, design-to-nextjs, design-preservation, nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas, exploratory-qa, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning.",
-      "version": "1.4.0",
+      "description": "17 production-grade skills + 51 specialized subagents for full-stack monorepo builds. Workspace-scope and package-manager agnostic. Self-improving via .claude/memory/superdev-learned/. v1.7.0 makes completion ENFORCED: a Definition-of-Done Stop gate (done-gate.sh + COMPLETION_LEDGER.json + superdev-done skill) blocks any premature 'done' while typecheck/lint/build/integration/completeness/security/qa/brutal are red; the wave gate blocks lint errors + new suppressions and is stack-aware (TS tsc/eslint + Laravel Pint/PHPStan/Pest); the self-learning loop now actually fires. v1.4.0–v1.6.0 add a Laravel backend option (laravel-enterprise-backend on PostgreSQL+TimescaleDB, laravel-bref-deploy on AWS Lambda) + design-to-laravel (Claude Design → Laravel + Inertia React monolith), chosen via orchestrator backend- and frontend-stack gates. v1.3.0 adds frontend-modular-architecture + frontend-refactoring. Other skills: prd-design-build-orchestrator, design-to-nextjs, design-preservation, nestjs-enterprise-backend, security-review-and-fix, prototype-to-saas, exploratory-qa, systematic-debugging, product-completeness-audit, brutal-exhaustive-audit, superdev-self-learning, superdev-done.",
+      "version": "1.7.0",
       "author": {
         "name": "Amritpal Singh Boparai"
       },

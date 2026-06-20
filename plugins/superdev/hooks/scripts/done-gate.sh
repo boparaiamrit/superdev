@@ -145,7 +145,7 @@ if command -v git >/dev/null 2>&1 && ( cd "$PROJ" && git rev-parse --git-dir >/d
 try: print(json.load(open(sys.argv[1])).get('base_sha') or '')
 except: print('')" "$LEDGER" 2>/dev/null || true)"
   RANGE="HEAD"; [ -n "$BASE" ] && RANGE="$BASE"
-  SUPP_RE='eslint-disable|@ts-ignore|@ts-expect-error|as any[^A-Za-z]|as unknown as'
+  SUPP_RE='eslint-disable|@ts-ignore|@ts-expect-error|as any[^A-Za-z]|as unknown as|@phpstan-ignore|@phpcs:ignore|@codingStandardsIgnore|@phan-suppress'
   DIFF_SUPP="$( cd "$PROJ" && git -c color.ui=never diff "$RANGE" -- apps packages 2>/dev/null | grep -E '^\+' | grep -vE '^[+][+][+]' | grep -nE "$SUPP_RE" || true )"
   NEWF="$( cd "$PROJ" && git ls-files --others --exclude-standard -- apps packages 2>/dev/null || true )"
   NEW_SUPP=""
@@ -159,16 +159,19 @@ $(printf '%s' "$SUPP" | sed 's/^/      /')"
   fi
 fi
 
-# 3) High-precision demo / placeholder sweep (web app)
-WEB="$PROJ/apps/web/src"
-if [ -d "$WEB" ]; then
-  DEMO="$(grep -rInE "lorem ipsum|coming soon|not implemented|\bTODO: ?implement|['\"]4242 ?4242|mockData|fakeUsers|placeholder data" "$WEB" 2>/dev/null \
+# 3) High-precision demo / placeholder sweep (frontend: Next.js apps/web OR
+#    Inertia monolith apps/api/resources/js)
+WEB_DIRS=""
+[ -d "$PROJ/apps/web/src" ] && WEB_DIRS="$WEB_DIRS $PROJ/apps/web/src"
+[ -d "$PROJ/apps/api/resources/js" ] && WEB_DIRS="$WEB_DIRS $PROJ/apps/api/resources/js"
+if [ -n "$WEB_DIRS" ]; then
+  DEMO="$(grep -rInE "lorem ipsum|coming soon|not implemented|\bTODO: ?implement|['\"]4242 ?4242|mockData|fakeUsers|placeholder data" $WEB_DIRS 2>/dev/null \
             | grep -vE "\.(test|spec)\.|/__tests__/|/mocks?/|\.stories\." | head -12 || true)"
   if [ -n "$DEMO" ]; then
-    add_fail "demo/placeholder content still present in apps/web/src (a beautiful UI with fake data is a demo, not a product):
+    add_fail "demo/placeholder content still present in the frontend (a beautiful UI with fake data is a demo, not a product):
 $(printf '%s' "$DEMO" | sed 's/^/      /')"
   else
-    add_ok "no obvious demo/placeholder content in apps/web/src"
+    add_ok "no obvious demo/placeholder content in the frontend"
   fi
 fi
 
