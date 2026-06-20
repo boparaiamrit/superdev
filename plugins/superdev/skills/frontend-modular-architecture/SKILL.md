@@ -295,3 +295,4 @@ Majority verdict. Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
 - [`references/store-patterns.md`](references/store-patterns.md) — Zustand patterns per store type
 - [`references/portal-rules.md`](references/portal-rules.md) — which shadcn primitive for which use case
 - [`references/agent-definitions.md`](references/agent-definitions.md) — dispatch prompts
+- [`references/inertia-addendum.md`](references/inertia-addendum.md) — applying these rules to a Laravel + Inertia React frontend (`resources/js/`); the deltas vs Next.js

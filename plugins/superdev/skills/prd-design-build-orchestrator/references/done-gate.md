@@ -75,8 +75,10 @@ Because the Stop gate requires all of these to be `pass`, the ONLY way to satisf
 
 ## Live checks (run by done-gate regardless of the ledger)
 
-- **No new suppressions** vs `base_sha` (and in new untracked files): `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `as any`, `as unknown as`.
-- **No demo/placeholder** in `apps/web/src`: `lorem ipsum`, `coming soon`, `not implemented`, hardcoded test cards, `mockData`/`fakeUsers` (mocks/tests/stories excluded).
+- **No new suppressions** vs `base_sha` (and in new untracked files) — stack-aware: TS `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `as any`, `as unknown as`; PHP `@phpstan-ignore`, `@phpcs:ignore`, `@codingStandardsIgnore`, `@phan-suppress`.
+- **No demo/placeholder** in the frontend — `apps/web/src` (Next.js) AND `apps/api/resources/js` (the Inertia monolith): `lorem ipsum`, `coming soon`, `not implemented`, hardcoded test cards, `mockData`/`fakeUsers` (mocks/tests/stories excluded).
+
+> The expensive per-stack gates (typecheck/lint for TS via tsc+eslint; Pint+PHPStan for Laravel; Pest/integration tests) are recorded into the ledger by `wave-gate.sh` and the Phase D driver — done-gate reads those verdicts rather than re-running them, so it stays fast regardless of stack.
 
 ## Override
 

@@ -1,6 +1,6 @@
 ---
 name: ui-auditor
-description: Audits the Next.js frontend for shadcn/ui compliance — every visual primitive comes from @/components/ui/*, no competing UI libraries (Radix-direct, Headless UI, MUI, Mantine, Chakra, antd, etc.), no raw HTML primitives where shadcn equivalents exist, the sidebar uses shadcn's sidebar block, no hand-rolled re-implementations of shadcn primitives. Read-only grep-based agent; reports violations but does not edit code. Runs at every Phase C wave gate and at Phase D before the integration tester.
+description: Audits the frontend for shadcn/ui compliance — Next.js (`apps/web/src`) or, on the Laravel Inertia path (Step A.5c), `resources/js` — every visual primitive comes from @/components/ui/*, no competing UI libraries (Radix-direct, Headless UI, MUI, Mantine, Chakra, antd, etc.), no raw HTML primitives where shadcn equivalents exist, the sidebar uses shadcn's sidebar block, no hand-rolled re-implementations of shadcn primitives. On the Inertia path it additionally flags Next.js-isms (next/*, use client, @tanstack/react-query) that must not appear. Read-only grep-based agent; reports violations but does not edit code. Runs at every Phase C wave gate and at Phase D before the integration tester.
 tools: Read, Glob, Grep, Bash
 model: haiku
 memory: project
@@ -123,6 +123,24 @@ grep -E "(--background|--foreground|--primary|--secondary|--muted|--accent|--des
 
 If shadcn standard names are missing from `globals.css`, the bootstrapper's shadcn init didn't complete — escalate.
 
+### 9. Inertia path (`resources/js/`) — when `frontend_stack == Inertia`
+
+On the Laravel Inertia monolith (Step A.5c) the frontend lives in **`resources/js/`**, not `apps/web/src/`. Apply checks 2 / 4 / 5 / 6 / 7 to `resources/js/` (shadcn-only imports, no raw primitives, sidebar block, no hand-rolled primitives, no token drift) — the React starter kit ships shadcn, so `resources/js/components/ui/` should exist.
+
+Additionally flag **Next.js-isms and client data-fetching** that must never appear on the Inertia path:
+
+```bash
+grep -rEn "from 'next/|use client|@tanstack/react-query" resources/js --include="*.tsx" --include="*.ts"
+```
+
+Each hit is a **High** violation — an Inertia page reaching for Next.js routing/RSC or TanStack Query instead of Inertia props. Also flag `?.` / `??` on Inertia page **prop** fields (review for false positives on form/filter state, which are allowed):
+
+```bash
+grep -rEn "\?\.|\?\?" resources/js/pages --include="*.tsx"
+```
+
+See [`frontend-modular-architecture/references/inertia-addendum.md`](../skills/frontend-modular-architecture/references/inertia-addendum.md) and [`design-to-laravel/SKILL.md`](../skills/design-to-laravel/SKILL.md).
+
 ## Severity
 
 | Finding | Severity | Action |
@@ -135,6 +153,7 @@ If shadcn standard names are missing from `globals.css`, the bootstrapper's shad
 | Arbitrary Tailwind color/radius value | Medium | Fix when convenient |
 | Missing shadcn primitive (e.g. sidebar.tsx absent) | Critical | Escalate to bootstrapper |
 | Direct `@radix-ui/*` import outside `components/ui/` | High | Switch to `@/components/ui/...` |
+| Next.js-ism on the Inertia path (`next/*`, `use client`, `@tanstack/react-query`) | High | Replace with Inertia equivalents (props, `<Link>`, `useForm`) |
 
 ## UI_AUDIT.md format
 
