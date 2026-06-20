@@ -47,6 +47,7 @@ The orchestrator coordinates 16 skills. Use this table to decide which to invoke
 | Phase D security pass | `security-review-and-fix` | 6-phase audit |
 | Phase D QA pass | `exploratory-qa` | Playwright flows |
 | Before declaring "ready to ship" | `product-completeness-audit` (between QA and audit) THEN `brutal-exhaustive-audit` | Distinguishes demo-vs-product, then dots every i |
+| Capstone of Phase D — "rate each module 1–10 / make it production-ready / complete it fully" | `production-readiness-audit` (the iterative loop: 5 passes → score every module → fix → re-audit until all ≥ 9) | Turns "looks done" into a scored, proven, ledger-enforced "done"; subsumes completeness+brutal into one scored loop and writes `gates.readiness` |
 | User-frustration signal detected OR verifier rejection | `superdev-self-learning` (auto-dispatched by hook) | Capture lesson; future dispatches inherit |
 
 When NOT to invoke a skill:
@@ -692,6 +693,17 @@ The orchestrator reads `QA_ENVIRONMENT.md`, all `qa/flows/*/observations.md`, `Q
 
 If the QA skill is not installed, skip D.3 with: "⚠ Exploratory QA was not performed. Install the `exploratory-qa` skill and re-run for a production-readiness pass."
 
+### Step D.3.5 — Production readiness loop (the capstone — rate every module to 9+)
+
+After integration, security, and QA have run, invoke `production-readiness-audit` as the capstone. This is the scored, iterative loop that turns "looks done" into "is done" — and it's what satisfies the user's recurring ask to *"rate each module 1–10 and complete it fully for production."* It subsumes `product-completeness-audit` and `brutal-exhaustive-audit` into one scored loop.
+
+1. **Precondition:** verify the stack is up in **production mode** (demo OFF) and dispatch `seed-data-architect` so there is real seed data + an initial owner/admin login + a second tenant (for the tenancy test).
+2. **Five passes** score every module 0–10: (1) completeness & wiring, (2) data realism & seed, (3) tenancy isolation, (4) end-to-end via Playwright — every route, every form, every data shape FE↔BE, (5) code quality & security (zero lint/type errors, **no suppressions**). `module_score = min(passes)`; a tenancy leak or P0 caps a module at ≤3.
+3. **Rate:** `module-readiness-rater` writes `READINESS.md` + `READINESS_CHECKLIST.md` and updates `COMPLETION_LEDGER.json` (`features.<module>.readiness_score`, `gates.readiness`).
+4. **Fix & loop:** for every module < 9, dispatch the matching fixer (`backend/frontend/laravel/inertia-module-builder`, `security-fixer`) on its checklist items — root cause only, no suppressions, no new demo data — then re-run the sub-9 passes. Repeat until **every module ≥ 9** or round 5 (then surface the remaining blockers to the user; do not lower the bar).
+
+See [`production-readiness-audit`](../../production-readiness-audit/SKILL.md). The done-gate will not pass until `gates.readiness == pass` and every `readiness_score ≥ 9`, so this loop is the only legitimate path to a "done" claim.
+
 ### Step D.4 — Definition-of-Done gate, THEN final report
 
 Phase C green is **not** done. Before writing the final report or claiming completion, every Phase D agent must have run and recorded its verdict in `COMPLETION_LEDGER.json`, and the gate must pass:
@@ -731,8 +743,9 @@ Present to the user. Done — and provably so.
 Before declaring the build done:
 
 - [ ] **`done-gate.sh --report` (or `/superdev-done`) exits 0** — this is the single overriding gate; every item below is also encoded in it. A "done" claim while it is red is blocked by the Stop hook.
-- [ ] **`COMPLETION_LEDGER.json` exists with every gate `pass`** (typecheck, lint, build, integration, completeness, security, qa, brutal) and `head_sha` == current `HEAD`
-- [ ] **Every Phase D agent actually ran** — integration-tester, product-completeness-audit, security-review-and-fix, exploratory-qa, brutal-exhaustive-audit (not skipped, not deferred-without-acknowledgment)
+- [ ] **`COMPLETION_LEDGER.json` exists with every gate `pass`** (typecheck, lint, build, integration, completeness, security, qa, brutal, readiness) and `head_sha` == current `HEAD`
+- [ ] **Every module scores ≥ 9** in `production-readiness-audit` (`features.*.readiness_score ≥ 9`); seed data + initial owner/admin user present; tenancy isolation proven; every route + every form exercised in Playwright (FE↔BE shapes match)
+- [ ] **Every Phase D agent actually ran** — integration-tester, product-completeness-audit, security-review-and-fix, exploratory-qa, brutal-exhaustive-audit, production-readiness-audit (not skipped, not deferred-without-acknowledgment)
 - [ ] **Zero new suppressions** since `base_sha` — no `eslint-disable` / `@ts-ignore` / `@ts-expect-error` / `as any` / `as unknown as`
 - [ ] **Zero demo/placeholder content** in `apps/web/src` (no `coming soon`, `lorem ipsum`, hardcoded test cards, `mockData`/`fakeUsers` outside mocks/tests)
 - [ ] `.claude/agents/` contains all 10 core agent definitions

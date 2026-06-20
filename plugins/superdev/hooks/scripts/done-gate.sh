@@ -84,7 +84,7 @@ add_ok(){ NOTES="${NOTES}
   ✓ $1"; }
 
 # 1) Ledger present + all gates pass + fresh
-REQUIRED_GATES="typecheck lint build integration completeness security qa brutal"
+REQUIRED_GATES="typecheck lint build integration completeness security qa brutal readiness"
 if [ ! -f "$LEDGER" ]; then
   add_fail "COMPLETION_LEDGER.json is missing — run the Phase D driver (integration → product-completeness → security-review → exploratory-qa → brutal-exhaustive-audit) and record verdicts in the ledger before declaring done."
 elif [ -n "$PY" ]; then
@@ -106,11 +106,14 @@ for g in req:
 feats=d.get("features",{}) if isinstance(d,dict) else {}
 for name,info in (feats.items() if isinstance(feats,dict) else []):
     if not isinstance(info,dict): continue
+    dfr=info.get("deferred")
     for k,val in info.items():
-        if k in ("deferred",): continue
+        if k in ("deferred","readiness_score","passes"): continue
         if val is False:
             out.append("FAIL\tfeature '%s' gate '%s' is incomplete"%(name,k))
-    dfr=info.get("deferred")
+    rs=info.get("readiness_score")
+    if isinstance(rs,(int,float)) and rs < 9 and not dfr:
+        out.append("FAIL\tmodule '%s' readiness_score is %s (must be >= 9; run production-readiness-audit)"%(name,rs))
     if dfr: out.append("ACCEPT\tfeature '%s' deferred: %s"%(name, dfr if isinstance(dfr,str) else ",".join(dfr) if isinstance(dfr,list) else "yes"))
 # freshness: ledger head_sha vs current HEAD
 head=""
