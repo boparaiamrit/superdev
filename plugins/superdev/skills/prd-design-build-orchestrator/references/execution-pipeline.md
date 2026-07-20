@@ -38,10 +38,16 @@ After every wave, before advancing:
    pnpm --filter @<scope>/web typecheck
    ```
 
-3. **Lint**
+3. **Lint at ERROR severity — zero warnings, zero new suppressions** (BLOCKING)
    ```bash
-   pnpm turbo lint --filter=@<scope>/api --filter=@<scope>/web
+   pnpm turbo lint --filter=@<scope>/api --filter=@<scope>/web -- --max-warnings=0
+   # and: NO new eslint-disable / @ts-ignore / @ts-expect-error / `as any` / `as unknown as`
+   #      / rule downgrades introduced in this wave (diff vs the wave's base commit)
    ```
+   Lint is a hard gate, not advisory. A wave with lint errors is NOT done. The
+   builder must fix the ROOT CAUSE — suppressing a rule, downgrading it to `warn`,
+   or casting through `any` is forbidden and is itself a gate failure. This is
+   enforced automatically by `hooks/scripts/wave-gate.sh` (see below).
 
 4. **Validate fixtures (frontend)**
    ```bash
@@ -77,32 +83,26 @@ For UI-audit violations, the orchestrator dispatches a frontend fix:
 
 Up to 3 fix attempts. After the third failure, surface to the user with the full diagnostic.
 
-## Hook-driven wave gates (optional, recommended)
+## Hook-driven wave gates (automatic — shipped with the plugin)
 
-Manual wave gates work, but Claude Code's hooks system can automate them. Define `SubagentStop` hooks in `.claude/settings.json` so that whenever a backend or frontend builder finishes, the relevant typecheck runs automatically:
+This is no longer optional. The superdev plugin ships `hooks/scripts/wave-gate.sh`, wired as a `SubagentStop` hook (see `plugins/superdev/hooks/hooks.json`). It is **stack-aware** and fires for every builder type:
 
-```json
-{
-  "hooks": {
-    "SubagentStop": [
-      {
-        "matcher": "backend-module-builder",
-        "hooks": [
-          { "type": "command", "command": "pnpm --filter @<scope>/api typecheck" }
-        ]
-      },
-      {
-        "matcher": "frontend-module-builder",
-        "hooks": [
-          { "type": "command", "command": "pnpm --filter @<scope>/web typecheck && pnpm --filter @<scope>/web lint" }
-        ]
-      }
-    ]
-  }
-}
-```
+| Builder agent(s) | Target | Lane |
+|---|---|---|
+| `backend-module-builder` / `backend-extractor` / `laravel-module-builder` | `apps/api` | `auto` |
+| `frontend-module-builder` / `frontend-rewirer` / `atomic-module-converter` | `apps/web` | `auto` |
+| `inertia-module-builder` (Inertia monolith frontend lives in `apps/api/resources/js`) | `apps/api` | `js` |
 
-Exit code 2 from the hook command blocks the wave from advancing and feeds the error back to the orchestrator, which then dispatches a fixer subagent. See [hook docs](https://code.claude.com/docs/en/hooks).
+When a builder stops, the gate runs whichever toolchains the target has:
+
+- **JS lane** (a `package.json` is present — Nest/Next, or the Vite side of the Inertia monolith): **typecheck** (auto-detected script, falls back to `tsc --noEmit`) + **lint at error severity** (`--max-warnings=0`).
+- **PHP lane** (a `composer.json` + `artisan` are present — Laravel): **`./vendor/bin/pint --test`** (code style) + **`./vendor/bin/phpstan analyse`** (static analysis), each run only if installed. The full Pest suite is the integration gate, not the wave gate.
+- **Both lanes** (`auto` on the Inertia monolith `apps/api`, which has both).
+- **no-new-suppressions** (always) — `git diff` + new untracked files must not add `eslint-disable` / `@ts-ignore` / `@ts-expect-error` / `as any` / `as unknown as` (TS) or `@phpstan-ignore` / `@phpcs:ignore` / `@codingStandardsIgnore` (PHP).
+
+On any failure the gate **exits 2**, which feeds the diagnostic back to the orchestrator and blocks the wave from advancing. The orchestrator then dispatches a focused fixer subagent (a builder with a "fix the root cause, no suppressions" prompt). See [hook docs](https://code.claude.com/docs/en/hooks).
+
+> ⚠ The gate only fires for the **named builder agents**. If the orchestrator dispatches a generic `general-purpose` agent for a build, the gate never runs and lint debt accumulates invisibly — which is exactly how 446+25 lint errors shipped "green" in a past build. Always dispatch the named `*-module-builder` agents.
 
 ## Batching within a wave
 

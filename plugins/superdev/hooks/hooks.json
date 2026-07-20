@@ -2,20 +2,32 @@
   "hooks": {
     "SubagentStop": [
       {
-        "matcher": "backend-module-builder|backend-extractor",
+        "matcher": "backend-module-builder|backend-extractor|laravel-module-builder",
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f apps/api/package.json ]; then (cd apps/api && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then PM=bun; elif [ -f ../../pnpm-lock.yaml ]; then PM=pnpm; elif [ -f ../../yarn.lock ]; then PM=yarn; else PM=npm; fi; $PM run typecheck 2>/dev/null || $PM run type-check 2>/dev/null || $PM run check-types 2>/dev/null || npx -y tsc --noEmit) 2>&1 | tail -20); fi"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/wave-gate.sh\" apps/api auto 2>/dev/null || true",
+            "timeout": 180
           }
         ]
       },
       {
-        "matcher": "frontend-module-builder|frontend-rewirer",
+        "matcher": "frontend-module-builder|frontend-rewirer|atomic-module-converter",
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f apps/web/package.json ]; then (cd apps/web && (if [ -f ../../bun.lockb ] || [ -f ../../bun.lock ]; then PM=bun; elif [ -f ../../pnpm-lock.yaml ]; then PM=pnpm; elif [ -f ../../yarn.lock ]; then PM=yarn; else PM=npm; fi; $PM run typecheck 2>/dev/null || $PM run type-check 2>/dev/null || $PM run check-types 2>/dev/null || npx -y tsc --noEmit) 2>&1 | tail -20); fi"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/wave-gate.sh\" apps/web auto 2>/dev/null || true",
+            "timeout": 180
+          }
+        ]
+      },
+      {
+        "matcher": "inertia-module-builder",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/wave-gate.sh\" apps/api js 2>/dev/null || true",
+            "timeout": 180
           }
         ]
       },
@@ -29,7 +41,7 @@
         ]
       },
       {
-        "matcher": "fix-applier|regression-verifier|design-fidelity-auditor|audit-synthesizer",
+        "matcher": "backend-module-builder|frontend-module-builder|frontend-rewirer|laravel-module-builder|inertia-module-builder|security-fixer|integration-tester|ui-auditor|qa-flow-tester|conversion-verifier|regression-verifier|design-fidelity-auditor|audit-synthesizer|gap-auditor|fix-applier",
         "hooks": [
           {
             "type": "command",
@@ -65,6 +77,30 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/detect-frustration.sh\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/superdev-session-start.sh\" 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/done-gate.sh\" 2>/dev/null || true",
+            "timeout": 60
           }
         ]
       }

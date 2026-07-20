@@ -1,0 +1,8 @@
+# Shell + hook scripts MUST be LF — CRLF breaks bash on the hook runner
+# (this is the v1.2.1 "Windows hook failure" class; pin it so it can't recur).
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.py    text eol=lf
+
+# Normalize text by default; let git pick line endings otherwise
+*       text=auto
