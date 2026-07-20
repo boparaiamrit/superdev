@@ -92,7 +92,7 @@ In Codex, the 16 Superdev skills load natively. The Claude Code subagent files a
 
 - ✅ **Workspace-scope agnostic** — no hardcoded `@scope/` anywhere; uses `<scope>` placeholders + path-based pnpm filters
 - ✅ **Package-manager agnostic** — hooks auto-detect pnpm / npm / yarn / bun from lockfile
-- ✅ **Install anywhere** — works installed globally in `~/.claude/plugins/` or privately checked into a single monorepo
+- ✅ **Project-scoped only** — Claude activation lives in the repository's project settings; Codex discovery lives in the repository marketplace
 - ✅ **51 subagents auto-loaded** — no install scripts, no manual `agents/` copying
 - ✅ **6 runtime hooks** — auto-typecheck after every builder, stack-health check before Playwright agents, frustration-detection on every user prompt, lesson-capture after every verifier
 - ✅ **Self-improving** — orchestrator reads `.claude/memory/superdev-learned/` before every dispatch; `learn-from-frustration` writes new lessons from user corrections / code reverts / verifier rejections / design drift
@@ -105,45 +105,51 @@ In Codex, the 16 Superdev skills load natively. The Claude Code subagent files a
 
 ### Install
 
-**Codex local marketplace:**
-```shell
-# Use this repository's marketplace file:
-# .agents/plugins/marketplace.json
+**Codex repository marketplace:**
+
+Keep both of these paths in the target project:
+
+```text
+.agents/plugins/marketplace.json
+plugins/superdev/
 ```
 
-Then invoke the skills directly in Codex, for example:
+From that project, start Codex, open `/plugins`, choose **Superdev Local**, install Superdev, and start a new session. Do not add Superdev to a personal marketplace. Then invoke the skills directly, for example:
 ```text
 Use $security-review-and-fix to audit this codebase.
 Use $prototype-to-saas to productionize this prototype.
 Use $prd-design-build-orchestrator with docs/PRD.md and design/.
 ```
 
-**Claude Code marketplace:**
+**Claude Code project installation:**
 
-**Step 1 — Add the marketplace:**
+Run these commands from the target project. The explicit scope is required because Claude otherwise defaults to user scope.
+
 ```shell
-/plugin marketplace add boparaiamrit/superdev
+claude plugin marketplace add boparaiamrit/superdev --scope project
+claude plugin install superdev@superdev --scope project
 ```
 
-**Step 2 — Install the plugin:**
+If an older user-scoped copy is present, remove that copy explicitly before installing for the project:
+
 ```shell
-/plugin install superdev@superdev
+claude plugin uninstall superdev@superdev --scope user
 ```
 
-> 💡 Or install from the bundled zip:
+> 💡 Or use the project-only helper from inside the target repository:
 > ```bash
-> bash install-superdev.sh
+> bash /path/to/superdev/install-superdev.sh
 > ```
-> The installer extracts to `~/.claude/plugins/superdev/` and registers the path in `~/.claude/settings.json` so every Claude Code session loads it.
+> It delegates to the same two Claude CLI commands with `--scope project` and refuses to run outside a Git project.
 
 > 🧪 Or test locally during development:
 > ```bash
-> claude --plugin-dir ~/superdev/plugins/superdev
+> claude --plugin-dir ./plugins/superdev
 > ```
 
 ### Run
 
-In any Claude Code session, just say what you want — **the right skill activates standalone**, no need to drive the whole orchestrator pipeline.
+In a Claude Code session opened from the configured project, just say what you want — **the right skill activates standalone**, no need to drive the whole orchestrator pipeline.
 
 #### Use a single skill (no orchestrator overhead)
 
@@ -473,7 +479,7 @@ superdev/
 | **Plugin namespacing** | Agent-name collisions with other installed plugins are impossible |
 | **Hooks ship with the plugin** | No `settings.json` editing — hooks auto-load when the plugin loads |
 | **Versioned releases** | `version` field in `plugin.json`; install pinned versions |
-| **Marketplaceable** | Distributable via `/plugin marketplace add boparaiamrit/superdev` |
+| **Marketplaceable** | Distributable per repository via `claude plugin marketplace add boparaiamrit/superdev --scope project` |
 
 ---
 
