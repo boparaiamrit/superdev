@@ -111,6 +111,20 @@ class ProjectScopeStaticTests(unittest.TestCase):
         self.assertEqual(16, len(skills))
         self.assertEqual(51, len(agents))
 
+    def test_skill_descriptions_avoid_reserved_angle_brackets(self) -> None:
+        violations: list[str] = []
+        for skill_path in (PLUGIN_ROOT / "skills").glob("*/SKILL.md"):
+            frontmatter = read_text(skill_path).split("---", maxsplit=2)[1]
+            description = next(
+                line.removeprefix("description:").strip()
+                for line in frontmatter.splitlines()
+                if line.startswith("description:")
+            )
+            if "<" in description or ">" in description:
+                violations.append(str(skill_path.relative_to(ROOT)))
+
+        self.assertEqual([], violations, "\n" + "\n".join(violations))
+
     def test_archive_matches_plugin_tree_and_has_no_global_paths(self) -> None:
         archive_path = ROOT / "superdev.zip"
         expected = {
