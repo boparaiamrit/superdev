@@ -1,6 +1,6 @@
 ---
 name: superdev-self-learning
-description: The meta-skill that makes superdev self-improving. Captures user-frustration signals (explicit corrections, code reverts, regression-verifier failures, design-drift > 1%, re-prompts with frustration markers) and writes structured **feedback** memory entries to `.claude/memory/superdev-learned/`. Future orchestrator dispatches read this memory first so the system learns what NOT to do in this project, what skills to call (or never call) in which context, and which defaults to pre-apply. Project-scoped only; never global. Triggered automatically by the `UserPromptSubmit` hook on frustration patterns and by `SubagentStop` after fix-applier or design-fidelity-auditor.
+description: The meta-skill that makes superdev self-improving. Captures user-frustration signals (explicit corrections, code reverts, regression-verifier failures, design-drift above 1%, re-prompts with frustration markers) and writes structured **feedback** memory entries to `.claude/memory/superdev-learned/`. Future orchestrator dispatches read this memory first so the system learns what NOT to do in this project, what skills to call (or never call) in which context, and which defaults to pre-apply. Project-scoped only; never global. Triggered automatically by the `UserPromptSubmit` hook on frustration patterns and by `SubagentStop` after fix-applier or design-fidelity-auditor.
 ---
 
 # Superdev Self-Learning — the meta-loop
