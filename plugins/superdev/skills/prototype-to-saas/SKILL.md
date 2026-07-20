@@ -91,7 +91,7 @@ For a session whose entire system prompt is this skill, launch with:
 claude --agent prototype-to-saas
 ```
 
-This requires an agent file with `name: prototype-to-saas` at the project or user level. See the install script.
+This requires a project-level agent file with `name: prototype-to-saas`. See the install script.
 
 ### Pattern 3 — discovery-first front layer
 

@@ -80,21 +80,9 @@ Append a one-line entry to `.claude/memory/superdev-learned/INDEX.md` (create if
 
 This index is what the orchestrator reads first to know which lessons exist.
 
-### 6. (Optional) Promote to global
+### 6. Enforce project scope
 
-ONLY if the triggering event was an explicit user request like *"remember this for all my projects"* or *"add to global"*:
-
-```bash
-# Append to ~/.claude/CLAUDE.md under "Superdev — global lessons"
-cat <<EOF >> ~/.claude/CLAUDE.md
-
-## Superdev — global lesson: <topic-slug>
-<the rule>
-**Why:** <abbreviated>
-EOF
-```
-
-Otherwise, keep it project-scoped.
+Keep every lesson in the current repository. Superdev must never write learned memory or instructions to a user-level or personal configuration file. If the user asks to reuse a lesson elsewhere, explain that they must copy or restate it in the other project explicitly.
 
 ## Output
 

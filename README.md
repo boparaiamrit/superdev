@@ -327,7 +327,7 @@ What gets captured:
 | `product-completeness-audit` found 3 hardcoded `*_count` fields | `aggregate-counts-always-real` — presenters must SELECT COUNT, never hardcode |
 | User said "stop adding error boundaries to list pages" | `do-not-add-error-boundaries-to-list-pages` — rely on TanStack `isError` instead |
 
-Scope (v1.2): **project-only** — lessons live in `.claude/memory/superdev-learned/` in the current repo and are appended to that repo's `CLAUDE.md` so EVERY Claude session in the repo sees them. The user can promote any lesson to global with *"remember this for all my projects"*.
+Scope: **project-only** — lessons live in `.claude/memory/superdev-learned/` in the current repo and may be appended to that repo's `CLAUDE.md` so every Claude session in the repo sees them. Superdev never writes lessons to personal or user-level instructions.
 
 Detection is **conservative** — only strong signals trigger learning ("no/stop/wrong" as a short message, repeat-correction markers like "I already told you", explicit code reverts, verifier rejections). Normal iteration ("actually change the color to blue") doesn't.
 
