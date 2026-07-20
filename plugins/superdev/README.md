@@ -85,19 +85,20 @@ Skill examples use `pnpm` (the default the monorepo-bootstrapper sets up, becaus
 | `bun.lockb` / `bun.lock` | `(cd apps/api && bun run typecheck)` |
 | (none of the above) | `(cd apps/api && npm run typecheck)` |
 
-Whether the plugin is installed globally in `~/.claude/plugins/` or privately in a single monorepo, it adapts to that repo's naming and tooling.
+Superdev is installed only for the current project and adapts to that repository's naming and tooling.
 
 ## Installation
 
-### Codex — local marketplace
+### Codex — repository marketplace
 
-This repo includes a Codex marketplace file:
+Keep the marketplace and plugin source in the target repository:
 
 ```text
 .agents/plugins/marketplace.json
+plugins/superdev/
 ```
 
-After installing from that local marketplace, invoke the skills directly:
+Start Codex from that repository, open `/plugins`, choose **Superdev Local**, install Superdev, and start a new session. Do not add Superdev to a personal marketplace. Then invoke the skills directly:
 
 ```text
 Use $security-review-and-fix to audit this codebase.
@@ -107,29 +108,35 @@ Use $prd-design-build-orchestrator with docs/PRD.md and design/.
 
 ### Claude Code
 
-### Option 1 — install via marketplace (recommended)
+### Project-scoped marketplace installation (recommended)
 
 ```bash
-/plugin marketplace add boparaiamrit/superdev
-/plugin install superdev
+claude plugin marketplace add boparaiamrit/superdev --scope project
+claude plugin install superdev@superdev --scope project
 ```
 
-### Option 2 — local development
+If you use the interactive `/plugin` browser, choose **Project scope**. To migrate an older user-scoped copy:
 
 ```bash
-git clone https://github.com/boparaiamrit/superdev ~/superdev
-claude --plugin-dir ~/superdev/plugins/superdev
+claude plugin uninstall superdev@superdev --scope user
 ```
 
-### Option 3 — install from zip
+### Project-only helper
 
 ```bash
-bash install-superdev.sh
+cd /path/to/target-project
+bash /path/to/superdev/install-superdev.sh
+```
+
+### Local development session
+
+```bash
+claude --plugin-dir ./plugins/superdev
 ```
 
 ## Quick start
 
-After installation, in any Claude Code session:
+After installation, in a Claude Code session opened from the configured project:
 
 ```
 I have a PRD at docs/PRD.md and a design at design/index.html.
