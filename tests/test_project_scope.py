@@ -108,8 +108,24 @@ class ProjectScopeStaticTests(unittest.TestCase):
     def test_current_inventory_is_documented_by_source(self) -> None:
         skills = list((PLUGIN_ROOT / "skills").glob("*/SKILL.md"))
         agents = list((PLUGIN_ROOT / "agents").glob("*.md"))
-        self.assertEqual(16, len(skills))
-        self.assertEqual(51, len(agents))
+        self.assertEqual(18, len(skills))
+        self.assertEqual(54, len(agents))
+        self.assertIn(
+            "18 production-grade skills + 54 specialized role prompts",
+            read_text(ROOT / "README.md"),
+        )
+        self.assertIn(
+            "18 skills + 54 specialized role prompts",
+            read_text(PLUGIN_ROOT / "README.md"),
+        )
+
+    def test_release_manifest_versions_match(self) -> None:
+        versions = {
+            json.loads(read_text(ROOT / ".claude-plugin" / "marketplace.json"))["plugins"][0]["version"],
+            json.loads(read_text(PLUGIN_ROOT / ".claude-plugin" / "plugin.json"))["version"],
+            json.loads(read_text(PLUGIN_ROOT / ".codex-plugin" / "plugin.json"))["version"],
+        }
+        self.assertEqual({"1.8.1"}, versions)
 
     def test_skill_descriptions_avoid_reserved_angle_brackets(self) -> None:
         violations: list[str] = []

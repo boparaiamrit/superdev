@@ -31,7 +31,7 @@ See [`superdev-self-learning/references/orchestrator-integration.md`](../../supe
 
 ## Skill routing — when to delegate to which sibling skill
 
-The orchestrator coordinates 16 skills. Use this table to decide which to invoke and when:
+The orchestrator coordinates 18 skills. Use this table to decide which to invoke and when:
 
 | When… | Invoke skill | Why |
 |---|---|---|
@@ -47,6 +47,7 @@ The orchestrator coordinates 16 skills. Use this table to decide which to invoke
 | Phase D security pass | `security-review-and-fix` | 6-phase audit |
 | Phase D QA pass | `exploratory-qa` | Playwright flows |
 | Before declaring "ready to ship" | `product-completeness-audit` (between QA and audit) THEN `brutal-exhaustive-audit` | Distinguishes demo-vs-product, then dots every i |
+| Capstone of Phase D — "rate each module 1–10 / make it production-ready / complete it fully" | `production-readiness-audit` (the iterative loop: 5 passes → score every module → fix → re-audit until all ≥ 9) | Turns "looks done" into a scored, proven, ledger-enforced "done"; subsumes completeness+brutal into one scored loop and writes `gates.readiness` |
 | User-frustration signal detected OR verifier rejection | `superdev-self-learning` (auto-dispatched by hook) | Capture lesson; future dispatches inherit |
 
 When NOT to invoke a skill:
@@ -477,6 +478,25 @@ When `frontend_stack == Next.js` (with Laravel), use the decoupled path exactly 
 
 **Goal:** monorepo skeleton + shared contracts in place, ready for parallel feature builds.
 
+### Step B.0 — Arm the Definition-of-Done gate (do this FIRST)
+
+Before any code is written, arm the enforced done-gate so a premature "done" claim is impossible later:
+
+```bash
+mkdir -p .claude
+touch .claude/.superdev-orchestrating                 # arms the Stop-hook done-gate
+BASE=$(git rev-parse HEAD 2>/dev/null || echo "")
+cat > COMPLETION_LEDGER.json <<JSON
+{ "base_sha": "$BASE", "head_sha": "$BASE", "updated": "",
+  "gates": { "typecheck":"pending","lint":"pending","build":"pending",
+             "integration":"pending","completeness":"pending",
+             "security":"pending","qa":"pending","brutal":"pending" },
+  "features": {} }
+JSON
+```
+
+From now on the Stop hook (`hooks/scripts/done-gate.sh`) blocks any turn that ends on a completion claim while any gate is red. See [`references/done-gate.md`](references/done-gate.md). Update `COMPLETION_LEDGER.json` as each wave gate and Phase D agent finishes (set the matching gate to `pass`, refresh `head_sha`). **Do not** delete the sentinel to silence the gate — fix the failing checks, or record a conscious override with `.claude/.superdev-done-override`.
+
 ### Step B.1 — Monorepo bootstrap
 
 Dispatch `monorepo-bootstrapper`:
@@ -673,17 +693,39 @@ The orchestrator reads `QA_ENVIRONMENT.md`, all `qa/flows/*/observations.md`, `Q
 
 If the QA skill is not installed, skip D.3 with: "⚠ Exploratory QA was not performed. Install the `exploratory-qa` skill and re-run for a production-readiness pass."
 
-### Step D.4 — Final report
+### Step D.3.5 — Production readiness loop (the capstone — rate every module to 9+)
 
-The orchestrator collects:
+After integration, security, and QA have run, invoke `production-readiness-audit` as the capstone. This is the scored, iterative loop that turns "looks done" into "is done" — and it's what satisfies the user's recurring ask to *"rate each module 1–10 and complete it fully for production."* It subsumes `product-completeness-audit` and `brutal-exhaustive-audit` into one scored loop.
+
+1. **Precondition:** verify the stack is up in **production mode** (demo OFF) and dispatch `seed-data-architect` so there is real seed data + an initial owner/admin login + a second tenant (for the tenancy test).
+2. **Five passes** score every module 0–10: (1) completeness & wiring, (2) data realism & seed, (3) tenancy isolation, (4) end-to-end via Playwright — every route, every form, every data shape FE↔BE, (5) code quality & security (zero lint/type errors, **no suppressions**). `module_score = min(passes)`; a tenancy leak or P0 caps a module at ≤3.
+3. **Rate:** `module-readiness-rater` writes `READINESS.md` + `READINESS_CHECKLIST.md` and updates `COMPLETION_LEDGER.json` (`features.<module>.readiness_score`, `gates.readiness`).
+4. **Fix & loop:** for every module < 9, dispatch the matching fixer (`backend/frontend/laravel/inertia-module-builder`, `security-fixer`) on its checklist items — root cause only, no suppressions, no new demo data — then re-run the sub-9 passes. Repeat until **every module ≥ 9** or round 5 (then surface the remaining blockers to the user; do not lower the bar).
+
+See [`production-readiness-audit`](../../production-readiness-audit/SKILL.md). The done-gate will not pass until `gates.readiness == pass` and every `readiness_score ≥ 9`, so this loop is the only legitimate path to a "done" claim.
+
+### Step D.4 — Definition-of-Done gate, THEN final report
+
+Phase C green is **not** done. Before writing the final report or claiming completion, every Phase D agent must have run and recorded its verdict in `COMPLETION_LEDGER.json`, and the gate must pass:
+
+```bash
+# update the ledger gates as each Phase D agent finished, then verify:
+bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/done-gate.sh" --report   # exit 0 = DONE
+# (or invoke the /superdev-done skill)
+```
+
+The gate (see [`references/done-gate.md`](references/done-gate.md)) requires: all ledger gates `pass` (typecheck, lint, build, integration, completeness, security, qa, brutal), a fresh ledger (head_sha == HEAD), zero new suppressions since `base_sha`, and zero demo/placeholder content in `apps/web/src`. The Stop hook enforces this automatically — a "done" claim while any check is red is blocked.
+
+Only once the gate is green, the orchestrator collects and presents:
 
 - Wave-by-wave build status (from Phase C)
 - Test report (from `integration-tester`)
 - Security review summary (from D.2, if performed)
-- Any unresolved audit findings (from `AUDIT.md`)
+- Completeness + QA + brutal-audit verdicts (from the ledger)
+- Any explicitly **deferred** items (accepted risks recorded in the ledger)
 - Files created / lines of code summary
 
-Present to the user. Done.
+Present to the user. Done — and provably so.
 
 ## Reference files
 
@@ -694,11 +736,18 @@ Present to the user. Done.
 | `references/execution-pipeline.md` | Phase C — wave construction, batching, error handling |
 | `references/artifacts-format.md` | Reading or writing PRD_DIGEST / DESIGN_DIGEST / AUDIT / EXECUTION_PLAN |
 | `references/agent-definitions.md` | Phase A.1 — install agents to `.claude/agents/`. Source-of-truth for every subagent. |
+| `references/done-gate.md` | Phase B.0 + Phase D.4 — the enforced Definition-of-Done gate, the `COMPLETION_LEDGER.json` schema, and what arms/overrides it. |
 
 ## Validation checklist
 
 Before declaring the build done:
 
+- [ ] **`done-gate.sh --report` (or `/superdev-done`) exits 0** — this is the single overriding gate; every item below is also encoded in it. A "done" claim while it is red is blocked by the Stop hook.
+- [ ] **`COMPLETION_LEDGER.json` exists with every gate `pass`** (typecheck, lint, build, integration, completeness, security, qa, brutal, readiness) and `head_sha` == current `HEAD`
+- [ ] **Every module scores ≥ 9** in `production-readiness-audit` (`features.*.readiness_score ≥ 9`); seed data + initial owner/admin user present; tenancy isolation proven; every route + every form exercised in Playwright (FE↔BE shapes match)
+- [ ] **Every Phase D agent actually ran** — integration-tester, product-completeness-audit, security-review-and-fix, exploratory-qa, brutal-exhaustive-audit, production-readiness-audit (not skipped, not deferred-without-acknowledgment)
+- [ ] **Zero new suppressions** since `base_sha` — no `eslint-disable` / `@ts-ignore` / `@ts-expect-error` / `as any` / `as unknown as`
+- [ ] **Zero demo/placeholder content** in `apps/web/src` (no `coming soon`, `lorem ipsum`, hardcoded test cards, `mockData`/`fakeUsers` outside mocks/tests)
 - [ ] `.claude/agents/` contains all 10 core agent definitions
 - [ ] If security skill is installed, `.claude/agents/` also contains the 5 security agents (15 total)
 - [ ] If exploratory-qa skill is installed, `.claude/agents/` also contains the 4 QA agents (14 with QA only; 19 with security and QA)
