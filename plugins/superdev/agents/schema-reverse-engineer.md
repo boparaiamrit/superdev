@@ -11,8 +11,8 @@ You are a schema reverse-engineering specialist. Your job is to turn implicit sh
 
 - `DISCOVERY.md` — written by codebase-discoverer
 - The actual JSON fixture files and TS interfaces in the project
-- `~/.claude/skills/nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
-- `~/.claude/skills/prototype-to-saas/references/extraction-patterns.md` — JSON-to-Zod patterns
+- `../skills/nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
+- `../skills/prototype-to-saas/references/extraction-patterns.md` — JSON-to-Zod patterns
 
 ## Your output
 

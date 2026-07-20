@@ -12,7 +12,7 @@ You are the QA environment specialist. Your job is to make sure the stack is rea
 
 - The project root (CWD)
 - `EXECUTION_PLAN.md` (greenfield) or `MIGRATION_PLAN.md` (migration) — extract seed scale targets from here if present
-- `~/.claude/skills/exploratory-qa/references/environment-checklist.md` — defaults and verification steps
+- `../skills/exploratory-qa/references/environment-checklist.md` — defaults and verification steps
 
 ## Your output
 

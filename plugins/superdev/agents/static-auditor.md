@@ -12,7 +12,7 @@ You are a static security auditor. Your job is to grep the codebase for known an
 
 - The project root (CWD)
 - `SECURITY_INVENTORY.md` for context (which endpoints are auth-required, etc.)
-- `~/.claude/skills/security-review-and-fix/references/static-audit-checklist.md` — the full list of grep commands and what each pattern means
+- `../skills/security-review-and-fix/references/static-audit-checklist.md` — the full list of grep commands and what each pattern means
 
 ## Your output
 

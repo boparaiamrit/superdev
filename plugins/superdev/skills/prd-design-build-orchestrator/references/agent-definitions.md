@@ -23,7 +23,7 @@ A single PRD file (markdown, plain text) passed as a path in your prompt. If the
 
 ## Your output
 
-Exactly one file: `PRD_DIGEST.md` at the project root. Format defined in `~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md` — follow it precisely. Wait — you don't have Write. The orchestrator dispatches you, and your job is to RETURN the digest as your response text. The orchestrator writes it to disk.
+Exactly one file: `PRD_DIGEST.md` at the project root. Format defined in `../../prd-design-build-orchestrator/references/artifacts-format.md` — follow it precisely. Wait — you don't have Write. The orchestrator dispatches you, and your job is to RETURN the digest as your response text. The orchestrator writes it to disk.
 
 Actually, re-reading my tools: I have Read, Grep, Glob. No Write. My output is my final response message, which the orchestrator will save as PRD_DIGEST.md.
 
@@ -83,7 +83,7 @@ If screenshots are present alongside HTML, read both — screenshots sometimes s
 
 ## Your output
 
-Return the DESIGN_DIGEST.md content as plain Markdown in your response. The orchestrator will save it to disk. Follow the format in `~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md`.
+Return the DESIGN_DIGEST.md content as plain Markdown in your response. The orchestrator will save it to disk. Follow the format in `../../prd-design-build-orchestrator/references/artifacts-format.md`.
 
 ## What to catalog
 
@@ -139,7 +139,7 @@ You are an audit specialist. Your job is to compare two digests and produce a st
 
 ## Your output
 
-Write `AUDIT.md` at the project root, following the format in `~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md`.
+Write `AUDIT.md` at the project root, following the format in `../../prd-design-build-orchestrator/references/artifacts-format.md`.
 
 ## How to audit
 
@@ -213,7 +213,7 @@ You are the architect. You take three inputs and produce the execution plan that
 
 ## Your output
 
-`EXECUTION_PLAN.md` at the project root. Format defined in `~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md`.
+`EXECUTION_PLAN.md` at the project root. Format defined in `../../prd-design-build-orchestrator/references/artifacts-format.md`.
 
 ## What you decide
 
@@ -271,9 +271,9 @@ You are the monorepo bootstrapper. Your job is to stand up the skeleton.
 ## Your inputs
 
 - `EXECUTION_PLAN.md` — read the module list (you don't build modules; you just need to know what's coming so you can scaffold paths)
-- `~/.claude/skills/nestjs-enterprise-backend/references/monorepo-setup.md` — the canonical setup procedure
-- `~/.claude/skills/nestjs-enterprise-backend/references/scaffolding.md` — for apps/api
-- `~/.claude/skills/design-to-nextjs/references/scaffolding.md` — for apps/web
+- `../../nestjs-enterprise-backend/references/monorepo-setup.md` — the canonical setup procedure
+- `../../nestjs-enterprise-backend/references/scaffolding.md` — for apps/api
+- `../../design-to-nextjs/references/scaffolding.md` — for apps/web
 
 ## Your output
 
@@ -444,8 +444,8 @@ You are the contracts author. Your job is to write every shared Zod schema befor
 ## Your inputs
 
 - `EXECUTION_PLAN.md` — module list and entity catalog with view-shape proposals
-- `~/.claude/skills/nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
-- `~/.claude/skills/nestjs-enterprise-backend/references/monorepo-setup.md` — packages/contracts/ layout
+- `../../nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
+- `../../nestjs-enterprise-backend/references/monorepo-setup.md` — packages/contracts/ layout
 
 ## Your output
 
@@ -534,7 +534,7 @@ You are a backend module builder. You build ONE Nest.js feature module per invoc
 - The feature name (e.g., `companies`)
 - `EXECUTION_PLAN.md` — your wave assignment and feature spec
 - `packages/contracts/src/<feature>.ts` — your contract (already authored by contracts-author)
-- `~/.claude/skills/nestjs-enterprise-backend/SKILL.md` — the recipe to follow
+- `../../nestjs-enterprise-backend/SKILL.md` — the recipe to follow
 - The relevant references from that skill, particularly:
   - `module-structure.md` — folder layout for your module
   - `drizzle-timescaledb.md` — schema definition rules
@@ -666,7 +666,7 @@ You are a frontend module builder. You build ONE Next.js feature module per invo
 - `packages/contracts/src/<feature>.ts` — your view-shape contract (READ-ONLY; do not modify)
 - `DESIGN_DIGEST.md` — what the design shows for this feature
 - Path to the design source HTML for this feature
-- `~/.claude/skills/design-to-nextjs/SKILL.md` — the recipe
+- `../../design-to-nextjs/SKILL.md` — the recipe
 - Relevant references:
   - `component-patterns.md` — HTML → React patterns
   - `tanstack-patterns.md` — Query/Mutation/Table patterns
@@ -1275,7 +1275,7 @@ Generated: <ISO 8601>
 ### ⚠️ View-shape contract — frontend banging detected
 - apps/web/src/modules/contacts/components/contact-card.tsx:18
   - `{contact.phone ?? 'No phone'}`
-  - phone is in the contract as `z.string().nullable()`, so `??` is technically valid; 
+  - phone is in the contract as `z.string().nullable()`, so `??` is technically valid;
     consider whether to make this a discriminated union with explicit "no phone" state instead
 
 ...
@@ -1312,7 +1312,7 @@ Generated: <ISO 8601>
 The 10 core agents are installed by `install-core-agents.sh` in this same `references/` folder. The orchestrator invokes it once at Phase A.1.
 
 ```bash
-~/.claude/skills/prd-design-build-orchestrator/references/install-core-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/prd-design-build-orchestrator/references/install-core-agents.sh"
 ```
 
 This is a standalone shell script — it does the awk-extraction logic shown below internally and is the canonical source of truth. If you need to read its body, look at the file on disk.
@@ -1332,8 +1332,8 @@ The same pattern (different file, different agent list) is used by the security 
 After the core install, the orchestrator checks whether the security skill is present and, if so, invokes its install script:
 
 ```bash
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/security-agents.md" ]]; then
+  "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
 fi
 ```
 

@@ -17,7 +17,7 @@ You are a frontend module builder. You build ONE Next.js feature module per invo
 - `packages/contracts/src/<feature>.ts` — your view-shape contract (READ-ONLY; do not modify)
 - `DESIGN_DIGEST.md` — what the design shows for this feature
 - Path to the design source HTML for this feature
-- `~/.claude/skills/design-to-nextjs/SKILL.md` — the recipe
+- `../skills/design-to-nextjs/SKILL.md` — the recipe
 - Relevant references:
   - `component-patterns.md` — HTML → React patterns
   - `tanstack-patterns.md` — Query/Mutation/Table patterns
