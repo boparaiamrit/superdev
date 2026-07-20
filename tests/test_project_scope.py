@@ -22,7 +22,11 @@ INSTALL_DOCS = (
 )
 FORBIDDEN_GLOBAL_PATTERNS = {
     "global skill path": "~/.claude/skills",
+    "HOME-variable global skill path": "${HOME}/.claude/skills",
+    "unbraced HOME global skill path": "$HOME/.claude/skills",
     "global plugin target": "~/.claude/plugins/superdev",
+    "HOME-variable global plugin target": "${HOME}/.claude/plugins/superdev",
+    "unbraced HOME global plugin target": "$HOME/.claude/plugins/superdev",
     "obsolete plugin root": "CLAUDE_PLUGIN_DIR",
     "global lesson file": "~/.claude/CLAUDE.md",
     "personal Codex marketplace": "~/.agents/plugins/marketplace.json",
@@ -320,6 +324,34 @@ elif args == ["--version"]:
 
         self.assertNotEqual(0, result.returncode)
         self.assertEqual([], self.logged_commands())
+        self.assert_home_untouched()
+
+    def test_auxiliary_agent_installers_use_bundled_project_sources(self) -> None:
+        installers = {
+            "exploratory-qa/references/install-qa-agents.sh": 4,
+            "prd-design-build-orchestrator/references/install-core-agents.sh": 10,
+            "prototype-to-saas/references/install-migration-agents.sh": 5,
+            "security-review-and-fix/references/install-security-agents.sh": 5,
+        }
+
+        for relative_path, expected_count in installers.items():
+            with self.subTest(installer=relative_path):
+                project = self.base / Path(relative_path).stem
+                project.mkdir()
+                result = subprocess.run(
+                    ["bash", str(PLUGIN_ROOT / "skills" / relative_path)],
+                    cwd=project,
+                    env=self.env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=False,
+                )
+
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                installed_agents = list((project / ".claude" / "agents").glob("*.md"))
+                self.assertEqual(expected_count, len(installed_agents))
+
         self.assert_home_untouched()
 
 
