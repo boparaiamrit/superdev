@@ -96,7 +96,7 @@ If you want the entire session to behave as the orchestrator (its system prompt 
 claude --agent prd-design-build-orchestrator
 ```
 
-This requires a `prd-design-build-orchestrator.md` agent file at the project or user level. The skill's install step writes one automatically if you opt in (see `references/install-orchestrator-as-agent.sh`).
+This requires a project-level `prd-design-build-orchestrator.md` agent file. The skill's install step writes one automatically if you opt in (see `references/install-orchestrator-as-agent.sh`).
 
 ### Pattern 3 — interactive setup via `/agents`
 
