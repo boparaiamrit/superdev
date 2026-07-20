@@ -198,7 +198,7 @@ Generated: <ISO 8601>
 ### ⚠️ View-shape contract — frontend banging detected
 - apps/web/src/modules/contacts/components/contact-card.tsx:18
   - `{contact.phone ?? 'No phone'}`
-  - phone is in the contract as `z.string().nullable()`, so `??` is technically valid; 
+  - phone is in the contract as `z.string().nullable()`, so `??` is technically valid;
     consider whether to make this a discriminated union with explicit "no phone" state instead
 
 ...
@@ -235,7 +235,7 @@ Generated: <ISO 8601>
 The 10 core agents are installed by `install-core-agents.sh` in this same `references/` folder. The orchestrator invokes it once at Phase A.1.
 
 ```bash
-~/.claude/skills/prd-design-build-orchestrator/references/install-core-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/prd-design-build-orchestrator/references/install-core-agents.sh"
 ```
 
 This is a standalone shell script — it does the awk-extraction logic shown below internally and is the canonical source of truth. If you need to read its body, look at the file on disk.
@@ -255,8 +255,8 @@ The same pattern (different file, different agent list) is used by the security 
 After the core install, the orchestrator checks whether the security skill is present and, if so, invokes its install script:
 
 ```bash
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/security-agents.md" ]]; then
+  "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
 fi
 ```
 

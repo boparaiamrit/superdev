@@ -180,7 +180,7 @@ Inputs: ./PRD.md (markdown)
 
 Outputs:
   Write a single file at ./PRD_DIGEST.md following the format in
-  ~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md.
+  ../../prd-design-build-orchestrator/references/artifacts-format.md.
   Include: features list, entity list with view-shape proposals, screen list,
   external integrations, NFRs.
 

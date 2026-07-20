@@ -2,7 +2,7 @@
 
 # Superdev — Claude Code + Codex Plugin
 
-**16 production-grade skills + 51 specialized role prompts for full-stack monorepo builds**
+**18 production-grade skills + 54 specialized role prompts for full-stack monorepo builds**
 
 *Workspace-scope agnostic · package-manager agnostic · self-improving · marketplaceable*
 
@@ -24,13 +24,13 @@
 
 Superdev now includes a Codex manifest at `plugins/superdev/.codex-plugin/plugin.json` and a repo-local marketplace at `.agents/plugins/marketplace.json`.
 
-In Codex, the 16 Superdev skills load natively. The Claude Code subagent files and hook events are preserved for Claude users; Codex treats the `agents/*.md` files as role-prompt references and runs hook-equivalent checks explicitly from the skills. See [CODEX.md](CODEX.md) for the host adapter notes.
+In Codex, the 18 Superdev skills load natively. The Claude Code subagent files and hook events are preserved for Claude users; Codex treats the `agents/*.md` files as role-prompt references and runs hook-equivalent checks explicitly from the skills. See [CODEX.md](CODEX.md) for the host adapter notes.
 
-## 🧬 What's Inside — 16 Skills
+## 🧬 What's Inside — 18 Skills
 
 | # | Skill | What It Does |
 |:---:|:---|:---|
-| 1 | 🧠 **prd-design-build-orchestrator** | Multi-agent orchestration. The conductor — coordinates all 16 skills, reads `.claude/memory/superdev-learned/` before every dispatch, threads project lessons into agent prompts. |
+| 1 | 🧠 **prd-design-build-orchestrator** | Multi-agent orchestration. The conductor — coordinates all 18 skills, reads `.claude/memory/superdev-learned/` before every dispatch, threads project lessons into agent prompts. |
 | 2 | 🎨 **design-to-nextjs** | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter). |
 | 3 | 🖼️ **design-preservation** 🆕 | When source is a **prototype** (HTML/Figma/existing app), copy verbatim into `apps/web/src/design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift via `design-fidelity-auditor`. The Holy Grail rule: no restyling. |
 | 4 | 🏛️ **nestjs-enterprise-backend** | Nest.js + PostgreSQL 17 + TimescaleDB + Drizzle + CASL + BullMQ + Redis. `@Audit` decorator, view-shape contract, CASL ability enforcement. |
@@ -46,19 +46,21 @@ In Codex, the 16 Superdev skills load natively. The Claude Code subagent files a
 | 14 | 🐘 **laravel-enterprise-backend** 🆕 v1.4.0 · reworked v1.6.0 | **Laravel 13 backend** alternative to Nest.js — **PostgreSQL + TimescaleDB** (stock `pgsql`, self-managed; UUID PKs), **database-backed cache + sessions** (no Redis), **SQS** queues, **Eloquent API Resources** as presenter + **hand-written TS contract** (in `packages/contracts`, guarded by a contract test), `#[Audit]` attribute → **`audit_logs` TimescaleDB hypertable** (compression + retention), Sanctum + `spatie/laravel-permission` + `#[Authorize]`, `BelongsToWorkspace` global-scope tenancy (cross-workspace 404), reference-field (no-FK) model, Title-Case enums, Laravel Boost. |
 | 15 | ☁️ **laravel-bref-deploy** 🆕 v1.4.0 | **Serverless deploy** of the Laravel backend on AWS Lambda via **Bref 3.x** — `web` (php-84-fpm) + SQS `worker` + `artisan` (php-84-console) functions, EventBridge `schedule:run`, public HTML/assets → S3 + CloudFront, SSM secrets, managed PostgreSQL + TimescaleDB over public internet (no VPC). Defaults to OSS Serverless (`osls`); Bref Cloud (`bref deploy`) documented. |
 | 16 | 🐘 **design-to-laravel** 🆕 v1.5.0 | Translate a **Claude Design** handoff into a **Laravel + Inertia 3 + React 19** monolith (the official React starter kit — TS, Tailwind 4, shadcn incl. sidebar block). Pages in `resources/js/pages` get typed props via `Inertia::render`; routing via Wayfinder; forms via `useForm`; auth via **Fortify session + spatie/permission + `#[Authorize]`**. Reuses design-to-nextjs token-extraction + shadcn; client-only, deployed on Bref. The **default** Laravel frontend (Next.js remains an alternative). |
+| 17 | 🚦 **superdev-done** 🆕 v1.7.0 | Runs the machine-checkable Definition-of-Done gate on demand. Completion is blocked while build, lint, integration, completeness, security, QA, brutal-audit, or readiness gates are red. |
+| 18 | 📈 **production-readiness-audit** 🆕 v1.8.0 | Scores every module across five production passes, fixes every module below 9/10, and repeats until all modules meet the readiness gate or surface explicit blockers. |
 
 > 🔀 **Backend + frontend stack choice** — when the orchestrator builds a backend it asks **Laravel or Nest.js** (Step A.5b) and routes builder/contracts/deploy. When **Laravel** is chosen it then asks the frontend (Step A.5c): **Inertia monolith** (default — `design-to-laravel`, one app, Fortify session) or **decoupled Next.js** (`design-to-nextjs`, Sanctum tokens). Nest.js always pairs with Next.js; all QA/security/audit skills are identical regardless.
 
 
 ---
 
-## 💎 The Gem: 51 Subagents + Self-Improving Memory + Adversarial Teams
+## 💎 The Gem: 54 Subagents + Self-Improving Memory + Adversarial Teams
 
-**Superdev** ships every full-stack workflow as a fleet of **51 specialized subagents** that the orchestrator dispatches in parallel waves — each agent gets a fresh context window, focuses on one feature module or one audit concern, and writes its findings to disk before returning. The orchestrator reads `.claude/memory/superdev-learned/` BEFORE every dispatch and threads relevant lessons into agent prompts, so the system learns from every past failure and stops repeating mistakes.
+**Superdev** ships every full-stack workflow as a fleet of **54 specialized subagents** that the orchestrator dispatches in parallel waves — each agent gets a fresh context window, focuses on one feature module or one audit concern, and writes its findings to disk before returning. The orchestrator reads `.claude/memory/superdev-learned/` BEFORE every dispatch and threads relevant lessons into agent prompts, so the system learns from every past failure and stops repeating mistakes.
 
 ```
  ╔══════════════════════════════════════════════════════════════════════╗
- ║          ORCHESTRATOR  ·  4 phases  ·  16 skills  ·  51 agents       ║
+ ║          ORCHESTRATOR  ·  4 phases  ·  18 skills  ·  54 agents       ║
  ║      A) Audit  B) Bootstrap  C) Execute  D) Integrate + Audits       ║
  ╚════════════════════════════════╦═════════════════════════════════════╝
                                   ║
@@ -92,8 +94,8 @@ In Codex, the 16 Superdev skills load natively. The Claude Code subagent files a
 
 - ✅ **Workspace-scope agnostic** — no hardcoded `@scope/` anywhere; uses `<scope>` placeholders + path-based pnpm filters
 - ✅ **Package-manager agnostic** — hooks auto-detect pnpm / npm / yarn / bun from lockfile
-- ✅ **Install anywhere** — works installed globally in `~/.claude/plugins/` or privately checked into a single monorepo
-- ✅ **51 subagents auto-loaded** — no install scripts, no manual `agents/` copying
+- ✅ **Project-scoped only** — Claude activation lives in the repository's project settings; Codex discovery lives in the repository marketplace
+- ✅ **54 subagents auto-loaded** — no install scripts, no manual `agents/` copying
 - ✅ **6 runtime hooks** — auto-typecheck after every builder, stack-health check before Playwright agents, frustration-detection on every user prompt, lesson-capture after every verifier
 - ✅ **Self-improving** — orchestrator reads `.claude/memory/superdev-learned/` before every dispatch; `learn-from-frustration` writes new lessons from user corrections / code reverts / verifier rejections / design drift
 - ✅ **Adversarial teams (optional)** — 3-teammate reviews on 9+ phases (security, QA, gap, severity, drift, completeness, competing-hypotheses) when stakes are high
@@ -105,45 +107,51 @@ In Codex, the 16 Superdev skills load natively. The Claude Code subagent files a
 
 ### Install
 
-**Codex local marketplace:**
-```shell
-# Use this repository's marketplace file:
-# .agents/plugins/marketplace.json
+**Codex repository marketplace:**
+
+Keep both of these paths in the target project:
+
+```text
+.agents/plugins/marketplace.json
+plugins/superdev/
 ```
 
-Then invoke the skills directly in Codex, for example:
+From that project, start Codex, open `/plugins`, choose **Superdev Local**, install Superdev, and start a new session. Do not add Superdev to a personal marketplace. Then invoke the skills directly, for example:
 ```text
 Use $security-review-and-fix to audit this codebase.
 Use $prototype-to-saas to productionize this prototype.
 Use $prd-design-build-orchestrator with docs/PRD.md and design/.
 ```
 
-**Claude Code marketplace:**
+**Claude Code project installation:**
 
-**Step 1 — Add the marketplace:**
+Run these commands from the target project. The explicit scope is required because Claude otherwise defaults to user scope.
+
 ```shell
-/plugin marketplace add boparaiamrit/superdev
+claude plugin marketplace add boparaiamrit/superdev --scope project
+claude plugin install superdev@superdev --scope project
 ```
 
-**Step 2 — Install the plugin:**
+If an older user-scoped copy is present, remove that copy explicitly before installing for the project:
+
 ```shell
-/plugin install superdev@superdev
+claude plugin uninstall superdev@superdev --scope user
 ```
 
-> 💡 Or install from the bundled zip:
+> 💡 Or use the project-only helper from inside the target repository:
 > ```bash
-> bash install-superdev.sh
+> bash /path/to/superdev/install-superdev.sh
 > ```
-> The installer extracts to `~/.claude/plugins/superdev/` and registers the path in `~/.claude/settings.json` so every Claude Code session loads it.
+> It delegates to the same two Claude CLI commands with `--scope project` and refuses to run outside a Git project.
 
 > 🧪 Or test locally during development:
 > ```bash
-> claude --plugin-dir ~/superdev/plugins/superdev
+> claude --plugin-dir ./plugins/superdev
 > ```
 
 ### Run
 
-In any Claude Code session, just say what you want — **the right skill activates standalone**, no need to drive the whole orchestrator pipeline.
+In a Claude Code session opened from the configured project, just say what you want — **the right skill activates standalone**, no need to drive the whole orchestrator pipeline.
 
 #### Use a single skill (no orchestrator overhead)
 
@@ -327,7 +335,7 @@ What gets captured:
 | `product-completeness-audit` found 3 hardcoded `*_count` fields | `aggregate-counts-always-real` — presenters must SELECT COUNT, never hardcode |
 | User said "stop adding error boundaries to list pages" | `do-not-add-error-boundaries-to-list-pages` — rely on TanStack `isError` instead |
 
-Scope (v1.2): **project-only** — lessons live in `.claude/memory/superdev-learned/` in the current repo and are appended to that repo's `CLAUDE.md` so EVERY Claude session in the repo sees them. The user can promote any lesson to global with *"remember this for all my projects"*.
+Scope: **project-only** — lessons live in `.claude/memory/superdev-learned/` in the current repo and may be appended to that repo's `CLAUDE.md` so every Claude session in the repo sees them. Superdev never writes lessons to personal or user-level instructions.
 
 Detection is **conservative** — only strong signals trigger learning ("no/stop/wrong" as a short message, repeat-correction markers like "I already told you", explicit code reverts, verifier rejections). Normal iteration ("actually change the color to blue") doesn't.
 
@@ -391,8 +399,8 @@ superdev/
 │   └── marketplace.json                     Marketplace manifest
 ├── 📁 plugins/superdev/
 │   ├── 📁 .claude-plugin/
-│   │   └── plugin.json                      Plugin manifest (v1.2.0)
-│   ├── 📁 agents/                           51 specialized subagents
+│   │   └── plugin.json                      Plugin manifest (v1.8.1)
+│   ├── 📁 agents/                           54 specialized subagents
 │   │   ├── prd-analyst.md                   ┐
 │   │   ├── design-inventory.md              │
 │   │   ├── gap-auditor.md                   │  10 core
@@ -436,7 +444,7 @@ superdev/
 │   │   ├── design-source-mirror.md          ┐  2 design-
 │   │   ├── design-fidelity-auditor.md       ┘  preservation 🆕
 │   │   └── learn-from-frustration.md           1 self-learning 🆕
-│   ├── 📁 skills/                           16 skills with references/
+│   ├── 📁 skills/                           18 skills with references/
 │   │   ├── prd-design-build-orchestrator/   The conductor (routes to all)
 │   │   ├── design-to-nextjs/                Claude Design → shadcn translation
 │   │   ├── design-preservation/             🆕 Prototype → verbatim mirror + fidelity gate
@@ -455,7 +463,7 @@ superdev/
 │   │       └── maybe-learn.sh               SubagentStop hook
 │   └── README.md                            Plugin-level docs
 ├── 📦 superdev.zip                          Bundled plugin for the installer
-├── 🛠️ install-superdev.sh                   Shell installer (bash, ~20KB)
+├── 🛠️ install-superdev.sh                   Project-scoped Claude installer helper
 ├── 📖 INSTALL.md                            Installer docs
 ├── 📖 README.md                             This file
 ├── 📄 LICENSE                               MIT
@@ -473,7 +481,7 @@ superdev/
 | **Plugin namespacing** | Agent-name collisions with other installed plugins are impossible |
 | **Hooks ship with the plugin** | No `settings.json` editing — hooks auto-load when the plugin loads |
 | **Versioned releases** | `version` field in `plugin.json`; install pinned versions |
-| **Marketplaceable** | Distributable via `/plugin marketplace add boparaiamrit/superdev` |
+| **Marketplaceable** | Distributable per repository via `claude plugin marketplace add boparaiamrit/superdev --scope project` |
 
 ---
 

@@ -1,50 +1,68 @@
-# superdev installer
+# Superdev project installer
 
-This bundle contains the superdev plugin for Claude Code plus an installer script.
+Superdev is installed for one project at a time. It must not be enabled at user or personal scope.
 
-## Quick install (Linux / macOS / WSL)
+## Claude Code
 
-```bash
-bash install-superdev.sh
-```
-
-That's it. The installer:
-- Verifies prerequisites (Claude Code, Python 3, unzip)
-- Extracts the plugin to ~/.claude/plugins/superdev/
-- Registers it in ~/.claude/settings.json so it loads in every Claude Code session
-- Validates the install
-
-## Optional: enable agent teams
-
-After install:
+Run the supported Claude CLI commands from the target Git project:
 
 ```bash
-bash install-superdev.sh --enable-teams
+claude plugin marketplace add boparaiamrit/superdev --scope project
+claude plugin install superdev@superdev --scope project
 ```
 
-Enables 3-teammate adversarial reviews (security, QA, gap audits). ~3× tokens. High-stakes work only.
+The interactive `/plugin` browser is also supported, but you must choose **Project scope** when installing.
 
-## Other commands
+### Project-only helper
+
+From the target project, run the helper by its path:
 
 ```bash
-bash install-superdev.sh --verify       # check current install
-bash install-superdev.sh --uninstall    # remove
-bash install-superdev.sh --help         # full options
+cd /path/to/target-project
+bash /path/to/superdev/install-superdev.sh
 ```
 
-## WSL specifically
+The helper:
 
-- Run the installer inside your WSL distro, NOT Windows PowerShell.
-- Claude Code itself must also be installed inside WSL.
-- If you downloaded these files on Windows, copy them into WSL first:
-  ```bash
-  cp /mnt/c/Users/YOUR_NAME/Downloads/{install-superdev.sh,superdev.zip} ~/
-  cd ~
-  bash install-superdev.sh
-  ```
+- requires Claude Code, Git, and Python 3;
+- refuses to run outside a Git project;
+- delegates marketplace and plugin installation to Claude with `--scope project`;
+- verifies the project configuration and Claude plugin list; and
+- never writes Superdev configuration to user or personal settings.
 
-## Files in this bundle
+Optional project-scoped commands:
 
-- `install-superdev.sh` — the installer (~20 KB bash script)
-- `superdev.zip` — the plugin (~388 KB, 96 files: 6 skills + 24 agents + hooks)
-- `INSTALL.md` — this file
+```bash
+bash /path/to/superdev/install-superdev.sh --verify
+bash /path/to/superdev/install-superdev.sh --enable-teams
+bash /path/to/superdev/install-superdev.sh --uninstall
+```
+
+### Migrate an older user-scoped install
+
+Removal from user scope is intentionally explicit because it changes configuration outside the current project:
+
+```bash
+claude plugin uninstall superdev@superdev --scope user
+claude plugin marketplace add boparaiamrit/superdev --scope project
+claude plugin install superdev@superdev --scope project
+```
+
+## Codex
+
+Keep the repository marketplace and plugin source inside the target project:
+
+```text
+.agents/plugins/marketplace.json
+plugins/superdev/
+```
+
+Start Codex from that project, open `/plugins`, choose **Superdev Local**, install Superdev, and start a new session. Do not place Superdev in a personal marketplace.
+
+## Bundle contents
+
+- `install-superdev.sh` — project-scoped Claude CLI helper
+- `superdev.zip` — optional archive of the current plugin source
+- `plugins/superdev/` — 18 skills, 54 agent prompts, and hooks
+- `.agents/plugins/marketplace.json` — Codex repository marketplace
+- `.claude-plugin/marketplace.json` — Claude marketplace catalog

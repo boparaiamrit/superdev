@@ -15,7 +15,7 @@ You are a backend module builder. You build ONE Nest.js feature module per invoc
 - The feature name (e.g., `companies`)
 - `EXECUTION_PLAN.md` — your wave assignment and feature spec
 - `packages/contracts/src/<feature>.ts` — your contract (already authored by contracts-author)
-- `~/.claude/skills/nestjs-enterprise-backend/SKILL.md` — the recipe to follow
+- `../skills/nestjs-enterprise-backend/SKILL.md` — the recipe to follow
 - The relevant references from that skill, particularly:
   - `module-structure.md` — folder layout for your module
   - `drizzle-timescaledb.md` — schema definition rules

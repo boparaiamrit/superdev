@@ -31,7 +31,7 @@ See [`superdev-self-learning/references/orchestrator-integration.md`](../../supe
 
 ## Skill routing — when to delegate to which sibling skill
 
-The orchestrator coordinates 16 skills. Use this table to decide which to invoke and when:
+The orchestrator coordinates 18 skills. Use this table to decide which to invoke and when:
 
 | When… | Invoke skill | Why |
 |---|---|---|
@@ -97,7 +97,7 @@ If you want the entire session to behave as the orchestrator (its system prompt 
 claude --agent prd-design-build-orchestrator
 ```
 
-This requires a `prd-design-build-orchestrator.md` agent file at the project or user level. The skill's install step writes one automatically if you opt in (see `references/install-orchestrator-as-agent.sh`).
+This requires a project-level `prd-design-build-orchestrator.md` agent file. The skill's install step writes one automatically if you opt in (see `references/install-orchestrator-as-agent.sh`).
 
 ### Pattern 3 — interactive setup via `/agents`
 
@@ -298,8 +298,8 @@ This skill is the conductor. The two skills it conducts must be installed and av
 Verify before starting:
 
 ```bash
-ls ~/.claude/skills/design-to-nextjs/SKILL.md
-ls ~/.claude/skills/nestjs-enterprise-backend/SKILL.md
+ls "${CLAUDE_PLUGIN_ROOT}/skills/design-to-nextjs/SKILL.md"
+ls "${CLAUDE_PLUGIN_ROOT}/skills/nestjs-enterprise-backend/SKILL.md"
 ```
 
 If either is missing, install it before running this orchestrator.
@@ -367,19 +367,19 @@ Before any subagent runs, the orchestrator copies all agent definitions into `.c
 mkdir -p .claude/agents
 
 # 1) Install core agents from this skill
-~/.claude/skills/prd-design-build-orchestrator/references/install-core-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/prd-design-build-orchestrator/references/install-core-agents.sh"
 
 # 2) Conditionally install security agents
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/security-agents.md" ]]; then
+  "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
   echo "Security skill detected — security agents installed; Phase D.2 will run."
 else
   echo "Security skill not detected — Phase D.2 will be skipped with a warning."
 fi
 
 # 3) Conditionally install exploratory QA agents
-if [[ -f ~/.claude/skills/exploratory-qa/references/qa-agents.md ]]; then
-  ~/.claude/skills/exploratory-qa/references/install-qa-agents.sh
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/skills/exploratory-qa/references/qa-agents.md" ]]; then
+  "${CLAUDE_PLUGIN_ROOT}/skills/exploratory-qa/references/install-qa-agents.sh"
   echo "Exploratory QA skill detected — QA agents installed; Phase D.3 will run."
 else
   echo "Exploratory QA skill not detected — Phase D.3 will be skipped with a warning."
@@ -588,7 +588,7 @@ If the `security-review-and-fix` skill is available (verified at Step A.1), the 
 
 The orchestrator dispatches:
 
-> "Use the security-inventory subagent to inventory the codebase per `~/.claude/skills/security-review-and-fix/references/inventory-checklist.md` and produce SECURITY_INVENTORY.md."
+> "Use the security-inventory subagent to inventory the codebase per `../security-review-and-fix/references/inventory-checklist.md` and produce SECURITY_INVENTORY.md."
 
 Wait for completion.
 
@@ -611,7 +611,7 @@ The user can directly message any auditor mid-investigation via Shift+Down. Reco
 
 **D.2.5 — Triage (orchestrator + user, no subagent):**
 
-The orchestrator reads `SECURITY_FINDINGS.md`, walks the user through Critical → High → Medium following the triage prompts in `~/.claude/skills/security-review-and-fix/references/fix-plan-format.md`, and writes `SECURITY_FIX_PLAN.md`. **This is not a subagent dispatch** — it's interactive with the user.
+The orchestrator reads `SECURITY_FINDINGS.md`, walks the user through Critical → High → Medium following the triage prompts in `../security-review-and-fix/references/fix-plan-format.md`, and writes `SECURITY_FIX_PLAN.md`. **This is not a subagent dispatch** — it's interactive with the user.
 
 **D.2.6 — Apply fixes (per-fix dispatches):**
 
@@ -641,7 +641,7 @@ Install the QA agents if not already done (Phase A.1 should have detected and in
 
 ```bash
 if [[ ! -f .claude/agents/qa-flow-tester.md ]]; then
-  ~/.claude/skills/exploratory-qa/references/install-qa-agents.sh
+  "${CLAUDE_PLUGIN_ROOT}/skills/exploratory-qa/references/install-qa-agents.sh"
 fi
 ```
 
@@ -651,7 +651,7 @@ Then run the six-phase QA pipeline. Same dispatch pattern as the security skill 
 
 The orchestrator dispatches:
 
-> "Use the qa-environment subagent to verify stack health, seed at realistic scale per `~/.claude/skills/exploratory-qa/references/environment-checklist.md`, capture baseline screenshots, plant edge-case fixtures, and capture test credentials. Produce QA_ENVIRONMENT.md."
+> "Use the qa-environment subagent to verify stack health, seed at realistic scale per `../exploratory-qa/references/environment-checklist.md`, capture baseline screenshots, plant edge-case fixtures, and capture test credentials. Produce QA_ENVIRONMENT.md."
 
 **D.3.2 — Happy path (parallel per feature, batched at 6):**
 
@@ -683,7 +683,7 @@ The orchestrator dispatches:
 
 **D.3.6 — Synthesis (orchestrator, no subagent):**
 
-The orchestrator reads `QA_ENVIRONMENT.md`, all `qa/flows/*/observations.md`, `QA_CONSISTENCY.md`, `QA_PERFORMANCE.md` and writes `QA_REPORT.md` per `~/.claude/skills/exploratory-qa/references/qa-report-format.md`.
+The orchestrator reads `QA_ENVIRONMENT.md`, all `qa/flows/*/observations.md`, `QA_CONSISTENCY.md`, `QA_PERFORMANCE.md` and writes `QA_REPORT.md` per `../exploratory-qa/references/qa-report-format.md`.
 
 **Halt conditions for D.3:**
 
@@ -710,7 +710,7 @@ Phase C green is **not** done. Before writing the final report or claiming compl
 
 ```bash
 # update the ledger gates as each Phase D agent finished, then verify:
-bash "$CLAUDE_PLUGIN_DIR/hooks/scripts/done-gate.sh" --report   # exit 0 = DONE
+bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/done-gate.sh" --report   # exit 0 = DONE
 # (or invoke the /superdev-done skill)
 ```
 

@@ -12,10 +12,7 @@ The single source of truth for "is this build actually done?" — not narrative,
 Run the gate in report mode and read the result:
 
 ```bash
-_d="${CLAUDE_PLUGIN_DIR:-}"
-[ -z "$_d" ] && _d="$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)"
-[ -z "$_d" ] && _d="$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)"
-bash "${_d%/}/hooks/scripts/done-gate.sh" --report
+bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/done-gate.sh" --report
 ```
 
 - Exit `0` → **DONE**: every gate in `COMPLETION_LEDGER.json` is `pass` (or an explicitly `deferred` accepted risk), no suppressions were introduced since the build base, and no demo/placeholder content remains in `apps/web/src`.

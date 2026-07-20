@@ -22,7 +22,7 @@ This is a **recipe skill** — it provides the patterns and references that buil
 
 ### Pattern 1 — invoked by the orchestrator (most common)
 
-When `prd-design-build-orchestrator` runs, its `frontend-module-builder` subagent reads this skill's references directly. No separate invocation needed; the orchestrator's Phase A.1 install puts this skill at `~/.claude/skills/design-to-nextjs/`, and the builder reads `SKILL.md` + relevant references per the module it's building.
+When `prd-design-build-orchestrator` runs, its `frontend-module-builder` subagent reads this skill's references directly. No separate invocation needed; the orchestrator's Phase A.1 install puts this skill at `../design-to-nextjs/`, and the builder reads `SKILL.md` + relevant references per the module it's building.
 
 ### Pattern 2 — invoked by the migration skill
 

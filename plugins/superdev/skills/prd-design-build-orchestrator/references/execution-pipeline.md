@@ -151,7 +151,7 @@ Task: Build the <feature> module per EXECUTION_PLAN.md.
 Inputs to read:
   - EXECUTION_PLAN.md (especially the <feature> entry)
   - packages/contracts/src/<feature>.ts (already exists from Phase B.2)
-  - ~/.claude/skills/{nestjs-enterprise-backend OR design-to-nextjs}/SKILL.md
+  - ../../{nestjs-enterprise-backend OR design-to-nextjs}/SKILL.md
   - Relevant references from that skill
 
 Outputs:

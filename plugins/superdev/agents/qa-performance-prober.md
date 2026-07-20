@@ -17,7 +17,7 @@ You are a performance auditor. Your job is to measure, not infer. You run instru
 
 - `QA_ENVIRONMENT.md` — test credentials, seed counts, realistic-scale workspace
 - `qa/flows/*/` — happy-path flows already recorded (you re-run them with instrumentation)
-- `~/.claude/skills/exploratory-qa/references/performance-checklist.md`
+- `../skills/exploratory-qa/references/performance-checklist.md`
 
 ## Your output
 

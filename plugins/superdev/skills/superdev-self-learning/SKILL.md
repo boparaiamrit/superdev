@@ -1,6 +1,6 @@
 ---
 name: superdev-self-learning
-description: The meta-skill that makes superdev self-improving. Captures user-frustration signals (explicit corrections, code reverts, regression-verifier failures, design-drift > 1%, re-prompts with frustration markers) and writes structured **feedback** memory entries to `.claude/memory/superdev-learned/`. Future orchestrator dispatches read this memory first so the system learns what NOT to do in this project, what skills to call (or never call) in which context, and which defaults to pre-apply. Project-scoped by default; opt-in global. Triggered automatically by the `UserPromptSubmit` hook on frustration patterns and by `SubagentStop` after fix-applier or design-fidelity-auditor.
+description: The meta-skill that makes superdev self-improving. Captures user-frustration signals (explicit corrections, code reverts, regression-verifier failures, design-drift above 1%, re-prompts with frustration markers) and writes structured **feedback** memory entries to `.claude/memory/superdev-learned/`. Future orchestrator dispatches read this memory first so the system learns what NOT to do in this project, what skills to call (or never call) in which context, and which defaults to pre-apply. Project-scoped only; never global. Triggered automatically by the `UserPromptSubmit` hook on frustration patterns and by `SubagentStop` after fix-applier or design-fidelity-auditor.
 ---
 
 # Superdev Self-Learning — the meta-loop
@@ -143,13 +143,9 @@ Example agent prompt augmentation:
 - never-add-error-boundaries-to-list-pages: …
 ```
 
-## Optional — global lessons (`~/.claude/CLAUDE.md`)
+## Project scope only
 
-For the v1 release, all learned lessons stay project-scoped (no risk of polluting other projects with one repo's quirks).
-
-If the user explicitly says **"remember this for all my projects"** or **"add this to global"**, the `learn-from-frustration` agent additionally appends to `~/.claude/CLAUDE.md` under a `## Superdev — global lessons` section.
-
-The user can promote project lessons to global later with: *"promote `.claude/memory/superdev-learned/<topic>.md` to global"*.
+All learned lessons stay inside the current repository so one project's rules cannot affect another project. Superdev never writes learned memory to a user-level or personal instruction file and never promotes project lessons automatically. Reuse in another repository requires an explicit copy or a new lesson created in that repository.
 
 ## Self-improving lifecycle
 

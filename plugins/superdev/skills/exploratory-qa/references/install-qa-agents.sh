@@ -8,22 +8,20 @@
 
 set -euo pipefail
 
-QA_SKILL_DIR="${HOME}/.claude/skills/exploratory-qa"
-QA_SKILL_REF="${QA_SKILL_DIR}/references/qa-agents.md"
-
-ORCH_SKILL_DIR="${HOME}/.claude/skills/prd-design-build-orchestrator"
-EXTRACTOR="${ORCH_SKILL_DIR}/references/extract-agent.py"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SKILLS_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+readonly QA_SKILL_REF="${SCRIPT_DIR}/qa-agents.md"
+readonly EXTRACTOR="${SKILLS_DIR}/prd-design-build-orchestrator/references/extract-agent.py"
 
 if [[ ! -f "$QA_SKILL_REF" ]]; then
   echo "❌ QA agent definitions not found at $QA_SKILL_REF"
-  echo "   Install the exploratory-qa skill first."
+  echo "   Reinstall the project-scoped Superdev plugin."
   exit 1
 fi
 
 if [[ ! -f "$EXTRACTOR" ]]; then
   echo "❌ Extractor not found at $EXTRACTOR"
-  echo "   This script requires the prd-design-build-orchestrator skill to be"
-  echo "   installed (it provides the extract-agent.py used here)."
+  echo "   Reinstall the project-scoped Superdev plugin."
   exit 1
 fi
 

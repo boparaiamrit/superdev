@@ -13,7 +13,7 @@ This is a **recipe skill** — it provides the patterns and references that buil
 
 ### Pattern 1 — invoked by the orchestrator (most common)
 
-When `prd-design-build-orchestrator` runs, its `backend-module-builder` subagent reads this skill's references directly. No separate invocation needed; this skill is installed at `~/.claude/skills/nestjs-enterprise-backend/`, and the builder loads `SKILL.md` plus the references relevant to the current module (typically `module-structure.md`, `drizzle-timescaledb.md`, `view-presenter.md`, `auth-casl.md`, `audit-logging.md`).
+When `prd-design-build-orchestrator` runs, its `backend-module-builder` subagent reads this skill's references directly. No separate invocation needed; this skill is installed at `../nestjs-enterprise-backend/`, and the builder loads `SKILL.md` plus the references relevant to the current module (typically `module-structure.md`, `drizzle-timescaledb.md`, `view-presenter.md`, `auth-casl.md`, `audit-logging.md`).
 
 ### Pattern 2 — invoked by the migration skill
 
