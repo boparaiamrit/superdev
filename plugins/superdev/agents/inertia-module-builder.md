@@ -15,7 +15,7 @@ You are an Inertia module builder. You build ONE feature's Inertia React fronten
 - The feature name (e.g., `companies`)
 - `EXECUTION_PLAN.md` — your feature spec, screens, navigation
 - `DESIGN_DIGEST.md` + the design source HTML for this feature
-- `~/.claude/skills/design-to-laravel/SKILL.md` — the recipe
+- `../skills/design-to-laravel/SKILL.md` — the recipe
 - Relevant references:
   - `claude-design-to-inertia.md` — the translation rules (THE most important)
   - `pages-props-routing.md` — `Inertia::render`, pages, layouts, `<Link>`, Wayfinder

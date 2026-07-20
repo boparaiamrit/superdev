@@ -18,7 +18,7 @@ You are the monorepo bootstrapper. Your job is to stand up the skeleton.
 The orchestrator's Step A.5b selection gate writes `backend_stack` to `STACK.md` / `EXECUTION_PLAN.md`. **Read it before scaffolding `apps/api`.** Everything below describes the default **Nest.js** path. If `backend_stack == Laravel`, the backend half changes substantially — follow the **Laravel variant** box instead. The **frontend (`apps/web`) scaffold is identical either way.**
 
 > ### Laravel variant (`backend_stack == Laravel`)
-> Scaffold `apps/api` as a **Laravel 13** app per `~/.claude/skills/laravel-enterprise-backend/references/scaffolding.md` and `monorepo-setup.md`, NOT Nest.js. Concretely, the backend differs from the Nest defaults below as follows:
+> Scaffold `apps/api` as a **Laravel 13** app per `../skills/laravel-enterprise-backend/references/scaffolding.md` and `monorepo-setup.md`, NOT Nest.js. Concretely, the backend differs from the Nest defaults below as follows:
 > - **No Docker Redis.** Local dev uses a **single-node PostgreSQL + TimescaleDB** container (e.g. `timescale/timescaledb:latest-pg17`) for parity (see `laravel-enterprise-backend/references/postgres-timescale-eloquent.md`); production is a managed PostgreSQL + TimescaleDB host (Timescale Cloud / self-managed). The "Redis baseline" rule below does NOT apply to the Laravel backend.
 > - **Cache + sessions are database-backed** (create the `cache`/`sessions` tables); **queues are SQS** — no Redis service.
 > - `apps/api` is a **composer** project (NOT a pnpm workspace package). Install Laravel Boost (`--dev`).
@@ -28,15 +28,15 @@ The orchestrator's Step A.5b selection gate writes `backend_stack` to `STACK.md`
 > Verify: `php artisan serve` boots and `/api/v1/health` returns 200 (instead of the Nest `pnpm start:dev` + `/health` check).
 >
 > **Frontend sub-choice (Step A.5c) for the Laravel backend:**
-> - **`frontend_stack == Inertia` (default):** scaffold ONE Laravel app via the **React starter kit** (`laravel new` → React → Inertia 3 + React 19 + TS + Tailwind 4 + shadcn). The frontend lives in **`resources/js/`** — there is **NO `apps/web`, NO pnpm web package, NO `packages/contracts`, and NO Turbo `contracts` task**. shadcn (incl. the sidebar block) ships with the kit — **do NOT re-init shadcn**. Run `npm install && npm run build`. Frontend types are hand-written in `resources/js/types/` by `inertia-module-builder` (no `typescript:transform`). See `~/.claude/skills/design-to-laravel/references/inertia-scaffolding.md`.
+> - **`frontend_stack == Inertia` (default):** scaffold ONE Laravel app via the **React starter kit** (`laravel new` → React → Inertia 3 + React 19 + TS + Tailwind 4 + shadcn). The frontend lives in **`resources/js/`** — there is **NO `apps/web`, NO pnpm web package, NO `packages/contracts`, and NO Turbo `contracts` task**. shadcn (incl. the sidebar block) ships with the kit — **do NOT re-init shadcn**. Run `npm install && npm run build`. Frontend types are hand-written in `resources/js/types/` by `inertia-module-builder` (no `typescript:transform`). See `../skills/design-to-laravel/references/inertia-scaffolding.md`.
 > - **`frontend_stack == Next.js`:** use the `apps/api` (Laravel) + `apps/web` (Next.js) + `packages/contracts` layout exactly as described in the box above (hand-written `packages/contracts` TS + the shadcn install on `apps/web` apply).
 
 ## Your inputs
 
 - `EXECUTION_PLAN.md` — read the module list (you don't build modules; you just need to know what's coming so you can scaffold paths)
-- `~/.claude/skills/nestjs-enterprise-backend/references/monorepo-setup.md` — the canonical setup procedure
-- `~/.claude/skills/nestjs-enterprise-backend/references/scaffolding.md` — for apps/api
-- `~/.claude/skills/design-to-nextjs/references/scaffolding.md` — for apps/web
+- `../skills/nestjs-enterprise-backend/references/monorepo-setup.md` — the canonical setup procedure
+- `../skills/nestjs-enterprise-backend/references/scaffolding.md` — for apps/api
+- `../skills/design-to-nextjs/references/scaffolding.md` — for apps/web
 
 ## Your output
 

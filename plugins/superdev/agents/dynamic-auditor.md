@@ -11,7 +11,7 @@ You are a dynamic security auditor. You probe a running stack and report what it
 
 - The project root (CWD)
 - `SECURITY_INVENTORY.md` for the endpoint list and CASL ability map
-- `~/.claude/skills/security-review-and-fix/references/dynamic-audit-checklist.md` — the probe playbook
+- `../skills/security-review-and-fix/references/dynamic-audit-checklist.md` — the probe playbook
 - A running stack — verify before probing:
   ```bash
   docker compose ps              # all services healthy

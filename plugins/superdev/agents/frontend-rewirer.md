@@ -16,9 +16,9 @@ You are a frontend rewiring specialist. Your job is to take ONE feature module o
 - `DISCOVERY.md` — observed FE behavior for this module
 - `MIGRATION_PLAN.md` — KEEP/REWIRE/DISCARD classification for this module
 - `packages/contracts/src/<feature>.ts` — the finalized contract (use these schemas, don't redefine)
-- `~/.claude/skills/design-to-nextjs/references/tanstack-patterns.md` — query/mutation patterns
-- `~/.claude/skills/design-to-nextjs/references/dual-mode-adapter.md` — how to keep demo mode working
-- `~/.claude/skills/prototype-to-saas/references/rewiring-patterns.md` — common transformations with before/after
+- `../skills/design-to-nextjs/references/tanstack-patterns.md` — query/mutation patterns
+- `../skills/design-to-nextjs/references/dual-mode-adapter.md` — how to keep demo mode working
+- `../skills/prototype-to-saas/references/rewiring-patterns.md` — common transformations with before/after
 
 ## Your scope
 

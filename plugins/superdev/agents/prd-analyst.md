@@ -13,7 +13,7 @@ A single PRD file (markdown, plain text) passed as a path in your prompt. If the
 
 ## Your output
 
-Exactly one file: `PRD_DIGEST.md` at the project root. Format defined in `~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md` — follow it precisely. Wait — you don't have Write. The orchestrator dispatches you, and your job is to RETURN the digest as your response text. The orchestrator writes it to disk.
+Exactly one file: `PRD_DIGEST.md` at the project root. Format defined in `../skills/prd-design-build-orchestrator/references/artifacts-format.md` — follow it precisely. Wait — you don't have Write. The orchestrator dispatches you, and your job is to RETURN the digest as your response text. The orchestrator writes it to disk.
 
 Actually, re-reading my tools: I have Read, Grep, Glob. No Write. My output is my final response message, which the orchestrator will save as PRD_DIGEST.md.
 

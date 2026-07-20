@@ -15,7 +15,7 @@ If it's NOT a Next.js project, return an error explaining what the wrong-skill m
 
 ## Your output
 
-Write `DISCOVERY.md` at the project root following `~/.claude/skills/prototype-to-saas/references/discovery-checklist.md`.
+Write `DISCOVERY.md` at the project root following `../skills/prototype-to-saas/references/discovery-checklist.md`.
 
 ## What you catalog
 

@@ -15,7 +15,7 @@ You are the architect. You take three inputs and produce the execution plan that
 
 ## Your output
 
-`EXECUTION_PLAN.md` at the project root. Format defined in `~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md`.
+`EXECUTION_PLAN.md` at the project root. Format defined in `../skills/prd-design-build-orchestrator/references/artifacts-format.md`.
 
 ## What you decide
 

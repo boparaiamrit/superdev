@@ -116,12 +116,12 @@ Install agents:
 
 ```bash
 # Reuses the orchestrator's extract-agent.py
-~/.claude/skills/exploratory-qa/references/install-qa-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/exploratory-qa/references/install-qa-agents.sh"
 ```
 
 Then dispatch in natural language:
 
-> "Use the qa-environment subagent to verify Docker + API + worker + web are running and healthy. Seed test data at REALISTIC SCALE (not toy size — see the seed-scale rules in `~/.claude/skills/exploratory-qa/references/environment-checklist.md`). Capture baselines: take screenshots of every route at 1440px, 768px, and 375px viewports. Plant the edge-case fixtures listed in the checklist. Produce QA_ENVIRONMENT.md."
+> "Use the qa-environment subagent to verify Docker + API + worker + web are running and healthy. Seed test data at REALISTIC SCALE (not toy size — see the seed-scale rules in `../exploratory-qa/references/environment-checklist.md`). Capture baselines: take screenshots of every route at 1440px, 768px, and 375px viewports. Plant the edge-case fixtures listed in the checklist. Produce QA_ENVIRONMENT.md."
 
 The "realistic scale" matters. A test DB with 5 companies hides the performance and overflow issues that show up with 500. The agent seeds to numbers like:
 
@@ -143,7 +143,7 @@ Baseline screenshots become the reference for Phase 4's consistency checks.
 
 The main session dispatches one `qa-flow-tester` per feature, in parallel batches of up to 6. For a 6-feature wave:
 
-> "Dispatch six qa-flow-tester subagents in parallel, each scoped to one feature module (companies, contacts, mailboxes, campaigns, pipeline, inbox). Mode: happy-path. Each should follow the recipes in `~/.claude/skills/exploratory-qa/references/flow-recipes.md` — login → list page → filter → sort → detail → create → toast verification → list refresh. Take screenshots at every step. Write to `qa/flows/<feature>/happy-path/`."
+> "Dispatch six qa-flow-tester subagents in parallel, each scoped to one feature module (companies, contacts, mailboxes, campaigns, pipeline, inbox). Mode: happy-path. Each should follow the recipes in `../exploratory-qa/references/flow-recipes.md` — login → list page → filter → sort → detail → create → toast verification → list refresh. Take screenshots at every step. Write to `qa/flows/<feature>/happy-path/`."
 
 For projects with more than 6 features, run in successive batches; do not exceed 6 concurrent subagents per tool-use turn.
 

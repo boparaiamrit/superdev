@@ -105,7 +105,7 @@ Before running any phase, install the five security agents:
 
 ```bash
 # Standalone (ad-hoc audit on an existing project)
-~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
 
 # Verify
 ls .claude/agents/ | grep -E "security-inventory|static-auditor|dynamic-auditor|dependency-auditor|security-fixer"
