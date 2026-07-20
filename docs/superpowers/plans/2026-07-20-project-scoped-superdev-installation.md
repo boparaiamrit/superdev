@@ -15,7 +15,7 @@
 **Files:**
 - Create: `tests/test_project_scope.py`
 
-- [ ] **Step 1: Write the static failing tests**
+- [x] **Step 1: Write the static failing tests**
 
 Create a `unittest.TestCase` that scans `README.md`, `INSTALL.md`, `CODEX.md`, `install-superdev.sh`, `plugins/superdev/README.md`, all plugin Markdown files, and `plugins/superdev/hooks/hooks.json`. Exclude `docs/superpowers/` because the design and plan intentionally document the legacy strings. Assert that active surfaces do not contain:
 
@@ -30,9 +30,11 @@ FORBIDDEN_GLOBAL_PATTERNS = {
 }
 ```
 
+Also reject braced and unbraced HOME-variable forms of the global skill and plugin paths.
+
 Add assertions that all documented Claude install, uninstall, marketplace-add, enable, and disable commands which mention Superdev include `--scope project`; that the Codex docs name `.agents/plugins/marketplace.json`; and that inventory contains exactly 16 `SKILL.md` files and 51 agent Markdown files.
 
-- [ ] **Step 2: Write the installer behavior failing tests**
+- [x] **Step 2: Write the installer behavior failing tests**
 
 Use `tempfile.TemporaryDirectory`, initialize a temporary Git repository, and prepend a fake `claude` executable to `PATH`. The fake executable records every argument in `FAKE_CLAUDE_LOG`, creates project `.claude/settings.json` for install, returns a JSON plugin list, and removes the project entry for uninstall. Cover these behaviors:
 
@@ -40,7 +42,7 @@ Name the behavior tests `test_install_uses_project_scope`, `test_uninstall_uses_
 
 Set `HOME` to a separate empty temporary directory and assert it remains unchanged after every successful action.
 
-- [ ] **Step 3: Run the tests and verify RED**
+- [x] **Step 3: Run the tests and verify RED**
 
 Run:
 
@@ -50,7 +52,7 @@ python3 -m unittest -v tests/test_project_scope.py
 
 Expected: failures identify the current global installer, global bundled paths, obsolete hook variable, global lesson instructions, missing project-scope commands, and stale archive.
 
-- [ ] **Step 4: Commit the red tests**
+- [x] **Step 4: Commit the red tests**
 
 ```bash
 git add tests/test_project_scope.py
@@ -63,7 +65,7 @@ git commit -m "test: enforce project-scoped superdev"
 - Modify: `install-superdev.sh`
 - Test: `tests/test_project_scope.py`
 
-- [ ] **Step 1: Replace the installer with a project-scoped CLI wrapper**
+- [x] **Step 1: Replace the installer with a project-scoped CLI wrapper**
 
 Implement these functions with LF line endings:
 
@@ -94,7 +96,7 @@ uninstall_plugin() {
 
 The help and success output must state project scope, the detected project root, and current inventory. Read the version from `plugins/superdev/.claude-plugin/plugin.json` and count skills and agents dynamically when the source tree is present.
 
-- [ ] **Step 2: Run installer tests and verify GREEN**
+- [x] **Step 2: Run installer tests and verify GREEN**
 
 ```bash
 python3 -m unittest -v tests.test_project_scope.ProjectScopeInstallerTests
@@ -103,7 +105,7 @@ bash -n install-superdev.sh
 
 Expected: all installer tests pass and Bash syntax exits 0.
 
-- [ ] **Step 3: Commit the installer fix**
+- [x] **Step 3: Commit the installer fix**
 
 ```bash
 git add install-superdev.sh tests/test_project_scope.py
@@ -153,9 +155,13 @@ git commit -m "fix: install superdev at project scope"
 - Modify: `plugins/superdev/skills/prototype-to-saas/references/migration-agents.md`
 - Modify: `plugins/superdev/skills/security-review-and-fix/SKILL.md`
 - Modify: `plugins/superdev/skills/security-review-and-fix/references/security-agents.md`
+- Modify: `plugins/superdev/skills/exploratory-qa/references/install-qa-agents.sh`
+- Modify: `plugins/superdev/skills/prd-design-build-orchestrator/references/install-core-agents.sh`
+- Modify: `plugins/superdev/skills/prototype-to-saas/references/install-migration-agents.sh`
+- Modify: `plugins/superdev/skills/security-review-and-fix/references/install-security-agents.sh`
 - Test: `tests/test_project_scope.py`
 
-- [ ] **Step 1: Replace prose resource paths**
+- [x] **Step 1: Replace prose resource paths**
 
 Use paths relative to the containing Markdown file:
 
@@ -170,7 +176,7 @@ skills/exploratory-qa/references/qa-agents.md
 
 Keep references in code spans or Markdown links so the host can resolve them without a home-directory assumption.
 
-- [ ] **Step 2: Replace executable paths and hook roots**
+- [x] **Step 2: Replace executable paths and hook roots**
 
 Shell commands that invoke bundled scripts must use quoted plugin-root paths:
 
@@ -178,9 +184,9 @@ Shell commands that invoke bundled scripts must use quoted plugin-root paths:
 "${CLAUDE_PLUGIN_ROOT}/skills/<skill>/references/<script>.sh"
 ```
 
-Replace each hook command with a direct `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/maybe-learn.sh` or `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/detect-frustration.sh` reference. Remove cache scans and the legacy `~/.claude/plugins/superdev` fallback.
+Replace each hook command with a direct `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/maybe-learn.sh` or `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/detect-frustration.sh` reference. Remove cache scans and the legacy `~/.claude/plugins/superdev` fallback. Make auxiliary agent installers resolve their bundled definitions and extractor relative to `BASH_SOURCE`, never from HOME.
 
-- [ ] **Step 3: Run path tests and validate JSON**
+- [x] **Step 3: Run path tests and validate JSON**
 
 ```bash
 python3 -m unittest -v tests.test_project_scope.ProjectScopeStaticTests.test_no_global_superdev_paths
@@ -189,7 +195,7 @@ python3 -m json.tool plugins/superdev/hooks/hooks.json >/dev/null
 
 Expected: both commands exit 0.
 
-- [ ] **Step 4: Commit portable paths**
+- [x] **Step 4: Commit portable paths**
 
 ```bash
 git add plugins/superdev/agents plugins/superdev/skills plugins/superdev/hooks/hooks.json
@@ -204,7 +210,7 @@ git commit -m "fix: resolve bundled resources from plugin root"
 - Modify: `README.md`
 - Test: `tests/test_project_scope.py`
 
-- [ ] **Step 1: Restrict lesson persistence to the project**
+- [x] **Step 1: Restrict lesson persistence to the project**
 
 Remove the optional global branch, global command example, global `CLAUDE.md` section, and promotion wording. Preserve the existing project memory behavior:
 
@@ -215,7 +221,7 @@ Codex:  .superdev/memory/superdev-learned/
 
 State explicitly that Superdev never writes to a global instruction file.
 
-- [ ] **Step 2: Run the memory scope tests**
+- [x] **Step 2: Run the memory scope tests**
 
 ```bash
 python3 -m unittest -v tests.test_project_scope.ProjectScopeStaticTests.test_no_global_superdev_paths
@@ -223,7 +229,7 @@ python3 -m unittest -v tests.test_project_scope.ProjectScopeStaticTests.test_no_
 
 Expected: pass.
 
-- [ ] **Step 3: Commit project-only memory**
+- [x] **Step 3: Commit project-only memory**
 
 ```bash
 git add README.md plugins/superdev/agents/learn-from-frustration.md plugins/superdev/skills/superdev-self-learning/SKILL.md
@@ -239,7 +245,7 @@ git commit -m "fix: keep superdev learning project-local"
 - Modify: `plugins/superdev/README.md`
 - Test: `tests/test_project_scope.py`
 
-- [ ] **Step 1: Update Claude guidance**
+- [x] **Step 1: Update Claude guidance**
 
 Use the exact project-scoped commands everywhere:
 
@@ -256,7 +262,7 @@ claude plugin uninstall superdev@superdev --scope user
 
 Explain that users of the interactive `/plugin` browser must select Project scope.
 
-- [ ] **Step 2: Update Codex guidance**
+- [x] **Step 2: Update Codex guidance**
 
 Document only the repository marketplace and project-owned plugin source:
 
@@ -267,11 +273,11 @@ Document only the repository marketplace and project-owned plugin source:
 
 Describe opening `/plugins` from the target repository, choosing `Superdev Local`, installing, and starting a new session. Explicitly state that Superdev must not be placed in a personal marketplace.
 
-- [ ] **Step 3: Correct stale installation copy**
+- [x] **Step 3: Correct stale installation copy**
 
 Replace “install anywhere,” global-install claims, 6-skill/24-agent bundle counts, and global-session wording with project-only language and the current 16-skill/51-agent inventory.
 
-- [ ] **Step 4: Run documentation tests**
+- [x] **Step 4: Run documentation tests**
 
 ```bash
 python3 -m unittest -v tests.test_project_scope.ProjectScopeStaticTests
@@ -279,7 +285,7 @@ python3 -m unittest -v tests.test_project_scope.ProjectScopeStaticTests
 
 Expected: all static tests pass.
 
-- [ ] **Step 5: Commit documentation**
+- [x] **Step 5: Commit documentation**
 
 ```bash
 git add README.md INSTALL.md CODEX.md plugins/superdev/README.md tests/test_project_scope.py
@@ -293,7 +299,7 @@ git commit -m "docs: require project-scoped superdev installs"
 - Modify: `superdev.zip`
 - Test: `tests/test_project_scope.py`
 
-- [ ] **Step 1: Apply the Codex development cachebuster**
+- [x] **Step 1: Apply the Codex development cachebuster**
 
 Run the plugin-creator helper against the existing local plugin:
 
@@ -301,9 +307,9 @@ Run the plugin-creator helper against the existing local plugin:
 python3 /home/boparaiamrit/.codex/skills/.system/plugin-creator/scripts/update_plugin_cachebuster.py plugins/superdev
 ```
 
-Expected: preserve the `1.6.0` base version and set one `+codex.local-<UTC timestamp>` suffix. Do not reinstall into a personal marketplace because Superdev is project-only.
+Expected: preserve the `1.6.0` base version and set one `+codex.<UTC timestamp>` suffix. Do not reinstall into a personal marketplace because Superdev is project-only.
 
-- [ ] **Step 2: Rebuild the archive from the corrected plugin tree**
+- [x] **Step 2: Rebuild the archive from the corrected plugin tree**
 
 Remove the old archive entry-by-entry through the zip tool and create a fresh archive whose top-level directory is `superdev/`:
 
@@ -311,7 +317,7 @@ Remove the old archive entry-by-entry through the zip tool and create a fresh ar
 (cd plugins && zip -qr -FS ../superdev.zip superdev)
 ```
 
-- [ ] **Step 3: Validate manifests and archive contents**
+- [x] **Step 3: Validate manifests and archive contents**
 
 ```bash
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
@@ -324,7 +330,7 @@ python3 -m unittest -v tests/test_project_scope.py
 
 Expected: all commands exit 0 and the archive test finds no forbidden global path.
 
-- [ ] **Step 4: Commit packaging changes**
+- [x] **Step 4: Commit packaging changes**
 
 ```bash
 git add plugins/superdev/.codex-plugin/plugin.json superdev.zip tests/test_project_scope.py
@@ -336,7 +342,7 @@ git commit -m "chore: refresh project-scoped superdev package"
 **Files:**
 - Verify all modified files
 
-- [ ] **Step 1: Run the full verification suite**
+- [x] **Step 1: Run the full verification suite**
 
 ```bash
 python3 -m unittest -v tests/test_project_scope.py
@@ -347,7 +353,7 @@ git diff --check main...HEAD
 
 Expected: tests pass with zero failures, Bash exits 0, plugin validation succeeds, and diff check is clean.
 
-- [ ] **Step 2: Audit requirements directly**
+- [x] **Step 2: Audit requirements directly**
 
 ```bash
 rg -n --hidden --glob '!.git/**' --glob '!docs/superpowers/**' --glob '!tests/**' '~/.claude/skills|~/.claude/plugins/superdev|~/.claude/CLAUDE.md|CLAUDE_PLUGIN_DIR|~/.agents/plugins/marketplace.json|~/.codex/plugins' .
@@ -355,7 +361,7 @@ rg -n --hidden --glob '!.git/**' --glob '!docs/superpowers/**' --glob '!tests/**
 
 Expected: no matches in active Superdev surfaces.
 
-- [ ] **Step 3: Review branch diff and status**
+- [x] **Step 3: Review branch diff and status**
 
 ```bash
 git status --short
