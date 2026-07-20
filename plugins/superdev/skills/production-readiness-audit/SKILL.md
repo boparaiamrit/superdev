@@ -1,6 +1,6 @@
 ---
 name: production-readiness-audit
-description: Use to take a "looks done" product to genuinely production-ready by scoring EVERY module 1–10 across five audit passes, then looping fix→re-audit until every module scores 9+. This is the skill to invoke whenever the user says "rate each module 1 to 10", "check production readiness", "complete the product fully", "what's left before we ship", "make it production ready", or asks for completeness/parity/tenancy/seed-data work. It enforces the hard requirements that real builds always need and always forget: zero lint/type suppressions (fix the root cause, never disable), proper seed data plus an initial product (admin/owner) user, a multi-tenancy leakage test, and exhaustive Playwright coverage of every route, every form, and every data shape on both frontend and backend. Runs at the end of orchestrator Phase D and writes per-module scores + the `readiness` gate into COMPLETION_LEDGER.json so the done-gate cannot pass until all modules are 9+. Do NOT use for a single-component tweak or a quick sanity check — this is the heavy, iterative, whole-product readiness loop.
+description: Use when a product needs a whole-product production-readiness assessment, module-by-module scoring, completeness or parity checks, tenancy and seed-data verification, exhaustive frontend/backend Playwright coverage, or an evidence-backed answer about what remains before shipping.
 ---
 
 # Production Readiness Audit

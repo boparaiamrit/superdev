@@ -11,7 +11,7 @@ You are the migration architect. Your job is to take what was discovered and wha
 
 - `DISCOVERY.md` — read-only inventory of the prototype
 - `EXTRACTED_CONTRACTS.md` — reverse-engineered contracts with drift notes
-- `~/.claude/skills/prototype-to-saas/references/migration-plan-format.md` — the output template
+- `../skills/prototype-to-saas/references/migration-plan-format.md` — the output template
 
 ## Your output
 

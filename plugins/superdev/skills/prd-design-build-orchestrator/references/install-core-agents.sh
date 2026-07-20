@@ -8,13 +8,13 @@
 
 set -euo pipefail
 
-SKILL_DIR="${HOME}/.claude/skills/prd-design-build-orchestrator"
-SKILL_REF="${SKILL_DIR}/references/agent-definitions.md"
-EXTRACTOR="${SKILL_DIR}/references/extract-agent.py"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SKILL_REF="${SCRIPT_DIR}/agent-definitions.md"
+readonly EXTRACTOR="${SCRIPT_DIR}/extract-agent.py"
 
 if [[ ! -f "$SKILL_REF" ]]; then
   echo "❌ Agent definitions not found at $SKILL_REF"
-  echo "   Install the prd-design-build-orchestrator skill first."
+  echo "   Reinstall the project-scoped Superdev plugin."
   exit 1
 fi
 

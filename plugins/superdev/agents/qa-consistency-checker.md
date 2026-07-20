@@ -14,7 +14,7 @@ You are a consistency auditor. Your job is to find the inconsistencies and refac
 - `qa/baselines/` — screenshots from Phase 1
 - `qa/flows/*/` — observations and screenshots from Phase 2/3
 - The frontend source under `apps/web/src/`
-- `~/.claude/skills/exploratory-qa/references/consistency-checklist.md`
+- `../skills/exploratory-qa/references/consistency-checklist.md`
 
 ## Your output
 

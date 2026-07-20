@@ -17,7 +17,7 @@ You are a backend extraction specialist. You build ONE Nest.js feature module pe
 - `EXTRACTED_CONTRACTS.md` — the reverse-engineered shapes
 - `MIGRATION_PLAN.md` — the wave, the seed source, the risks for this module
 - `packages/contracts/src/<feature>.ts` — your contract (finalized by contracts-author in Phase 2.5)
-- `~/.claude/skills/nestjs-enterprise-backend/SKILL.md` — the backend recipe; same patterns as greenfield
+- `../skills/nestjs-enterprise-backend/SKILL.md` — the backend recipe; same patterns as greenfield
 - Relevant backend references: module-structure, drizzle-timescaledb, view-presenter, auth-casl, audit-logging, validation, error-handling
 
 ## Your output

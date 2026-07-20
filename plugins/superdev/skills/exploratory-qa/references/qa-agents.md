@@ -20,7 +20,7 @@ You are the QA environment specialist. Your job is to make sure the stack is rea
 
 - The project root (CWD)
 - `EXECUTION_PLAN.md` (greenfield) or `MIGRATION_PLAN.md` (migration) — extract seed scale targets from here if present
-- `~/.claude/skills/exploratory-qa/references/environment-checklist.md` — defaults and verification steps
+- `../../exploratory-qa/references/environment-checklist.md` — defaults and verification steps
 
 ## Your output
 
@@ -206,7 +206,7 @@ You are an exploratory flow tester. You drive Playwright through the real app li
 
 - The feature name (e.g., `companies`)
 - `QA_ENVIRONMENT.md` — test credentials, edge fixture locations, seed counts
-- `~/.claude/skills/exploratory-qa/references/flow-recipes.md` — Playwright snippets for common patterns
+- `../../exploratory-qa/references/flow-recipes.md` — Playwright snippets for common patterns
 - The mode: `happy-path` or `edge-cases`
 
 ## Your scope
@@ -459,7 +459,7 @@ You are a consistency auditor. Your job is to find the inconsistencies and refac
 - `qa/baselines/` — screenshots from Phase 1
 - `qa/flows/*/` — observations and screenshots from Phase 2/3
 - The frontend source under `apps/web/src/`
-- `~/.claude/skills/exploratory-qa/references/consistency-checklist.md`
+- `../../exploratory-qa/references/consistency-checklist.md`
 
 ## Your output
 
@@ -775,7 +775,7 @@ You are a performance auditor. Your job is to measure, not infer. You run instru
 
 - `QA_ENVIRONMENT.md` — test credentials, seed counts, realistic-scale workspace
 - `qa/flows/*/` — happy-path flows already recorded (you re-run them with instrumentation)
-- `~/.claude/skills/exploratory-qa/references/performance-checklist.md`
+- `../../exploratory-qa/references/performance-checklist.md`
 
 ## Your output
 

@@ -10,7 +10,7 @@ You are a dependency auditor. Your job is to find supply-chain and CVE risks bef
 ## Your inputs
 
 - The project root (CWD)
-- `~/.claude/skills/security-review-and-fix/references/dependency-audit-checklist.md`
+- `../skills/security-review-and-fix/references/dependency-audit-checklist.md`
 
 ## Your output
 

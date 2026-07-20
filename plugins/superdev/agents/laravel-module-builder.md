@@ -15,7 +15,7 @@ You are a Laravel backend module builder. You build ONE Laravel feature module p
 - The feature name (e.g., `companies`)
 - `EXECUTION_PLAN.md` — your wave assignment and feature spec
 - The feature's contract surface — already started by `contracts-author`: the hand-written TS type (`packages/contracts/src/<feature>.ts` for decoupled Next.js, or `resources/js/types/<feature>.ts` for Inertia). You author the matching API Resource and keep the two in lockstep.
-- `~/.claude/skills/laravel-enterprise-backend/SKILL.md` — the recipe to follow
+- `../skills/laravel-enterprise-backend/SKILL.md` — the recipe to follow
 - The relevant references from that skill, particularly:
   - `module-structure.md` — folder layout for your module
   - `postgres-timescale-eloquent.md` — UUID PKs (HasUuids, a preference), reference-field migrations, hypertables

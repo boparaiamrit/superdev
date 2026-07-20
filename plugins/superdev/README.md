@@ -1,23 +1,23 @@
 # Superdev
 
-A Claude Code + Codex plugin bundling **16 skills + 51 specialized role prompts** for full-stack monorepo builds, with a self-improving memory loop, holy-grail design preservation, and atomic frontend refactoring.
+A Claude Code + Codex plugin bundling **18 skills + 54 specialized role prompts** for full-stack monorepo builds, with a self-improving memory loop, holy-grail design preservation, enforced completion, and iterative production-readiness auditing.
 
 ## Host support
 
 Superdev is dual-hosted:
 
-- **Codex:** loads the 16 skills through `.codex-plugin/plugin.json`. Use `agents/*.md` as role-prompt references when explicit delegation is useful. Claude hook behavior should be run as explicit verification steps.
+- **Codex:** loads the 18 skills through `.codex-plugin/plugin.json`. Use `agents/*.md` as role-prompt references when explicit delegation is useful. Claude hook behavior should be run as explicit verification steps.
 - **Claude Code:** loads the original Claude plugin manifest, subagents, and hook events.
 
 See `../../CODEX.md` for the Codex adapter notes.
 
 ## What's in this plugin
 
-**Sixteen skills:**
+**Eighteen skills:**
 
 | Skill | Purpose |
 |---|---|
-| `prd-design-build-orchestrator` | The conductor — multi-agent orchestration across all 16 skills, reads `.claude/memory/superdev-learned/` before every dispatch |
+| `prd-design-build-orchestrator` | The conductor — multi-agent orchestration across all 18 skills, reads `.claude/memory/superdev-learned/` before every dispatch |
 | `design-to-nextjs` | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter) |
 | `design-preservation` | When source is a **prototype**, copy verbatim into `design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift |
 | `frontend-modular-architecture` 🆕 v1.3.0 | Opinionated structure: page ≤ 100 / component ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, sub-sub-components (drawer/modal/popover) in `parts/<name>/` folders using shadcn Portal primitives |
@@ -33,10 +33,12 @@ See `../../CODEX.md` for the Codex adapter notes.
 | `laravel-enterprise-backend` 🆕 v1.4.0 · reworked v1.6.0 | **Laravel 13** backend alternative — **PostgreSQL + TimescaleDB** (stock `pgsql`) + DB cache/sessions + SQS, **Eloquent API Resources** presenter + hand-written TS contract, `#[Audit]` → `audit_logs` hypertable, Sanctum + `spatie/laravel-permission`, `BelongsToWorkspace` global-scope tenancy, Title-Case enums, Laravel Boost |
 | `laravel-bref-deploy` 🆕 v1.4.0 | **Serverless deploy** of the Laravel backend on AWS Lambda via **Bref 3.x** — web/SQS-worker/console functions, EventBridge scheduler, S3/CloudFront assets, SSM secrets, no VPC; OSS Serverless (`osls`) default |
 | `design-to-laravel` 🆕 v1.5.0 | Translate **Claude Design** → **Laravel + Inertia 3 + React 19** monolith (React starter kit: TS, Tailwind 4, shadcn). Typed-props pages via `Inertia::render`, Wayfinder routing, `useForm`, Fortify session + spatie/permission + `#[Authorize]`; reuses design-to-nextjs token-extraction + shadcn; client-only on Bref. Default Laravel frontend |
+| `superdev-done` 🆕 v1.7.0 | Runs the machine-checkable Definition-of-Done gate on demand and reports every blocking ledger or live verification check |
+| `production-readiness-audit` 🆕 v1.8.0 | Scores every module across five production passes and iterates fix → re-audit until every module reaches 9/10 or exposes explicit blockers |
 
 > 🔀 **Stack choice** — the orchestrator asks **Laravel or Nest.js** at Step A.5b. If Laravel, it then asks the frontend at Step A.5c: **Inertia monolith** (default — `design-to-laravel`, one app, Fortify session) or **decoupled Next.js** (`design-to-nextjs`, Sanctum tokens). Nest.js always pairs with Next.js.
 
-**51 role prompts** bundled with the plugin:
+**54 role prompts** bundled with the plugin:
 
 In Claude Code, these are auto-loaded as subagents when the plugin is enabled. In Codex, they remain available as prompt references for explicit delegated or parallel work.
 
@@ -51,6 +53,7 @@ In Claude Code, these are auto-loaded as subagents when the plugin is enabled. I
 - **1 self-learning agent:** `learn-from-frustration`
 - **2 modular-architecture agents 🆕:** `module-structure-auditor`, `portal-correctness-auditor`
 - **4 frontend-refactoring agents 🆕:** `module-conversion-planner`, `module-behavior-snapshotter`, `atomic-module-converter`, `conversion-verifier`
+- **3 production-readiness agents 🆕:** `module-readiness-rater`, `tenancy-isolation-tester`, `seed-data-architect`
 
 **Hooks:**
 - `SubagentStop` on every builder agent runs `<pm> typecheck` automatically (PM auto-detected from lockfile)
@@ -85,19 +88,20 @@ Skill examples use `pnpm` (the default the monorepo-bootstrapper sets up, becaus
 | `bun.lockb` / `bun.lock` | `(cd apps/api && bun run typecheck)` |
 | (none of the above) | `(cd apps/api && npm run typecheck)` |
 
-Whether the plugin is installed globally in `~/.claude/plugins/` or privately in a single monorepo, it adapts to that repo's naming and tooling.
+Superdev is installed only for the current project and adapts to that repository's naming and tooling.
 
 ## Installation
 
-### Codex — local marketplace
+### Codex — repository marketplace
 
-This repo includes a Codex marketplace file:
+Keep the marketplace and plugin source in the target repository:
 
 ```text
 .agents/plugins/marketplace.json
+plugins/superdev/
 ```
 
-After installing from that local marketplace, invoke the skills directly:
+Start Codex from that repository, open `/plugins`, choose **Superdev Local**, install Superdev, and start a new session. Do not add Superdev to a personal marketplace. Then invoke the skills directly:
 
 ```text
 Use $security-review-and-fix to audit this codebase.
@@ -107,29 +111,35 @@ Use $prd-design-build-orchestrator with docs/PRD.md and design/.
 
 ### Claude Code
 
-### Option 1 — install via marketplace (recommended)
+### Project-scoped marketplace installation (recommended)
 
 ```bash
-/plugin marketplace add boparaiamrit/superdev
-/plugin install superdev
+claude plugin marketplace add boparaiamrit/superdev --scope project
+claude plugin install superdev@superdev --scope project
 ```
 
-### Option 2 — local development
+If you use the interactive `/plugin` browser, choose **Project scope**. To migrate an older user-scoped copy:
 
 ```bash
-git clone https://github.com/boparaiamrit/superdev ~/superdev
-claude --plugin-dir ~/superdev/plugins/superdev
+claude plugin uninstall superdev@superdev --scope user
 ```
 
-### Option 3 — install from zip
+### Project-only helper
 
 ```bash
-bash install-superdev.sh
+cd /path/to/target-project
+bash /path/to/superdev/install-superdev.sh
+```
+
+### Local development session
+
+```bash
+claude --plugin-dir ./plugins/superdev
 ```
 
 ## Quick start
 
-After installation, in any Claude Code session:
+After installation, in a Claude Code session opened from the configured project:
 
 ```
 I have a PRD at docs/PRD.md and a design at design/index.html.

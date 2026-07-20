@@ -8,22 +8,20 @@
 
 set -euo pipefail
 
-MIGRATION_SKILL_DIR="${HOME}/.claude/skills/prototype-to-saas"
-MIGRATION_SKILL_REF="${MIGRATION_SKILL_DIR}/references/migration-agents.md"
-
-ORCH_SKILL_DIR="${HOME}/.claude/skills/prd-design-build-orchestrator"
-EXTRACTOR="${ORCH_SKILL_DIR}/references/extract-agent.py"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SKILLS_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+readonly MIGRATION_SKILL_REF="${SCRIPT_DIR}/migration-agents.md"
+readonly EXTRACTOR="${SKILLS_DIR}/prd-design-build-orchestrator/references/extract-agent.py"
 
 if [[ ! -f "$MIGRATION_SKILL_REF" ]]; then
   echo "❌ Migration agent definitions not found at $MIGRATION_SKILL_REF"
-  echo "   Install the prototype-to-saas skill first."
+  echo "   Reinstall the project-scoped Superdev plugin."
   exit 1
 fi
 
 if [[ ! -f "$EXTRACTOR" ]]; then
   echo "❌ Extractor not found at $EXTRACTOR"
-  echo "   This script requires the prd-design-build-orchestrator skill to be"
-  echo "   installed (it provides the extract-agent.py used here)."
+  echo "   Reinstall the project-scoped Superdev plugin."
   exit 1
 fi
 

@@ -15,7 +15,7 @@ This is a **recipe skill** — it provides the patterns and references that buil
 
 ### Pattern 1 — invoked by the orchestrator (most common)
 
-When `prd-design-build-orchestrator` runs and the operator chooses the **Laravel** backend stack, its `laravel-module-builder` subagent reads this skill's references directly. No separate invocation needed; this skill is installed at `~/.claude/skills/laravel-enterprise-backend/`, and the builder loads `SKILL.md` plus the references relevant to the current module (typically `module-structure.md`, `postgres-timescale-eloquent.md`, `api-resources.md`, `view-data-pattern.md`, `auth-sanctum-permissions.md`, `multitenancy-global-scope.md`, `audit-attribute.md`).
+When `prd-design-build-orchestrator` runs and the operator chooses the **Laravel** backend stack, its `laravel-module-builder` subagent reads this skill's references directly. No separate invocation needed; this skill is installed at `../laravel-enterprise-backend/`, and the builder loads `SKILL.md` plus the references relevant to the current module (typically `module-structure.md`, `postgres-timescale-eloquent.md`, `api-resources.md`, `view-data-pattern.md`, `auth-sanctum-permissions.md`, `multitenancy-global-scope.md`, `audit-attribute.md`).
 
 ### Pattern 2 — invoked by the migration skill
 

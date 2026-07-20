@@ -91,7 +91,7 @@ For a session whose entire system prompt is this skill, launch with:
 claude --agent prototype-to-saas
 ```
 
-This requires an agent file with `name: prototype-to-saas` at the project or user level. See the install script.
+This requires a project-level agent file with `name: prototype-to-saas`. See the install script.
 
 ### Pattern 3 — discovery-first front layer
 
@@ -143,20 +143,20 @@ Install agents first (Phase 0):
 
 ```bash
 # Reuses the orchestrator's core agents (monorepo-bootstrapper, contracts-author, ui-auditor, integration-tester)
-~/.claude/skills/prd-design-build-orchestrator/references/install-core-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/prd-design-build-orchestrator/references/install-core-agents.sh"
 
 # Plus this skill's 5 migration agents
-~/.claude/skills/prototype-to-saas/references/install-migration-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/prototype-to-saas/references/install-migration-agents.sh"
 
 # Plus optionally the security agents
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/security-agents.md" ]]; then
+  "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
 fi
 ```
 
 Then dispatch in natural language:
 
-> "Use the codebase-discoverer subagent to inventory the existing Next.js prototype: catalog routes, fixture files, entity shapes, client-side mutations, business logic, UI library state, auth state. Produce DISCOVERY.md per `~/.claude/skills/prototype-to-saas/references/discovery-checklist.md`."
+> "Use the codebase-discoverer subagent to inventory the existing Next.js prototype: catalog routes, fixture files, entity shapes, client-side mutations, business logic, UI library state, auth state. Produce DISCOVERY.md per `../prototype-to-saas/references/discovery-checklist.md`."
 
 The discoverer is read-only. It writes `DISCOVERY.md` with everything subsequent agents need.
 

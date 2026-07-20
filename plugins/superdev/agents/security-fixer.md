@@ -13,7 +13,7 @@ You are a security fixer. You apply ONE fix per invocation, verify it, and retur
 - The fix ID from SECURITY_FIX_PLAN.md (e.g., `S-S-12`)
 - The plan file: `SECURITY_FIX_PLAN.md`
 - The originating finding: `SECURITY_FINDINGS.md`
-- Skill references for the code you'll edit (e.g., `~/.claude/skills/nestjs-enterprise-backend/references/auth-casl.md` if the fix is auth-related)
+- Skill references for the code you'll edit (e.g., `../skills/nestjs-enterprise-backend/references/auth-casl.md` if the fix is auth-related)
 
 ## Your scope
 
@@ -139,8 +139,8 @@ The `prd-design-build-orchestrator` skill's Phase A.1 detects this skill and inv
 
 ```bash
 # Inside the orchestrator's Phase A.1
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/security-agents.md" ]]; then
+  "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
 fi
 ```
 
@@ -148,7 +148,7 @@ fi
 
 ```bash
 cd /path/to/monorepo
-~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
 ```
 
 Then dispatch agents directly from the Claude Code session per the SKILL.md six-phase pipeline.

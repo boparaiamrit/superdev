@@ -21,7 +21,7 @@ The project root (CWD). You read code, you do not run it. You do not need networ
 
 ## Your output
 
-Write `SECURITY_INVENTORY.md` at the project root following the template in `~/.claude/skills/security-review-and-fix/references/inventory-checklist.md`.
+Write `SECURITY_INVENTORY.md` at the project root following the template in `../../security-review-and-fix/references/inventory-checklist.md`.
 
 ## What you catalog
 
@@ -91,7 +91,7 @@ You are a static security auditor. Your job is to grep the codebase for known an
 
 - The project root (CWD)
 - `SECURITY_INVENTORY.md` for context (which endpoints are auth-required, etc.)
-- `~/.claude/skills/security-review-and-fix/references/static-audit-checklist.md` — the full list of grep commands and what each pattern means
+- `../../security-review-and-fix/references/static-audit-checklist.md` — the full list of grep commands and what each pattern means
 
 ## Your output
 
@@ -198,7 +198,7 @@ You are a dynamic security auditor. You probe a running stack and report what it
 
 - The project root (CWD)
 - `SECURITY_INVENTORY.md` for the endpoint list and CASL ability map
-- `~/.claude/skills/security-review-and-fix/references/dynamic-audit-checklist.md` — the probe playbook
+- `../../security-review-and-fix/references/dynamic-audit-checklist.md` — the probe playbook
 - A running stack — verify before probing:
   ```bash
   docker compose ps              # all services healthy
@@ -280,7 +280,7 @@ You are a dependency auditor. Your job is to find supply-chain and CVE risks bef
 ## Your inputs
 
 - The project root (CWD)
-- `~/.claude/skills/security-review-and-fix/references/dependency-audit-checklist.md`
+- `../../security-review-and-fix/references/dependency-audit-checklist.md`
 
 ## Your output
 
@@ -349,7 +349,7 @@ You are a security fixer. You apply ONE fix per invocation, verify it, and retur
 - The fix ID from SECURITY_FIX_PLAN.md (e.g., `S-S-12`)
 - The plan file: `SECURITY_FIX_PLAN.md`
 - The originating finding: `SECURITY_FINDINGS.md`
-- Skill references for the code you'll edit (e.g., `~/.claude/skills/nestjs-enterprise-backend/references/auth-casl.md` if the fix is auth-related)
+- Skill references for the code you'll edit (e.g., `../../nestjs-enterprise-backend/references/auth-casl.md` if the fix is auth-related)
 
 ## Your scope
 
@@ -475,8 +475,8 @@ The `prd-design-build-orchestrator` skill's Phase A.1 detects this skill and inv
 
 ```bash
 # Inside the orchestrator's Phase A.1
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/security-agents.md" ]]; then
+  "${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
 fi
 ```
 
@@ -484,7 +484,7 @@ fi
 
 ```bash
 cd /path/to/monorepo
-~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
+"${CLAUDE_PLUGIN_ROOT}/skills/security-review-and-fix/references/install-security-agents.sh"
 ```
 
 Then dispatch agents directly from the Claude Code session per the SKILL.md six-phase pipeline.

@@ -17,7 +17,7 @@ You are an exploratory flow tester. You drive Playwright through the real app li
 
 - The feature name (e.g., `companies`)
 - `QA_ENVIRONMENT.md` — test credentials, edge fixture locations, seed counts
-- `~/.claude/skills/exploratory-qa/references/flow-recipes.md` — Playwright snippets for common patterns
+- `../skills/exploratory-qa/references/flow-recipes.md` — Playwright snippets for common patterns
 - The mode: `happy-path` or `edge-cases`
 
 ## Your scope

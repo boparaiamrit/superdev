@@ -23,7 +23,7 @@ If it's NOT a Next.js project, return an error explaining what the wrong-skill m
 
 ## Your output
 
-Write `DISCOVERY.md` at the project root following `~/.claude/skills/prototype-to-saas/references/discovery-checklist.md`.
+Write `DISCOVERY.md` at the project root following `../../prototype-to-saas/references/discovery-checklist.md`.
 
 ## What you catalog
 
@@ -81,8 +81,8 @@ You are a schema reverse-engineering specialist. Your job is to turn implicit sh
 
 - `DISCOVERY.md` — written by codebase-discoverer
 - The actual JSON fixture files and TS interfaces in the project
-- `~/.claude/skills/nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
-- `~/.claude/skills/prototype-to-saas/references/extraction-patterns.md` — JSON-to-Zod patterns
+- `../../nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
+- `../../prototype-to-saas/references/extraction-patterns.md` — JSON-to-Zod patterns
 
 ## Your output
 
@@ -160,7 +160,7 @@ You are the migration architect. Your job is to take what was discovered and wha
 
 - `DISCOVERY.md` — read-only inventory of the prototype
 - `EXTRACTED_CONTRACTS.md` — reverse-engineered contracts with drift notes
-- `~/.claude/skills/prototype-to-saas/references/migration-plan-format.md` — the output template
+- `../../prototype-to-saas/references/migration-plan-format.md` — the output template
 
 ## Your output
 
@@ -242,7 +242,7 @@ You are a backend extraction specialist. You build ONE Nest.js feature module pe
 - `EXTRACTED_CONTRACTS.md` — the reverse-engineered shapes
 - `MIGRATION_PLAN.md` — the wave, the seed source, the risks for this module
 - `packages/contracts/src/<feature>.ts` — your contract (finalized by contracts-author in Phase 2.5)
-- `~/.claude/skills/nestjs-enterprise-backend/SKILL.md` — the backend recipe; same patterns as greenfield
+- `../../nestjs-enterprise-backend/SKILL.md` — the backend recipe; same patterns as greenfield
 - Relevant backend references: module-structure, drizzle-timescaledb, view-presenter, auth-casl, audit-logging, validation, error-handling
 
 ## Your output
@@ -341,9 +341,9 @@ You are a frontend rewiring specialist. Your job is to take ONE feature module o
 - `DISCOVERY.md` — observed FE behavior for this module
 - `MIGRATION_PLAN.md` — KEEP/REWIRE/DISCARD classification for this module
 - `packages/contracts/src/<feature>.ts` — the finalized contract (use these schemas, don't redefine)
-- `~/.claude/skills/design-to-nextjs/references/tanstack-patterns.md` — query/mutation patterns
-- `~/.claude/skills/design-to-nextjs/references/dual-mode-adapter.md` — how to keep demo mode working
-- `~/.claude/skills/prototype-to-saas/references/rewiring-patterns.md` — common transformations with before/after
+- `../../design-to-nextjs/references/tanstack-patterns.md` — query/mutation patterns
+- `../../design-to-nextjs/references/dual-mode-adapter.md` — how to keep demo mode working
+- `../../prototype-to-saas/references/rewiring-patterns.md` — common transformations with before/after
 
 ## Your scope
 

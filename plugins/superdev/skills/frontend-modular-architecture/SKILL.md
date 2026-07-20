@@ -1,6 +1,6 @@
 ---
 name: frontend-modular-architecture
-description: Use whenever building or auditing a Next.js frontend module. Enforces an opinionated modular structure (pages/, components/<comp>/parts/, stores/, hooks/) with strict file-size limits (page ≤ 100 lines, component ≤ 200 lines), dedicated Zustand stores per module (entity / UI / wizard), wizards split into per-step files, and sub-sub-components (drawers / modals / popovers) as their own folders rendering through React Portals via shadcn Dialog/Sheet/Popover. Prevents the AI antipatterns of god-files, state soup (50 useState piled up), useMemo/useCallback theater, and Portal-less drawers that fight stacking context.
+description: Use whenever building or auditing a Next.js frontend module. Enforces an opinionated modular structure (pages/, components/component-name/parts/, stores/, hooks/) with strict file-size limits (page ≤ 100 lines, component ≤ 200 lines), dedicated Zustand stores per module (entity / UI / wizard), wizards split into per-step files, and sub-sub-components (drawers / modals / popovers) as their own folders rendering through React Portals via shadcn Dialog/Sheet/Popover. Prevents the AI antipatterns of god-files, state soup (50 useState piled up), useMemo/useCallback theater, and Portal-less drawers that fight stacking context.
 ---
 
 # Frontend Modular Architecture
