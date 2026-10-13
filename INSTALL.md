@@ -46,5 +46,5 @@ bash install-superdev.sh --help         # full options
 ## Files in this bundle
 
 - `install-superdev.sh` — the installer (~20 KB bash script)
-- `superdev.zip` — the plugin (~388 KB, 96 files: 6 skills + 24 agents + hooks)
+- `superdev.zip` — the plugin (18 skills + 54 agents + `plugins/superdev/scripts/verify-done.mjs`; no hooks)
 - `INSTALL.md` — this file

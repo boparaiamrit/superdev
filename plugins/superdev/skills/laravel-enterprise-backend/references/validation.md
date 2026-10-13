@@ -49,7 +49,7 @@ A few points about this class:
 
 - **`Rule::enum(Industry::class)`** rejects any value that is not a valid `Industry` case (e.g. `'TECHNOLOGY'` fails; `'Technology'` passes). Title-Case enum values are the documented public API — the error message will say `"The selected industry is invalid."`.
 - **`'domain' => ['nullable', ...]`** the client must send `"domain": null` to express absence. The field is never silently missing from the payload.
-- **`authorize()`** delegates to the Policy. For standard CRUD you can also use the `#[Authorize]` attribute on the controller method (see `references/auth-sanctum-permissions.md`) — pick one approach per endpoint, not both.
+- **`authorize()`** delegates to the Policy. For standard CRUD you can also use the `#[Authorize]` attribute on the controller method (see `auth-sanctum-permissions.md`) — pick one approach per endpoint, not both.
 
 ## Using the request in the controller
 
@@ -76,7 +76,7 @@ class CompanyController
 }
 ```
 
-`$request->validated()` returns only the keys declared in `rules()` — no raw user input leaks through. The action wraps the write inside `AuditManager::run()`; see `references/audit-attribute.md`.
+`$request->validated()` returns only the keys declared in `rules()` — no raw user input leaks through. The action wraps the write inside `AuditManager::run()`; see `audit-attribute.md`.
 
 ## Query/filter requests
 
@@ -148,7 +148,7 @@ public function attributes(): array
 
 ## Mapping validation errors to the error-code contract
 
-When a FormRequest fails validation, Laravel throws a `ValidationException`. The global exception handler (see `references/error-handling.md`) catches it and returns a 422 response in the shared error envelope:
+When a FormRequest fails validation, Laravel throws a `ValidationException`. The global exception handler (see `error-handling.md`) catches it and returns a 422 response in the shared error envelope:
 
 ```json
 {
@@ -248,6 +248,6 @@ it('requires name and industry', function () {
 - **Accessing `$request->all()` or `$request->input()` without going through `validated()` first.** Use `$request->validated()` to get only the declared, clean keys. Raw access bypasses the declared rules.
 - **Skipping `authorize()`.** The method must return `true` or delegate to a Policy. An empty `return true;` is acceptable only when authorization is handled exclusively by `#[Authorize]` on the controller method — document which approach is in use.
 - **Duplicating rules between a FormRequest and an inline `validate()` call for the same endpoint.** There must be exactly one place where an endpoint's rules are declared.
-- **Catching `ValidationException` in the controller.** Let it propagate to the global handler in `references/error-handling.md`, which normalises it into the error envelope.
+- **Catching `ValidationException` in the controller.** Let it propagate to the global handler in `error-handling.md`, which normalises it into the error envelope.
 - **Using `Form::old()` / session flashing for API validation errors.** This is a JSON API — validation errors go in the response body as `details`, not in the session.
 - **Putting domain-limit logic inside `rules()`.** Business-rule violations (quota exceeded, duplicate slug within a tenant) belong in the action/service as a `DomainException`, not as a Closure rule in the FormRequest.

@@ -1,6 +1,8 @@
 # Audit Logging — `@Audit` Decorator + Hypertable
 
-Every state-changing service method gets one decorator. An interceptor reads the metadata, runs the method, and writes a structured row to the `audit_logs` TimescaleDB hypertable. Free compliance trail, zero per-handler boilerplate.
+Every state-changing **controller handler** gets one decorator. An interceptor reads the metadata, runs the handler, and writes a structured row to the `audit_logs` TimescaleDB hypertable. Free compliance trail, zero per-handler boilerplate.
+
+> **Placement is load-bearing (hard-rules #5):** a Nest interceptor resolves metadata from `context.getHandler()` — the **controller** method. Putting `@Audit` on a *service* method makes it invisible: PostMitra shipped 71 decorated service methods writing **zero** audit rows while every test stayed green. Decorate controller handlers (or make the decorator self-acting), and prove it at runtime: perform a mutation and assert `audit_logs` gained a row.
 
 ## What gets logged
 
@@ -24,7 +26,7 @@ Each audit entry:
 }
 ```
 
-This shape is the same one defined in the Drizzle schema (`audit_logs` table) — see `references/drizzle-timescaledb.md`.
+This shape is the same one defined in the Drizzle schema (`audit_logs` table) — see `drizzle-timescaledb.md`.
 
 ## The decorator
 
@@ -271,6 +273,8 @@ In `apps/api/src/worker.ts`, register the AuditWriterProcessor. In `apps/api/src
 
 ## Usage examples
 
+All examples decorate **controller handler methods** (route handlers), never service methods — see the placement warning above.
+
 ### Basic mutation
 
 ```ts
@@ -315,7 +319,7 @@ Metadata includes a redacted args snapshot:
 @Audit({
   action: 'mailbox.warmup_start',
   subject: 'Mailbox',
-  captureArgs: (args) => ({ mailboxId: args[1], reason: (args[2] as any)?.reason }),
+  captureArgs: (args) => ({ mailboxId: args[1], reason: (args[2] as WarmupOptions)?.reason }),
 })
 async startWarmup(workspaceId: string, mailboxId: string, options: WarmupOptions) {
   // ...

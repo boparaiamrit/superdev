@@ -1,48 +1,21 @@
 # superdev-self-learning — dispatch reference
 
-## Hook-triggered (automatic)
+Lesson capture is deliberate, never hook-driven. The main agent notices a capture-worthy signal (see `frustration-patterns.md`), then either writes the entry directly (usual — most lessons are one crisp rule) or dispatches `learn-from-frustration` to synthesize an entry from a messy correction sequence.
 
-The plugin's `hooks/hooks.json` includes:
-
-```jsonc
-{
-  "UserPromptSubmit": [
-    {
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "bash hooks/scripts/detect-frustration.sh \"$CLAUDE_USER_PROMPT\" && touch .claude/memory/.frustration-queued"
-      }]
-    }
-  ],
-  "SubagentStop": [
-    {
-      "matcher": "fix-applier|regression-verifier|design-fidelity-auditor|audit-synthesizer",
-      "hooks": [{
-        "type": "command",
-        "command": "bash hooks/scripts/maybe-learn.sh \"$CLAUDE_SUBAGENT_NAME\""
-      }]
-    }
-  ]
-}
-```
-
-The hook scripts:
-- `detect-frustration.sh` — applies regex from `references/frustration-patterns.md`; on match, touches a queue file
-- `maybe-learn.sh` — if the queue file exists OR the just-finished agent has a captured `LESSON:` line, dispatches `learn-from-frustration` and clears the queue
-
-## Manual dispatch
-
-When the user explicitly says "remember that…" / "learn from this":
+## Capture dispatch
 
 ```
 Use the learn-from-frustration agent.
 
-Triggering event: explicit-remember
-User's request: <quote them verbatim>
+Triggering event: <user-correction | git-revert | verifier-rejected | runtime-check | audit-pattern | explicit-remember>
+Evidence: <the user's words verbatim, the reverted commit, the verifier verdict, or the failing check output>
+Files/agents involved: <concrete paths and agent names>
 
-Identify the lesson, check for duplicates against .claude/memory/superdev-learned/,
-write or update an entry. Confirm to the user what was captured.
+Identify the transferable lesson, check for duplicates against
+.claude/memory/superdev-learned/, write or update one entry per
+references/memory-entry-format.md. If the lesson is stack-general,
+flag it for promotion to superdev-build hard-rules in your return.
+Confirm what was captured.
 ```
 
 ## Update / remove
@@ -59,11 +32,12 @@ Lesson to remove: <slug>
 Reason for removal: <user's reason>
 ```
 
-## Bulk surface (debug)
+## Bulk surface (review)
 
 To see all current lessons:
 
 ```
 List every file in .claude/memory/superdev-learned/. For each, show the
 description from frontmatter and applies_to_agents. Group by applies-to.
+Flag any lesson that is stack-general and not yet in hard-rules.md.
 ```

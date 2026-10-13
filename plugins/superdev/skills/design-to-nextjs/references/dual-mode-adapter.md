@@ -153,7 +153,7 @@ export async function apiRequest<TSchema extends z.ZodTypeAny>(
 
 ### File 3 — `src/app/api/mock/[...path]/route.ts`
 
-The Route Handler that serves fixtures in demo mode.
+The Route Handler that serves fixtures in demo mode. **Security (hard-rules #6):** this handler reads the filesystem from URL segments, so it (a) only responds when `NEXT_PUBLIC_API_MODE=demo`, and (b) validates every segment before it touches a path — an unsanitized `join(...segments)` here is textbook path traversal, and exactly what shipped on a real bootstrap.
 
 ```ts
 import { NextRequest, NextResponse } from 'next/server';
@@ -183,8 +183,12 @@ function notFound(method: string, path: string) {
   );
 }
 
+const SAFE_SEGMENT = /^[a-zA-Z0-9_-]+$/;
+
 async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
+  if (process.env.NEXT_PUBLIC_API_MODE !== 'demo') return notFound(req.method, '');
   const { path } = await ctx.params;
+  if (!path?.length || path.some((s) => !SAFE_SEGMENT.test(s))) return notFound(req.method, (path ?? []).join('/'));
   await delay(SIMULATE_LATENCY_MS);
 
   const method = req.method;

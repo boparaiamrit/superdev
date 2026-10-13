@@ -1,6 +1,6 @@
 # QA Report Format (Phase 6)
 
-The `QA_REPORT.md` template the orchestrator writes by synthesizing observations from Phases 1-5.
+The `QA_REPORT.md` template the main agent writes by synthesizing observations from Phases 1-5.
 
 This is the artifact the team reads. It must be skimmable, actionable, and evidence-cited.
 

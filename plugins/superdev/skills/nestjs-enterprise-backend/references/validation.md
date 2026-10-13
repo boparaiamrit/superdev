@@ -25,18 +25,18 @@ import { ZodValidationPipe } from 'nestjs-zod';
 app.useGlobalPipes(new ZodValidationPipe());
 ```
 
-Also wire the OpenAPI patch so Zod schemas surface in `/docs`:
+Do **NOT** wire the old OpenAPI patch. `patchNestJsSwagger` from nestjs-zod deep-imports an `@nestjs/swagger` internal (`dist/services/schema-object-factory`) that swagger 11 no longer exports — calling it crashes the app on boot (hit on two production builds; see `superdev-build` hard-rules #2). It is removed entirely in nestjs-zod v5. Instead, guard doc generation so it can never take the app down, and verify boot against the built dist:
 
 ```ts
-import { patchNestJsSwagger } from 'nestjs-zod';
+// NOTE: patchNestJsSwagger() intentionally NOT called — see warning above.
 
-patchNestJsSwagger();
-// ... then SwaggerModule.setup(...)
+try { SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, docConfig)); } catch { /* docs never crash boot */ }
+// (OpenAPI setup guarded above; request validation is the pipe's job.)
 ```
 
 ## Authoring schemas (in `packages/contracts/src/`)
 
-Schemas live in the monorepo's shared package, **not** in `apps/api/src/contracts/`. Both apps import from `@<scope>/contracts/<feature>`. See `references/monorepo-setup.md` for the package layout.
+Schemas live in the monorepo's shared package, **not** in `apps/api/src/contracts/`. Both apps import from `@<scope>/contracts/<feature>`. See `monorepo-setup.md` for the package layout.
 
 ```ts
 // packages/contracts/src/companies.ts
@@ -213,7 +213,7 @@ Alternative: configure Prisma to use snake_case names via `@map` and `@@map` eve
 
 ## Sharing schemas with the frontend
 
-Schemas live in `packages/contracts`. Both `apps/api` and `apps/web` declare `"@<scope>/contracts": "workspace:*"` and import from it. There is no local copy in either app. CI's `pnpm typecheck` will fail if schemas drift, because consumers compile against the same source. See `references/monorepo-setup.md` for the package config.
+Schemas live in `packages/contracts`. Both `apps/api` and `apps/web` declare `"@<scope>/contracts": "workspace:*"` and import from it. There is no local copy in either app. CI's `pnpm typecheck` will fail if schemas drift, because consumers compile against the same source. See `monorepo-setup.md` for the package config.
 
 ## OpenAPI annotations
 
@@ -234,6 +234,6 @@ The frontend can generate a typed client from `/docs/json` (openapi-typescript, 
 
 - ❌ Duplicating schemas between contracts and DTOs. The DTO is a one-line `createZodDto(schema)`.
 - ❌ Using `any` in service signatures. Use the inferred types from `z.infer<...>`.
-- ❌ Hand-writing OpenAPI schemas. Let `nestjs-zod` + `patchNestJsSwagger()` generate them.
+- ❌ Calling `patchNestJsSwagger()` — crashes boot on @nestjs/swagger 11 (hard-rules #2). Docs are best-effort; boot is not.
 - ❌ Skipping the response mapper. Prisma's internal shape will leak (camelCase, enum casing, internal fields).
 - ❌ Letting the frontend define the contract and pushing it to backend. Either it's truly shared (monorepo / sync script), or the backend owns it.

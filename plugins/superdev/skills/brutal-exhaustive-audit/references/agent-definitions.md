@@ -56,23 +56,4 @@ Produce AUDIT.md with summary, P0 ship-blockers, suggested fixes, owners TBD.
 Write recurring-issue classes to .claude/memory/superdev-learned/audit-patterns.md
 so future builds default-on the missing patterns.
 ```
-
-## Agent teams (severity debate)
-
-For each finding in AUDIT.md marked `SEVERITY: ambiguous`, dispatch the
-3-teammate severity-debate team:
-
-```
-Dispatch 3-teammate severity debate.
-
-Teammate A — harshest critic: defaults to higher severity, cites worst case
-Teammate B — pragmatist: weighs realistic impact vs cost to fix
-Teammate C — shipping advocate: asks "does this block ship today?"
-
-For each ambiguous finding, one round:
-- Each teammate proposes severity + one-sentence justification
-- Each teammate critiques the other two
-- Vote. Majority wins; ties go to the harshest critic by default.
-
-Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
-```
+

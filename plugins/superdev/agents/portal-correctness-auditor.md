@@ -134,10 +134,10 @@ Each "MISSING" is a P2 finding — `parts/<name>/` exists but doesn't actually h
 
 ## Memory write
 
-Update `.claude/memory/superdev-learned/portal-violations.md` with the most-common pattern in this repo (e.g., "agents repeatedly write fixed-position div drawers instead of <Sheet>") so the orchestrator threads the lesson into the next `frontend-module-builder` dispatch.
+Update `.claude/memory/superdev-learned/portal-violations.md` with the most-common pattern in this repo (e.g., "agents repeatedly write fixed-position div drawers instead of <Sheet>") so the lesson is included the next time `frontend-module-builder` work is dispatched or executed (see superdev-self-learning).
 
 ## Gates
 
-- ❌ P1 verdicts block the wave
+- ❌ P1 verdicts block the build
 - ❌ Do not modify code; flag with citations + suggested shadcn replacement
 - ✅ Always name the specific shadcn primitive that should replace the violation

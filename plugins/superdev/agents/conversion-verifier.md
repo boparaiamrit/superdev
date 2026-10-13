@@ -107,7 +107,7 @@ git checkout main  # or original branch name
 git branch -D refactor/<feature>-decompose
 ```
 
-Then return to orchestrator:
+Then return to the main agent:
 
 > *"REJECT — conversion changed behavior. Rolled back to <PRE_SHA>. Diff evidence saved at .conversion-rejected-<timestamp>/. Re-run module-conversion-planner with these specific findings to fix the plan before re-trying:*
 > *- /companies/new: button label changed 'Save' → 'Create' (line: parts/save-button.tsx:18 — keep 'Save')*

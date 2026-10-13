@@ -1,217 +1,111 @@
 # Superdev
 
-A Claude Code + Codex plugin bundling **16 skills + 51 specialized role prompts** for full-stack monorepo builds, with a self-improving memory loop, holy-grail design preservation, and atomic frontend refactoring.
+A Claude Code + Codex plugin bundling **18 skills + 54 agents** for full-stack monorepo builds: direct sequential building by the main agent, recipe skills for each stack layer, read-only auditor agents, design preservation, atomic frontend refactoring, and live runtime verification.
+
+> **v2.0.0 — the conductor is gone.** SuperDev v1 routed everything through a conductor skill that dispatched parallel builder waves, installed agent copies into each project, and graded its own completion ledger. Across the production projects built with it (ForgeMyTool, PostMitra, 4Brokr), that model caused parallel contract races, green static gates over dead runtimes, stale abridged agent installs, and "done" claims nothing machine-checkable backed. v2 keeps everything that proved valuable — the recipes, the auditors, the conventions — and replaces the conductor with [`superdev-build`](skills/superdev-build/SKILL.md): the main agent builds directly, one verified module at a time, and [`scripts/verify-done.mjs`](scripts/verify-done.mjs) runs the done checks live (including booting the built API). The failure lessons are codified in [`hard-rules.md`](skills/superdev-build/references/hard-rules.md).
 
 ## Host support
 
-Superdev is dual-hosted:
+- **Claude Code:** loads `.claude-plugin/plugin.json`; skills and all 54 agents are auto-discovered from `skills/` and `agents/`. There are no hooks — verification is explicit (`verify-done.mjs`, per-module runtime checks).
+- **Codex:** loads the 18 skills through `.codex-plugin/plugin.json`. Treat `agents/*.md` as role-prompt references/checklists unless the user explicitly asks for delegated work. See [`../../CODEX.md`](../../CODEX.md).
 
-- **Codex:** loads the 16 skills through `.codex-plugin/plugin.json`. Use `agents/*.md` as role-prompt references when explicit delegation is useful. Claude hook behavior should be run as explicit verification steps.
-- **Claude Code:** loads the original Claude plugin manifest, subagents, and hook events.
-
-See `../../CODEX.md` for the Codex adapter notes.
-
-## What's in this plugin
-
-**Sixteen skills:**
+## The 18 skills
 
 | Skill | Purpose |
 |---|---|
-| `prd-design-build-orchestrator` | The conductor — multi-agent orchestration across all 16 skills, reads `.claude/memory/superdev-learned/` before every dispatch |
-| `design-to-nextjs` | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter) |
-| `design-preservation` | When source is a **prototype**, copy verbatim into `design-source/`, mirror at `/__design-source/`, pixel-diff every Phase C wave at ≤ 1% drift |
-| `frontend-modular-architecture` 🆕 v1.3.0 | Opinionated structure: page ≤ 100 / component ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, sub-sub-components (drawer/modal/popover) in `parts/<name>/` folders using shadcn Portal primitives |
-| `frontend-refactoring` 🆕 v1.3.0 | **Atomic one-module conversion** of a fat existing module — 5 strict phases (plan → review → snapshot → atomic-execute → verify) with hard rollback on any behavior drift. No half-state ever lands. |
-| `nestjs-enterprise-backend` | Nest.js + PG17/TimescaleDB + Drizzle + CASL + BullMQ + `@Audit` decorator + view-shape contract |
+| `superdev-build` 🆕 v2.0.0 | Full-stack build SOP for the main agent: plan artifacts → stack choice → bootstrap → **contracts first** → one module at a time (backend → boot-verify → frontend → browser-verify) → audits → verify-done |
+| `design-to-nextjs` | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter; checks Radix vs **Base UI** before composing) |
+| `design-to-laravel` | Translate **Claude Design** → **Laravel + Inertia 3 + React 19** monolith (typed props, Wayfinder, `useForm`, Fortify + spatie/permission). Default Laravel frontend |
+| `design-preservation` | When source is a **prototype**, copy verbatim into `design-source/`, mirror at `/__design-source/`, pixel-diff at ≤ 1% drift. Holy-grail rule: no restyling |
+| `nestjs-enterprise-backend` | Nest.js + PG17/TimescaleDB + Drizzle + CASL + BullMQ + `@Audit` (on controller handlers, side-effect-proven) + view-shape contract |
+| `laravel-enterprise-backend` | **Laravel 13** alternative — PostgreSQL + TimescaleDB, DB cache/sessions, SQS, Eloquent API Resources + hand-written TS contract, `#[Audit]` → hypertable, global-scope tenancy, Title-Case enums, Boost |
+| `laravel-bref-deploy` | Serverless deploy of the Laravel backend on AWS Lambda via **Bref 3.x** (web/SQS-worker/console, EventBridge scheduler, S3/CloudFront, SSM, no VPC) |
+| `frontend-modular-architecture` | Structure law: page ≤ 100 / component ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, overlays in `parts/<name>/` with shadcn Portal primitives |
+| `frontend-refactoring` | **Atomic one-module conversion** of a fat module — plan → review → behavior baseline → atomic execute → zero-drift verify, hard rollback on drift |
+| `prototype-to-saas` | Convert a single-user Next.js prototype (JSON-as-backend) into a multi-tenant SaaS without breaking the working UI |
 | `security-review-and-fix` | Six-phase security audit (inventory, static, dynamic, dependency, triage, fix) |
-| `prototype-to-saas` | Convert a single-user Next.js prototype with JSON-as-backend into a multi-tenant SaaS. v1.3.0 adds **Phase 4.5** — refactoring runs BEFORE rewiring. |
 | `exploratory-qa` | Playwright-driven QA: happy + edge cases, consistency audit, performance probing |
-| `systematic-debugging` | 5-phase brutal-debug, refuses fixes without VERIFIED ROOT_CAUSE.md |
-| `product-completeness-audit` | "A beautiful UI with hardcoded data is a demo" — distinguishes REAL / MOCKED / HYBRID in production mode |
-| `brutal-exhaustive-audit` | Every file / route / flow / data path / edge case — disk-tracked checklists |
-| `superdev-self-learning` | The meta-loop — writes `.claude/memory/superdev-learned/` from frustration / verifier signals |
-| `laravel-enterprise-backend` 🆕 v1.4.0 · reworked v1.6.0 | **Laravel 13** backend alternative — **PostgreSQL + TimescaleDB** (stock `pgsql`) + DB cache/sessions + SQS, **Eloquent API Resources** presenter + hand-written TS contract, `#[Audit]` → `audit_logs` hypertable, Sanctum + `spatie/laravel-permission`, `BelongsToWorkspace` global-scope tenancy, Title-Case enums, Laravel Boost |
-| `laravel-bref-deploy` 🆕 v1.4.0 | **Serverless deploy** of the Laravel backend on AWS Lambda via **Bref 3.x** — web/SQS-worker/console functions, EventBridge scheduler, S3/CloudFront assets, SSM secrets, no VPC; OSS Serverless (`osls`) default |
-| `design-to-laravel` 🆕 v1.5.0 | Translate **Claude Design** → **Laravel + Inertia 3 + React 19** monolith (React starter kit: TS, Tailwind 4, shadcn). Typed-props pages via `Inertia::render`, Wayfinder routing, `useForm`, Fortify session + spatie/permission + `#[Authorize]`; reuses design-to-nextjs token-extraction + shadcn; client-only on Bref. Default Laravel frontend |
+| `systematic-debugging` | 5-phase root-cause debugging; refuses fixes without a verified `ROOT_CAUSE.md` |
+| `product-completeness-audit` | "A beautiful UI with hardcoded data is a demo" — REAL / MOCKED / HYBRID detection in production mode |
+| `production-readiness-audit` | Five passes score every module 1–10 (min wins, hard caps), **each score cited with command/browser/DB evidence**; fix → re-audit until all ≥ 9 |
+| `brutal-exhaustive-audit` | Every file / route / flow / data path / edge case — disk-tracked checklists, final ship gate |
+| `superdev-self-learning` | Deliberate lesson capture into the target project's `.claude/memory/superdev-learned/`; stack-general lessons are promoted into `hard-rules.md` |
+| `superdev-done` | Runs `scripts/verify-done.mjs` — live Definition-of-Done (typecheck/lint/build per package, dist boot + health, contracts format, suppression + placeholder sweeps) |
 
-> 🔀 **Stack choice** — the orchestrator asks **Laravel or Nest.js** at Step A.5b. If Laravel, it then asks the frontend at Step A.5c: **Inertia monolith** (default — `design-to-laravel`, one app, Fortify session) or **decoupled Next.js** (`design-to-nextjs`, Sanctum tokens). Nest.js always pairs with Next.js.
+> 🔀 **Stack choice** — `superdev-build` Step 2 asks **Laravel or Nest.js**. Laravel then asks the frontend: **Inertia monolith** (default) or **decoupled Next.js**. Nest.js always pairs with Next.js. The choice persists in `STACK.md`.
 
-**51 role prompts** bundled with the plugin:
+**Every skill works standalone.** `superdev-build` is only the sequencing for a full greenfield build; asking for "a security audit" runs `security-review-and-fix` alone, with no pipeline overhead.
 
-In Claude Code, these are auto-loaded as subagents when the plugin is enabled. In Codex, they remain available as prompt references for explicit delegated or parallel work.
+## The 54 agents
 
-- **12 core build agents:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `laravel-module-builder`, `frontend-module-builder`, `inertia-module-builder` 🆕, `ui-auditor`, `integration-tester`
-- **5 security agents:** `security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, `security-fixer`
-- **5 migration agents:** `codebase-discoverer`, `schema-reverse-engineer`, `migration-planner`, `backend-extractor`, `frontend-rewirer`
-- **4 QA agents:** `qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`
-- **5 debug agents:** `bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `fix-applier`, `regression-verifier`
-- **6 brutal-audit agents:** `repo-cartographer`, `route-walker`, `flow-walker`, `data-flow-tracer`, `edge-case-prober`, `audit-synthesizer`
-- **5 product-completeness agents:** `placeholder-hunter`, `route-completeness-checker`, `wiring-auditor`, `data-flow-real-vs-mock`, `journey-walker`
-- **2 design-preservation agents:** `design-source-mirror`, `design-fidelity-auditor`
-- **1 self-learning agent:** `learn-from-frustration`
-- **2 modular-architecture agents 🆕:** `module-structure-auditor`, `portal-correctness-auditor`
-- **4 frontend-refactoring agents 🆕:** `module-conversion-planner`, `module-behavior-snapshotter`, `atomic-module-converter`, `conversion-verifier`
+Auto-loaded by the plugin (single source in `agents/`; nothing is copied into target projects). Roles:
 
-**Hooks:**
-- `SubagentStop` on every builder agent runs `<pm> typecheck` automatically (PM auto-detected from lockfile)
-- `SubagentStart` on all Playwright-using agents verifies the stack is up before they run
-- `UserPromptSubmit` runs `detect-frustration.sh` — conservative scan for "no/stop/wrong/I told you/revert"; on match queues a `learn-from-frustration` dispatch
-- `SubagentStop` on `fix-applier|regression-verifier|design-fidelity-auditor|audit-synthesizer` runs `maybe-learn.sh` — captures verifier rejections and `LESSON:` lines into project memory
-- 🆕 `SubagentStop` on `frontend-module-builder|frontend-rewirer|atomic-module-converter` scans newly-written .tsx files for >300 lines and emits a `LESSON:` to dispatch `frontend-refactoring` if any are found
+- **Planning/extraction (read-mostly):** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `codebase-discoverer`, `schema-reverse-engineer`, `repo-cartographer`
+- **Builders (optional, one module at a time):** `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `laravel-module-builder`, `frontend-module-builder`, `inertia-module-builder`, `backend-extractor`, `frontend-rewirer`, `atomic-module-converter`, `seed-data-architect`, `design-source-mirror`, fixers (`security-fixer`, `fix-applier`)
+- **Auditors/testers (read-only):** `ui-auditor`, `module-structure-auditor`, `portal-correctness-auditor`, `integration-tester`, `tenancy-isolation-tester`, security five (`security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, + `security-fixer`), QA four (`qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`), completeness/brutal walkers and hunters (`placeholder-hunter`, `wiring-auditor`, `route-completeness-checker`, `data-flow-real-vs-mock`, `journey-walker`, `route-walker`, `flow-walker`, `data-flow-tracer`, `edge-case-prober`, `audit-synthesizer`, `design-fidelity-auditor`, `module-readiness-rater`), debugging (`bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `regression-verifier`), migration/conversion (`migration-planner`, `module-conversion-planner`, `module-behavior-snapshotter`, `conversion-verifier`), and `learn-from-frustration`
+
+The default build path executes builder checklists in the main session; dispatch a builder subagent only for a single bounded module, never backend+frontend against a same-step contract in parallel (hard-rules #4).
+
+## Verification model (no hooks, no ledger)
+
+| Check | When | How |
+|---|---|---|
+| Typecheck + tests + **boot the dist + curl health** + one real endpoint + one side effect | After every backend module | `superdev-build` Step 5 (hard-rules #1, #5) |
+| Typecheck + browser-open the route in production mode | After every frontend module | Step 5 (hard-rules #9) |
+| Full live gate: per-package typecheck/lint/build, boot, contracts format, swagger landmine, suppression + placeholder sweeps | Before any "done" claim | `node scripts/verify-done.mjs` (see `superdev-done`) |
+| Security / QA / completeness / readiness | Step 6, by risk | Standalone audit skills above |
 
 ## Placeholder convention
 
-This plugin is **workspace-scope agnostic** — nothing about your monorepo is hardcoded. Where docs reference your project, you'll see placeholders; substitute them with your project's actual values:
-
-| Placeholder | Means | Detect from |
-|---|---|---|
-| `<scope>` | npm scope (e.g. `acme` in `@acme/api`) | Root `package.json` `name` field |
-| `<workspace>` | Monorepo root dir / pnpm workspace name | Directory you ran `pnpm init` in |
-| `<app>` | Short name for DB / storage-key prefixes (e.g. `acme_dev`) | Lowercase `<workspace>` |
-| `<APP_NAME>` | Human-readable brand name shown in UI / API title | Your product name |
-| `<feature>` | The feature module being built | Current task |
-| `<pm>` | The package manager (`pnpm` / `npm` / `yarn` / `bun`) | Lockfile in monorepo root |
-
-## Package manager support
-
-Hooks **auto-detect** your package manager from the lockfile (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `bun.lockb` → bun, otherwise → npm) and run the workspace's typecheck/build script using the right command. You don't have to configure anything.
-
-Skill examples use `pnpm` (the default the monorepo-bootstrapper sets up, because pnpm + Turbo handles workspace-scope filtering best), but if you've already installed in an existing monorepo using a different PM, the hooks adapt automatically. The agent docs include a `<pm>` placeholder — substitute your manager wherever you see it.
-
-| Lockfile detected | Hook runs |
-|---|---|
-| `pnpm-lock.yaml` | `(cd apps/api && pnpm typecheck)` |
-| `yarn.lock` | `(cd apps/api && yarn typecheck)` |
-| `bun.lockb` / `bun.lock` | `(cd apps/api && bun run typecheck)` |
-| (none of the above) | `(cd apps/api && npm run typecheck)` |
-
-Whether the plugin is installed globally in `~/.claude/plugins/` or privately in a single monorepo, it adapts to that repo's naming and tooling.
+Workspace-scope agnostic — substitute placeholders with your project's values: `<scope>` (npm scope from root `package.json`), `<workspace>` (monorepo dir), `<app>` (lowercase prefix), `<APP_NAME>` (brand), `<feature>`, `<pm>` (package manager from lockfile: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `bun.lock*` → bun, else npm). Examples default to pnpm + Turborepo; existing lockfiles are honored.
 
 ## Installation
 
-### Codex — local marketplace
-
-This repo includes a Codex marketplace file:
-
-```text
-.agents/plugins/marketplace.json
-```
-
-After installing from that local marketplace, invoke the skills directly:
-
-```text
-Use $security-review-and-fix to audit this codebase.
-Use $prototype-to-saas to productionize this prototype.
-Use $prd-design-build-orchestrator with docs/PRD.md and design/.
-```
-
-### Claude Code
-
-### Option 1 — install via marketplace (recommended)
+**Claude Code:**
 
 ```bash
 /plugin marketplace add boparaiamrit/superdev
 /plugin install superdev
-```
-
-### Option 2 — local development
-
-```bash
-git clone https://github.com/boparaiamrit/superdev ~/superdev
+# local development:
 claude --plugin-dir ~/superdev/plugins/superdev
+# or from the bundled zip:
+bash install-superdev.sh
 ```
 
-### Option 3 — install from zip
+**Codex:** use the repo-local marketplace `.agents/plugins/marketplace.json`, then invoke skills directly:
 
-```bash
-bash install-superdev.sh
+```text
+Use $superdev-build with docs/PRD.md and design/.
+Use $security-review-and-fix to audit this codebase.
+Use $prototype-to-saas to productionize this prototype.
 ```
 
 ## Quick start
 
-After installation, in any Claude Code session:
-
-```
-I have a PRD at docs/PRD.md and a design at design/index.html.
-Build the full-stack app.
+```text
+I have a PRD at docs/PRD.md and a design at design/. Build the full-stack app.
 ```
 
-The main session reads the orchestrator skill, dispatches subagents through the four phases (audit → bootstrap → execute → integrate), and produces a shipping monorepo.
+`superdev-build` produces the plan artifacts, confirms with you, asks the stack question, then builds module by module with runtime proof at each step.
 
-For other entry points:
+## Architectural commitments (all skills)
 
-| Situation | What to say |
-|---|---|
-| Greenfield PRD + design | "Build the full-stack app from PRD.md and design/" |
-| Existing Next.js prototype with JSON fixtures | "Help me productionize this Next.js prototype" |
-| Standalone security audit | "Run a security audit on this codebase" |
-| Standalone QA pass | "Run a production-readiness QA pass" |
-| Frontend-only from design | "Convert this Claude Design output to a Next.js codebase" |
-| Backend-only build (Nest.js) | "Build a Nest.js backend with these patterns: ..." |
-| Backend-only build (Laravel) | "Build a Laravel backend with these patterns: ..." (PostgreSQL + TimescaleDB + SQS, deploy via Bref) |
-
-## Agent teams (optional)
-
-Several phases benefit from **agent teams** when stakes are high. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`:
-
-- **Gap audit** (orchestrator Phase A.3) — 3-teammate adversarial review of PRD-vs-design gaps
-- **Security audit** (Phase D.2) — 3-teammate team where auditors challenge each other's findings
-- **QA report synthesis** (Phase D.3.6) — 3-teammate severity debate (harshest-critic vs pragmatist vs shipping-advocate)
-- **Hard performance investigation** — on-demand competing-hypotheses team
-- **Per-feature pair-programming** (Phase C.2) — backend↔frontend teammates that can negotiate contracts live
-
-See each skill's "Agent teams (optional)" section for the exact invocation prompts.
-
-## Architectural commitments enforced across all skills
-
-1. **Monorepo** — `apps/web` (Next.js) + `apps/api` (Nest.js) + `packages/contracts` (shared Zod schemas)
-2. **View-shape contract** — backend returns view-ready data; frontend renders WITHOUT `?.` or `??` on contract fields
-3. **Title Case enums** — DB = wire = UI label, no conversion code anywhere
-4. **shadcn/ui everywhere** — every visual primitive from `@/components/ui/*`, sidebar uses shadcn block, NO competing UI libraries
-5. **Docker for ALL infrastructure** — Postgres+Timescale, Redis, etc.; nothing local
-6. **CASL authorization + `@Audit` decorator** — every endpoint protected, every mutation audited
-7. **Dual-mode adapter** — `NEXT_PUBLIC_API_MODE=demo` reads JSON fixtures; `production` hits backend
-
-> 🐘 **Laravel backend variant (v1.4.0, reworked v1.6.0)** preserves all seven commitments with Laravel mechanisms: hand-written TS contract in `packages/contracts` kept in lockstep with **Eloquent API Resources** (1); API Resource presenters (2); PHP Title-Case enums (3); `spatie/laravel-permission` + Policies + `#[Audit]` → `audit_logs` hypertable (6). It diverges where the serverless target requires it: managed **PostgreSQL + TimescaleDB** + database cache/sessions + SQS instead of Docker Postgres/Redis (5), and Bref/AWS Lambda for production instead of Docker. See `laravel-enterprise-backend` / `laravel-bref-deploy`.
-
-## Tech stack baked in
-
-- **Frontend:** Next.js 14+ App Router, Tailwind, TanStack Query/Table, Zustand, Zod, RHF, shadcn/ui
-- **Backend (default):** Nest.js 10+, PG17 + TimescaleDB, Drizzle ORM, Redis 7+, BullMQ, CASL, nestjs-zod, JWT+argon2, Pino, Prometheus
-- **Backend (alternative) 🆕 v1.4.0 · reworked v1.6.0:** Laravel 13 (PHP 8.3+), managed **PostgreSQL + TimescaleDB** (stock `pgsql`, self-managed), database cache/sessions, SQS queues, Eloquent + **API Resources** (presenter) + hand-written TS contracts, Sanctum, `spatie/laravel-permission`, `#[Audit]` → `audit_logs` hypertable, Laravel Boost — deployed serverless on AWS Lambda via **Bref 3.x** (`laravel-enterprise-backend` + `laravel-bref-deploy`)
-- **Tooling:** pnpm workspaces, Turborepo
-- **QA:** Playwright (via MCP server scoped to QA agents only)
-
-## Why a plugin instead of six separate skills
-
-- One install instead of six
-- Agents auto-loaded; no `install-*-agents.sh` scripts to run
-- Plugin namespacing prevents agent-name collisions with other installed plugins
-- Hooks ship with the plugin (no manual `settings.json` editing)
-- Versioned releases with `version` field
-- Marketplaceable
+1. **Monorepo + shared contracts** — one source of truth for wire shapes (CommonJS contracts build, hard-rules #3)
+2. **View-shape contract** — API returns render-ready data; UI renders without `?.`/`??` on contract fields
+3. **Title-Case enums** — DB = wire = UI label
+4. **shadcn/ui only** — every visual primitive from `@/components/ui/*`; confirm Radix vs Base UI first
+5. **Docker for all infrastructure** (Laravel serverless target: managed Postgres/Timescale instead)
+6. **Permissions + audit on every mutation** — proven by side-effect checks, not decorator presence
+7. **Dual-mode adapter** — demo fixtures vs production API; mock routes sanitized and demo-gated
+8. **No default secrets, no raw-JSON operator UI, one canonical public origin** — the operator-facing hard rules
 
 ## Development
 
-To modify the plugin:
-
 ```bash
-# Make changes to skills/, agents/, or hooks/
-# Then in your Claude Code session:
-/reload-plugins
+python -m unittest discover -s tests -v   # plugin integrity: frontmatter, links, counts, no stale machinery, zip parity
 ```
 
-To validate before committing:
-
-```bash
-# Each agent file should start with frontmatter
-for f in agents/*.md; do
-  head -1 "$f" | grep -q '^---$' || echo "MISSING FRONTMATTER: $f"
-done
-
-# Plugin manifest is valid JSON
-jq empty .claude-plugin/plugin.json
-```
+After changing `skills/`, `agents/`, or `scripts/`, refresh `superdev.zip` (zip the `plugins/superdev/` tree under a `superdev/` prefix) and run the tests — they fail on zip drift. In Claude Code, `/reload-plugins` picks up changes.
 
 ## License
 

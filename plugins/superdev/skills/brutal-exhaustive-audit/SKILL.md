@@ -1,6 +1,6 @@
 ---
 name: brutal-exhaustive-audit
-description: Use when you need an absolutely thorough, no-shortcuts, multi-pass audit of the entire product before declaring it ready. Verifies every file, every route, every user flow, every data path, and every edge case via mandatory checklists that cannot be skipped. Use at the end of Phase D of the orchestrator, before any "ship it" claim, after major refactors, and on user demand ("audit this brutally"). Dispatches 6 specialized auditors with a 3-teammate severity-debate team for final triage. Refuses to declare done if any checklist item is unchecked.
+description: Use when you need an absolutely thorough, no-shortcuts, multi-pass audit of the entire product before declaring it ready. Verifies every file, every route, every user flow, every data path, and every edge case via mandatory checklists that cannot be skipped. Use as the final pre-ship pass, before any "ship it" claim, after major refactors, and on user demand ("audit this brutally"). Dispatches 6 specialized auditors; ambiguous severities are flagged with competing evidence for a human call. Refuses to declare done if any checklist item is unchecked.
 ---
 
 # Brutal Exhaustive Audit
@@ -20,7 +20,7 @@ If the file isn't on the checklist with a ✓, it wasn't checked. If a route ret
 
 ## When to use
 
-- ✅ End of orchestrator Phase D, before declaring "ready to ship"
+- ✅ As the final whole-product pass before declaring "ready to ship" (superdev-build Step 6)
 - ✅ After a major refactor or migration
 - ✅ Before a release that touches multiple modules
 - ✅ User explicitly asks for a brutal audit
@@ -28,20 +28,20 @@ If the file isn't on the checklist with a ✓, it wasn't checked. If a route ret
 
 ## When NOT to use
 
-- ❌ During iterative feature development (use `integration-tester` or `ui-auditor` per wave instead)
+- ❌ During iterative feature development (use `integration-tester` or `ui-auditor` per group instead)
 - ❌ To debug a specific bug (use `systematic-debugging`)
 - ❌ To verify functional completeness without UI rendering (use `product-completeness-audit`)
 - ❌ When you just want a quick sanity check (this is the heavy machinery; expect tokens)
 
-## How the orchestrator should use this skill
+## How the main agent should use this skill
 
-The orchestrator dispatches `brutal-exhaustive-audit` at the END of Phase D, AFTER:
+The main agent dispatches `brutal-exhaustive-audit` as the final audit pass, AFTER:
 - `integration-tester` has passed
 - `security-review-and-fix` has produced a green SECURITY_REPORT.md
 - `exploratory-qa` has produced QA_PERFORMANCE.md
 - `product-completeness-audit` has run (functional completeness verified)
 
-The orchestrator MUST read `.claude/memory/superdev-learned/` first and feed any relevant lessons into the audit prompt so the auditors don't repeat mistakes the project has previously learned from.
+The main agent MUST read `.claude/memory/superdev-learned/` first and feed any relevant lessons into the audit prompt so the auditors don't repeat mistakes the project has previously learned from.
 
 ## The 6 phases (sequential — each gates the next)
 
@@ -116,20 +116,6 @@ Reads all 5 prior reports. Produces `AUDIT.md`:
 - For each: file:line, evidence (screenshot path or log line), suggested fix
 - Concrete actionable task list — every item is a one-line ticket
 
-## Agent teams (severity debate, optional)
-
-For findings the synthesizer marks ambiguous (could be P0 or P2), dispatch a 3-teammate severity-debate team:
-
-```
-Dispatch 3-teammate severity debate.
-Teammate A: harshest critic — defaults to higher severity, cites worst case
-Teammate B: pragmatist — weighs realistic impact vs cost to fix
-Teammate C: shipping advocate — asks "does this block ship today?"
-
-For each ambiguous finding, run a round. Majority wins.
-Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
-```
-
 ## Gate to declare audit complete
 
 - [ ] `MAP.md` has every file/route/component/table/schema listed
@@ -140,7 +126,7 @@ Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
 - [ ] `AUDIT.md` produced with prioritized findings
 - [ ] All P0 findings have an owner and ETA
 
-If ANY checkbox is unchecked, the audit is incomplete. The orchestrator MUST NOT mark "ready to ship".
+If ANY checkbox is unchecked, the audit is incomplete. The main agent MUST NOT mark "ready to ship".
 
 ## Reference files
 

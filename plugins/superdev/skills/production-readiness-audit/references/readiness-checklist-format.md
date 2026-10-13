@@ -1,6 +1,6 @@
-# READINESS.md, READINESS_CHECKLIST.md, and the ledger update
+# READINESS.md and READINESS_CHECKLIST.md
 
-Three artifacts carry the loop's state. All live on disk so the loop survives context compaction — after a compaction, re-reading these (and `COMPLETION_LEDGER.json`) tells the orchestrator exactly which modules are still < 9 and what's left.
+Two artifacts carry the loop's state. Both live on disk so the loop survives context compaction — after a compaction, re-reading these tells the main agent exactly which modules are still < 9 and what's left. READINESS.md is stamped with the commit hash it describes; scores for a different HEAD are stale and must be re-proven, not trusted.
 
 ## READINESS.md — the scoreboard
 
@@ -25,7 +25,7 @@ Overall: NOT READY (2 of 4 modules < 9). Continue loop → round <N+1>.
 
 ## READINESS_CHECKLIST.md — every finding as an owned ticket
 
-One line per finding, ordered worst-first, each assigned to the fixer that will resolve it. This is what the orchestrator dispatches against.
+One line per finding, ordered worst-first, each assigned to the fixer that will resolve it. This is what the main agent dispatches against.
 
 ```markdown
 # Readiness checklist — round <N>
@@ -42,30 +42,8 @@ One line per finding, ordered worst-first, each assigned to the fixer that will 
 Rules:
 - Every item has: id, `[pass/severity]`, one-line fix, `file:line`, and an `owner` (the agent type).
 - Items are NEVER resolved by suppression or by adding demo data — only by the real fix.
-- When a fixer reports an item done, the orchestrator re-runs that item's pass to confirm before ticking it.
+- When a fixer reports an item done, the main agent re-runs that item's pass to confirm before ticking it.
 
-## COMPLETION_LEDGER.json update
+## Evidence rule
 
-After each round, `module-readiness-rater` updates the ledger the done-gate reads:
-
-```jsonc
-{
-  "base_sha": "...", "head_sha": "<current HEAD>", "updated": "<iso>",
-  "gates": {
-    "typecheck": "pass", "lint": "pass", "build": "pass",
-    "integration": "pass", "completeness": "pass", "security": "pass",
-    "qa": "pass", "brutal": "pass",
-    "readiness": "fail"        // pass ONLY when every module readiness_score >= 9
-  },
-  "features": {
-    "auth":      { "readiness_score": 9, "passes": {"wire":10,"data":9,"tenancy":10,"e2e":10,"quality":10} },
-    "companies": { "readiness_score": 9, "passes": {"wire":9,"data":9,"tenancy":9,"e2e":9,"quality":9} },
-    "billing":   { "readiness_score": 3, "passes": {"wire":9,"data":9,"tenancy":9,"e2e":9,"quality":3} },
-    "reports":   { "readiness_score": 4, "passes": {"wire":6,"data":4,"tenancy":9,"e2e":6,"quality":8} }
-  }
-}
-```
-
-- `gates.readiness` = `pass` iff every `features.*.readiness_score >= 9` (else `fail`).
-- The done-gate (`hooks/scripts/done-gate.sh`) requires `gates.readiness == pass` AND every `readiness_score >= 9`. A module may be set to `"deferred": "<reason the user explicitly accepted>"` only with explicit user sign-off — that records an accepted risk rather than a silent drop.
-- `head_sha` is refreshed each round so the done-gate's freshness check stays valid; if code changes after the last round, the ledger is stale and the gate re-blocks until the loop re-runs.
+Every score on the scoreboard carries an **Evidence** line naming the proof: the command and its output, the `curl` response, the DB query result, or the Playwright artifact path. A pass that did not run — or whose evidence cannot be pointed to — is scored **0**, never assumed. This replaces the old self-graded completion ledger, which a previous build marked all-`pass` without running the formal passes. Machine-checkable hygiene (build, boot, suppressions) belongs to `verify-done.mjs`; this scoreboard carries the judgment calls, with receipts.

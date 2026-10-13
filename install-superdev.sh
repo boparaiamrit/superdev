@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install-superdev.sh
 #
-# Installs the superdev Claude Code plugin (6 skills + 24 agents + hooks)
+# Installs the superdev Claude Code plugin (18 skills + 54 agents + verify script; no hooks)
 # into ~/.claude/plugins/ on Linux, macOS, or WSL.
 #
 # Usage:
@@ -251,10 +251,10 @@ verify_structure() {
   if [[ -d "${PLUGIN_DIR}/skills" ]]; then
     local skill_count
     skill_count=$(find "${PLUGIN_DIR}/skills" -maxdepth 2 -name "SKILL.md" | wc -l)
-    if [[ $skill_count -eq 6 ]]; then
-      log_success "All 6 skills present"
+    if [[ $skill_count -eq 18 ]]; then
+      log_success "All 18 skills present"
     else
-      log_warn "Expected 6 skills, found $skill_count"
+      log_warn "Expected 18 skills, found $skill_count"
     fi
   else
     log_error "Missing skills/ directory"
@@ -265,10 +265,10 @@ verify_structure() {
   if [[ -d "${PLUGIN_DIR}/agents" ]]; then
     local agent_count
     agent_count=$(find "${PLUGIN_DIR}/agents" -maxdepth 1 -name "*.md" | wc -l)
-    if [[ $agent_count -eq 24 ]]; then
-      log_success "All 24 agents present"
+    if [[ $agent_count -eq 54 ]]; then
+      log_success "All 54 agents present"
     else
-      log_warn "Expected 24 agents, found $agent_count"
+      log_warn "Expected 54 agents, found $agent_count"
     fi
 
     # Validate each agent has frontmatter
@@ -287,15 +287,11 @@ verify_structure() {
     missing=1
   fi
 
-  # Hooks
-  if [[ -f "${PLUGIN_DIR}/hooks/hooks.json" ]]; then
-    if python3 -c "import json; json.load(open('${PLUGIN_DIR}/hooks/hooks.json'))" 2>/dev/null; then
-      log_success "Hooks configuration is valid JSON"
-    else
-      log_warn "Hooks file exists but isn't valid JSON"
-    fi
+  # Verify script (v2: explicit done checks; no hooks)
+  if [[ -f "${PLUGIN_DIR}/scripts/verify-done.mjs" ]]; then
+    log_success "verify-done.mjs present"
   else
-    log_warn "No hooks/hooks.json (plugin will work without it)"
+    log_warn "No scripts/verify-done.mjs (done verification unavailable)"
   fi
 
   if [[ $missing -eq 1 ]]; then
@@ -499,11 +495,11 @@ ${BOLD}Plugin location:${NC} ${PLUGIN_DIR}
 ${BOLD}Environment:${NC}     ${ENV_TYPE}
 
 ${BOLD}What's installed:${NC}
-  • 6 skills (design-to-nextjs, nestjs-enterprise-backend,
-    prd-design-build-orchestrator, security-review-and-fix,
-    prototype-to-saas, exploratory-qa)
-  • 24 specialized subagents
-  • Hooks for auto-typecheck after builder agents
+  • 18 skills (superdev-build, design-to-nextjs, nestjs/laravel backends,
+    design-to-laravel, security-review-and-fix, exploratory-qa, audits,
+    prototype-to-saas, frontend modularization + refactoring, superdev-done)
+  • 54 specialized subagents
+  • scripts/verify-done.mjs — live done verification (build + boot + hygiene)
 
 ${BOLD}Next steps:${NC}
 

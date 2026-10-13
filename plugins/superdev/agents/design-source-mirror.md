@@ -1,6 +1,6 @@
 ---
 name: design-source-mirror
-description: Copies the design handoff byte-for-byte into apps/web/src/design-source/, then adds a Next.js dev-only route /__design-source/ that serves the copied files statically. This becomes the SOURCE OF TRUTH that every Phase C wave-gate auditor compares against. Never edits, "improves", or reformats the source files — verbatim copy only.
+description: Copies the design handoff byte-for-byte into apps/web/src/design-source/, then adds a Next.js dev-only route /__design-source/ that serves the copied files statically. This becomes the SOURCE OF TRUTH that every module-checkpoint auditor compares against. Never edits, "improves", or reformats the source files — verbatim copy only.
 tools: Read, Write, Edit, Bash, Glob
 model: inherit
 permissionMode: acceptEdits

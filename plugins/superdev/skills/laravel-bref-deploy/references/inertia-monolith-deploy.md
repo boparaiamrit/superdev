@@ -1,6 +1,6 @@
 # Deploying the Inertia monolith on Bref
 
-Read this when the Laravel app is a **fullstack Inertia monolith** (Step A.5c chose `frontend_stack == Inertia`) rather than a pure JSON API paired with a separate Next.js app. The Bref topology is **the same three functions** as the API-only deploy — there is no extra Lambda for the frontend, because the frontend ships *inside* the Laravel app. The only additions are a **Vite build step** and **session-auth config**.
+Read this when the Laravel app is a **fullstack Inertia monolith** (superdev-build Step 2 chose `frontend_stack == Inertia`) rather than a pure JSON API paired with a separate Next.js app. The Bref topology is **the same three functions** as the API-only deploy — there is no extra Lambda for the frontend, because the frontend ships *inside* the Laravel app. The only additions are a **Vite build step** and **session-auth config**.
 
 ## What's the same
 

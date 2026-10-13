@@ -25,7 +25,7 @@ apps/api/
     └── Domains/                ← feature domain modules (the bulk of the app)
 ```
 
-There is no separate worker entrypoint file in `app/`. The SQS worker Lambda runs the same app bootstrapped by Bref's `QueueHandler` — see `references/sqs-queues.md`. The scheduler fires via EventBridge → `artisan schedule:run` — see `laravel-bref-deploy/references/scheduler-eventbridge.md`.
+There is no separate worker entrypoint file in `app/`. The SQS worker Lambda runs the same app bootstrapped by Bref's `QueueHandler` — see `sqs-queues.md`. The scheduler fires via EventBridge → `artisan schedule:run` — see `laravel-bref-deploy/references/scheduler-eventbridge.md`.
 
 ## `app/Audit/` — cross-cutting audit infrastructure
 
@@ -37,7 +37,7 @@ app/Audit/
 └── AuditManager.php        ← wraps an action, times it, dispatches AuditWrite to SQS
 ```
 
-The `AuditWrite` job lives in `app/Jobs/AuditWrite.php` (shared, not per-domain). It inserts directly into the `audit_logs` hypertable via `DB::table('audit_logs')->insert([...])`. See `references/audit-attribute.md` for the full implementation.
+The `AuditWrite` job lives in `app/Jobs/AuditWrite.php` (shared, not per-domain). It inserts directly into the `audit_logs` hypertable via `DB::table('audit_logs')->insert([...])`. See `audit-attribute.md` for the full implementation.
 
 ## `app/Concerns/` — shared model traits
 
@@ -47,7 +47,7 @@ app/Concerns/
 └── BelongsToWorkspace.php  ← global scope + creating hook; auto-filters all tenant queries
 ```
 
-See `references/multitenancy-global-scope.md` for the full trait implementations.
+See `multitenancy-global-scope.md` for the full trait implementations.
 
 ## `app/Domains/<Feature>/` — feature domain modules
 
@@ -137,7 +137,7 @@ enum Industry: string
 }
 ```
 
-DB column is a plain string (not a native PG enum type). Value = wire value = UI label; zero conversion code. The hand-written TS union mirrors these values exactly. See `references/enums-title-case.md`.
+DB column is a plain string (not a native PG enum type). Value = wire value = UI label; zero conversion code. The hand-written TS union mirrors these values exactly. See `enums-title-case.md`.
 
 ### `Http/Resources/CompanyResource.php`
 
@@ -223,7 +223,7 @@ final class CreateCompany
 }
 ```
 
-Every mutation goes through `AuditManager::run()`. Standard Postgres transactions work normally — no retry wrapper needed. See `references/audit-attribute.md`.
+Every mutation goes through `AuditManager::run()`. Standard Postgres transactions work normally — no retry wrapper needed. See `audit-attribute.md`.
 
 ### `Http/Controllers/CompanyController.php`
 
@@ -327,7 +327,7 @@ class CompanyPolicy
 }
 ```
 
-Roles are an input; the Policy resolves the answer. `spatie/laravel-permission` provides the role→permission mapping in the DB. See `references/auth-sanctum-permissions.md`.
+Roles are an input; the Policy resolves the answer. `spatie/laravel-permission` provides the role→permission mapping in the DB. See `auth-sanctum-permissions.md`.
 
 ## Hand-written TS contract + contract test
 
@@ -363,7 +363,7 @@ it('CompanyResource matches the published contract shape', function () {
 });
 ```
 
-See `references/api-resources.md` for the full Resource + contract test patterns.
+See `api-resources.md` for the full Resource + contract test patterns.
 
 ## `routes/api.php` — wiring the controller
 
@@ -397,7 +397,7 @@ database/migrations/
 └── 2026_06_01_000004_create_audit_logs_table.php   ← TimescaleDB hypertable; see audit-attribute.md
 ```
 
-UUID PKs use Laravel's `HasUuids` trait (preference, not a constraint — Postgres sequences are also available). No foreign-key constraints — reference columns only (D5). See `references/postgres-timescale-eloquent.md`.
+UUID PKs use Laravel's `HasUuids` trait (preference, not a constraint — Postgres sequences are also available). No foreign-key constraints — reference columns only (D5). See `postgres-timescale-eloquent.md`.
 
 Example migration for a reference-field table:
 
@@ -471,7 +471,7 @@ Each `laravel-module-builder` agent invocation owns exactly one `app/Domains/<Fe
 - Authors the hand-written TS contract file for its feature only.
 - Reports the files created and the route line added.
 
-Multiple features are built in parallel waves: independent domains in the same wave; domains that depend on another domain's model in a subsequent wave.
+Features are built sequentially in dependency groups: independent domains first; domains that depend on another domain's model in a later group. Each module is verified (tests + boot) before the next starts.
 
 ## Naming conventions
 
@@ -508,12 +508,12 @@ For Inertia, consume from `resources/js/types`:
 import type { CompanyView } from '@/types/companies';
 ```
 
-Never duplicate type definitions across apps. The API Resource's `toArray()` is the server-side source of truth; the hand-written TS contract must mirror it exactly; the contract test enforces the match. See `references/api-resources.md`.
+Never duplicate type definitions across apps. The API Resource's `toArray()` is the server-side source of truth; the hand-written TS contract must mirror it exactly; the contract test enforces the match. See `api-resources.md`.
 
 ## Anti-patterns
 
 - Returning a raw model or array from a controller or action — always wrap in an API Resource.
-- Returning `null` or omitting a required field in a Resource — see `references/view-data-pattern.md`.
+- Returning `null` or omitting a required field in a Resource — see `view-data-pattern.md`.
 - Forgetting `#[Authorize]` on any controller method — every endpoint must be authorized, including `GET /me` and list endpoints.
 - Forgetting `AuditManager::run()` wrapping a mutation — compliance gaps appear silently.
 - Accessing `app/Domains/OtherFeature/` from within a domain module — inject that domain's Action via the service container; never reach into another domain's folder directly.

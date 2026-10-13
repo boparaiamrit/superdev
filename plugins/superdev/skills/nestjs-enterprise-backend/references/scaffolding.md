@@ -1,6 +1,6 @@
 # Scaffolding `apps/api`
 
-Run this in Phase 3, after `references/monorepo-setup.md` has set up the workspace + `packages/contracts`. Goal: a Nest.js app booting with all infrastructure in place, Drizzle migrated, `/health` returning green.
+Run this in Phase 3, after `monorepo-setup.md` has set up the workspace + `packages/contracts`. Goal: a Nest.js app booting with all infrastructure in place, Drizzle migrated, `/health` returning green.
 
 ## Step 1 — Create the app
 
@@ -94,7 +94,7 @@ pnpm add -D \
 
 ## Step 4 — Docker Compose for local services
 
-> **Monorepo note:** When this skill runs inside the `prd-design-build-orchestrator`, the `docker-compose.yml` lives at the **monorepo root**, not inside `apps/api/`. The `monorepo-bootstrapper` agent owns it. The compose content shown below is the same — just placed one level up. All infra deps (Postgres+Timescale, Redis, and any project-specific extras like Mailpit or MinIO) live in that single root-level file.
+> **Monorepo note:** In a monorepo build, the `docker-compose.yml` lives at the **monorepo root**, not inside `apps/api/`. The `monorepo-bootstrapper` agent owns it. The compose content shown below is the same — just placed one level up. All infra deps (Postgres+Timescale, Redis, and any project-specific extras like Mailpit or MinIO) live in that single root-level file.
 
 `apps/api/docker-compose.yml` (standalone skill use) / `docker-compose.yml` at root (monorepo use):
 
@@ -162,7 +162,7 @@ export const envSchema = z.object({
   REDIS_DB_CACHE: z.coerce.number().int().min(0).max(15).default(0),
   REDIS_DB_QUEUE: z.coerce.number().int().min(0).max(15).default(1),
 
-  // JWT
+  // JWT — NEVER give secrets a .default(): a missing prod secret must abort boot, not silently fall back to a known dev value (hard-rules #6). Dev values live in the gitignored .env only.
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_SECRET: z.string().min(32),
@@ -295,20 +295,20 @@ export {};
 
 ## Step 8 — Logger, Cache, Queue modules
 
-Logger module (`nestjs-pino`-based, with workspace + request context) — see `references/observability.md`.
+Logger module (`nestjs-pino`-based, with workspace + request context) — see `observability.md`.
 
-Cache module (`cache-manager` + Redis on DB 0) — see `references/caching.md`.
+Cache module (`cache-manager` + Redis on DB 0) — see `caching.md`.
 
-Queue module (BullMQ root config on Redis DB 1) — see `references/bullmq-queues.md`.
+Queue module (BullMQ root config on Redis DB 1) — see `bullmq-queues.md`.
 
 The shapes are standard; all three are referenced in the root `app.module.ts`.
 
 ## Step 9 — Common (guards, decorators, filters, interceptors)
 
 Build out:
-- `JwtAuthGuard`, `PoliciesGuard` — see `references/auth-casl.md`
-- `WorkspaceContextInterceptor`, `AuditInterceptor` — see `references/audit-logging.md`
-- `AllExceptionsFilter` — see `references/error-handling.md`
+- `JwtAuthGuard`, `PoliciesGuard` — see `auth-casl.md`
+- `WorkspaceContextInterceptor`, `AuditInterceptor` — see `audit-logging.md`
+- `AllExceptionsFilter` — see `error-handling.md`
 - Decorators: `@Public`, `@CurrentUser`, `@CurrentWorkspace`, `@CurrentAbility`, `@CheckAbility`, `@Audit`
 
 ## Step 10 — Root module
@@ -379,7 +379,7 @@ Guard order matters: `ThrottlerGuard` first (cheap), then `JwtAuthGuard` (sets `
 
 ```ts
 import { NestFactory } from '@nestjs/core';
-import { ZodValidationPipe, patchNestJsSwagger } from 'nestjs-zod';
+import { ZodValidationPipe } from 'nestjs-zod';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
@@ -388,7 +388,9 @@ import { AppModule } from './app.module';
 import { TypedConfigService } from './infrastructure/config/config.service';
 
 async function bootstrap() {
-  patchNestJsSwagger();
+  // Do NOT call patchNestJsSwagger() — nestjs-zod's patch deep-imports an
+  // @nestjs/swagger internal removed in swagger 11 and crashes boot
+  // (hard-rules #2). ZodValidationPipe handles request validation.
 
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const config = app.get(TypedConfigService);
@@ -402,7 +404,7 @@ async function bootstrap() {
 
   const docConfig = new DocumentBuilder()
     .setTitle('<APP_NAME> API').setVersion('1.0').addBearerAuth().build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, docConfig));
+  try { SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, docConfig)); } catch { /* docs must never crash boot */ }
 
   const port = config.get('PORT');
   await app.listen(port);
@@ -440,7 +442,7 @@ async function bootstrap() {
 bootstrap();
 ```
 
-Workers are conditionally registered in feature modules based on `process.env.PROCESS_MODE` — see `references/bullmq-queues.md`.
+Workers are conditionally registered in feature modules based on `process.env.PROCESS_MODE` — see `bullmq-queues.md`.
 
 ## Step 13 — Migration runner
 
@@ -459,7 +461,7 @@ await sql.end();
 console.log('Migrations applied');
 ```
 
-`apps/api/src/db/apply-custom.ts` (idempotent custom SQL for Timescale features) — see `references/drizzle-timescaledb.md`.
+`apps/api/src/db/apply-custom.ts` (idempotent custom SQL for Timescale features) — see `drizzle-timescaledb.md`.
 
 ## Step 14 — Verify
 

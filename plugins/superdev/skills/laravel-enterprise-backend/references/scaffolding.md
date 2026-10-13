@@ -1,6 +1,6 @@
 # Scaffolding `apps/api`
 
-Run this in Phase 3, after `references/monorepo-setup.md` has set up the workspace and `packages/contracts`. Goal: a Laravel 13 app booting on PostgreSQL + TimescaleDB via the stock `pgsql` driver, database-backed cache and sessions, SQS queue connection, Sanctum auth, and `/api/v1/health` returning green.
+Run this in Phase 3, after `monorepo-setup.md` has set up the workspace and `packages/contracts`. Goal: a Laravel 13 app booting on PostgreSQL + TimescaleDB via the stock `pgsql` driver, database-backed cache and sessions, SQS queue connection, Sanctum auth, and `/api/v1/health` returning green.
 
 ## Step 1 — Create the app
 
@@ -15,7 +15,7 @@ laravel new apps/api \
 
 `--no-starter-kit` gives a clean API app with no Blade/Livewire. PHP 8.3+ is required for Laravel 13.x and the `#[Authorize]` / `#[Audit]` attribute patterns.
 
-> **Monorepo note:** When this skill runs inside the `prd-design-build-orchestrator`, the `docker-compose.yml` lives at the **monorepo root**. The `monorepo-bootstrapper` agent owns it. `apps/api` is a plain `composer.json` project — it is **not** a pnpm workspace package. See `references/monorepo-setup.md` for the Turbo wiring and the Postgres+TimescaleDB Compose service.
+> **Monorepo note:** In a monorepo build, the `docker-compose.yml` lives at the **monorepo root**. The `monorepo-bootstrapper` agent owns it. `apps/api` is a plain `composer.json` project — it is **not** a pnpm workspace package. See `monorepo-setup.md` for the Turbo wiring and the Postgres+TimescaleDB Compose service.
 
 ## Step 2 — Install runtime dependencies
 
@@ -50,7 +50,7 @@ php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
 php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
 ```
 
-No code-generation pipeline to set up. API shapes are hand-written `JsonResource` classes; TS contracts are hand-written in `packages/contracts/src/<feature>.ts` (decoupled Next.js) or `resources/js/types/` (Inertia). See `references/api-resources.md`.
+No code-generation pipeline to set up. API shapes are hand-written `JsonResource` classes; TS contracts are hand-written in `packages/contracts/src/<feature>.ts` (decoupled Next.js) or `resources/js/types/` (Inertia). See `api-resources.md`.
 
 ## Step 3 — Laravel Boost (AI tooling)
 
@@ -75,7 +75,7 @@ AGENTS.md
 boost.json
 ```
 
-See `references/boost-setup.md` for full Boost guidance.
+See `boost-setup.md` for full Boost guidance.
 
 ## Step 4 — `.env.example`
 
@@ -148,7 +148,7 @@ Edit the `pgsql` connection block in `config/database.php`. TimescaleDB is an ex
 ],
 ```
 
-Standard Postgres semantics apply: sequences, joins, `SKIP LOCKED`, real transactions all work. See `references/postgres-timescale-eloquent.md` for UUID primary keys, hypertable migrations, and the reference-field model.
+Standard Postgres semantics apply: sequences, joins, `SKIP LOCKED`, real transactions all work. See `postgres-timescale-eloquent.md` for UUID primary keys, hypertable migrations, and the reference-field model.
 
 ## Step 6 — `bootstrap/app.php` — middleware and exception handling
 
@@ -196,7 +196,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->create();
 ```
 
-The `ResolveWorkspace` middleware implementation lives in `references/multitenancy-global-scope.md`.
+The `ResolveWorkspace` middleware implementation lives in `multitenancy-global-scope.md`.
 
 ## Step 7 — SQS queue config
 
@@ -216,7 +216,7 @@ Edit `config/queue.php` to confirm the SQS driver block is present and reads fro
 ],
 ```
 
-`QUEUE_CONNECTION=sqs` in `.env` selects this driver. No `queue:work` daemon — the SQS worker Lambda runs via Bref's `QueueHandler`. See `references/sqs-queues.md` for job authoring and `laravel-bref-deploy/references/sqs-worker.md` for the Lambda side.
+`QUEUE_CONNECTION=sqs` in `.env` selects this driver. No `queue:work` daemon — the SQS worker Lambda runs via Bref's `QueueHandler`. See `sqs-queues.md` for job authoring and `laravel-bref-deploy/references/sqs-worker.md` for the Lambda side.
 
 ## Step 8 — Cache and session tables
 
@@ -242,7 +242,7 @@ Confirm `config/session.php`:
 'driver' => env('SESSION_DRIVER', 'database'),
 ```
 
-No Redis dependency. For cache invalidation: use explicit keyed deletes or cache tags with a database tag store — the Redis `SCAN`/wildcard delete pattern does not apply here. See `references/db-cache-sessions.md` for TTL and locking notes.
+No Redis dependency. For cache invalidation: use explicit keyed deletes or cache tags with a database tag store — the Redis `SCAN`/wildcard delete pattern does not apply here. See `db-cache-sessions.md` for TTL and locking notes.
 
 ## Step 9 — Enable TimescaleDB + base migrations
 
@@ -327,7 +327,7 @@ class User extends Authenticatable
 }
 ```
 
-See `references/postgres-timescale-eloquent.md` for the full UUID-PK preference, reference-field migrations (no FK constraints), and hypertable patterns.
+See `postgres-timescale-eloquent.md` for the full UUID-PK preference, reference-field migrations (no FK constraints), and hypertable patterns.
 
 ## Step 10 — `routes/api.php` — v1 prefix and health endpoint
 
@@ -364,7 +364,7 @@ Route::prefix('v1')->group(function () {
 });
 ```
 
-Every authenticated route group wraps `auth:sanctum`. All endpoints must carry `#[Authorize]` — see `references/auth-sanctum-permissions.md`.
+Every authenticated route group wraps `auth:sanctum`. All endpoints must carry `#[Authorize]` — see `auth-sanctum-permissions.md`.
 
 ## Step 11 — Boot verify
 
@@ -456,7 +456,7 @@ apps/api/
 | `CACHE_STORE=redis` or `SESSION_DRIVER=redis` | No Redis in this stack. Database-backed only; Lambda is stateless and Redis needs a VPC. |
 | `QUEUE_CONNECTION=database` | SQS is the queue driver for the serverless/Bref deploy. Use SQS — `SKIP LOCKED` works on Postgres but a daemon-less Lambda environment needs a managed queue. |
 | `$table->id()` (auto-increment bigint) | Prefer UUID PKs (`HasUuids`) for tenant-scoped tables — consistent with the global scope pattern. Sequences are available when a feature genuinely needs them. |
-| Returning a raw Eloquent model or `->toArray()` from a controller | Always return a `JsonResource` (or `JsonResource::collection()`). Eager-load and `withCount` before passing to the resource. See `references/api-resources.md`. |
+| Returning a raw Eloquent model or `->toArray()` from a controller | Always return a `JsonResource` (or `JsonResource::collection()`). Eager-load and `withCount` before passing to the resource. See `api-resources.md`. |
 | Hand-editing `packages/contracts/src/<feature>.ts` without updating the Resource | The TS contract is hand-written and kept in lockstep with the `JsonResource::toArray()`. The contract Pest test is the guard — run it after any Resource change. |
 | Omitting `CREATE EXTENSION IF NOT EXISTS timescaledb` in the first migration | `create_hypertable()` calls in later migrations will fail. The extension migration must run first; it is idempotent. |
 | Running `php artisan queue:work` on the server | The queue worker is a separate Bref Lambda (runtime `php-84`) consuming SQS. No daemon. |

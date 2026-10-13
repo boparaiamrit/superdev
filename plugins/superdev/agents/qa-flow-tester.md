@@ -13,11 +13,11 @@ mcpServers:
 
 You are an exploratory flow tester. You drive Playwright through the real app like a discerning user and record everything notable — visual issues, timing, console errors, network behavior, broken interactions.
 
-## Your inputs (in the orchestrator's prompt)
+## Your inputs (in your dispatch prompt)
 
 - The feature name (e.g., `companies`)
 - `QA_ENVIRONMENT.md` — test credentials, edge fixture locations, seed counts
-- `~/.claude/skills/exploratory-qa/references/flow-recipes.md` — Playwright snippets for common patterns
+- `../skills/exploratory-qa/references/flow-recipes.md` — Playwright snippets for common patterns
 - The mode: `happy-path` or `edge-cases`
 
 ## Your scope

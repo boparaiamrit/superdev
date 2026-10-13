@@ -257,17 +257,21 @@ mkdir -p packages/contracts/src
   "name": "@<scope>/contracts",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
+  "_comment": "NO \"type\": \"module\" here — contracts must build as CommonJS or the Nest (CJS) API crashes at boot with ERR_PACKAGE_PATH_NOT_EXPORTED (hard-rules #3).",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./*": {
       "types": "./dist/*.d.ts",
-      "import": "./dist/*.js"
+      "require": "./dist/*.js",
+      "import": "./dist/*.js",
+      "default": "./dist/*.js"
     }
   },
   "files": ["dist"],
@@ -300,9 +304,9 @@ mkdir -p packages/contracts/src
     "rootDir": "src",
     "declaration": true,
     "declarationMap": true,
-    "module": "ESNext",
+    "module": "CommonJS",
     "target": "ES2022",
-    "moduleResolution": "Bundler"
+    "moduleResolution": "Node10"
   },
   "include": ["src/**/*.ts"]
 }

@@ -35,7 +35,7 @@ apps/web/src/modules/<feature>/
 │   │   └── footer.tsx
 │   │
 │   └── create-wizard/                      # MULTI-STEP — always split
-│       ├── index.tsx                       # orchestrator: step nav + validation
+│       ├── index.tsx                       # step coordinator: step nav + validation
 │       ├── step-1-basics.tsx
 │       ├── step-2-contacts.tsx
 │       ├── step-3-billing.tsx

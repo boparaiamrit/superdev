@@ -1,11 +1,11 @@
 ---
 name: security-review-and-fix
-description: Six-phase security audit and remediation for Nest.js + Next.js monorepos built with the design-to-nextjs and nestjs-enterprise-backend skills. Catalogs tenancy boundaries, authorization coverage, authentication strength, input validation, audit logging, secret handling, rate limits, CORS/CSP, webhook signatures, dependency vulnerabilities, frontend XSS, and Docker hardening. Produces SECURITY_INVENTORY.md, SECURITY_FINDINGS.md, and SECURITY_FIX_PLAN.md, then optionally dispatches targeted fix passes. Findings use a five-level severity ladder (Critical, High, Medium, Low, Info) and cite the exact file and line. Use whenever the user wants to security-audit a codebase before launch, after a major feature drop, or as part of the orchestrator's Phase D before going to production; mentions security review, pen test prep, OWASP, tenancy bypass, secret scan, dependency audit, hardening, or compliance checklist.
+description: Six-phase security audit and remediation for Nest.js + Next.js monorepos built with the design-to-nextjs and nestjs-enterprise-backend skills. Catalogs tenancy boundaries, authorization coverage, authentication strength, input validation, audit logging, secret handling, rate limits, CORS/CSP, webhook signatures, dependency vulnerabilities, frontend XSS, and Docker hardening. Produces SECURITY_INVENTORY.md, SECURITY_FINDINGS.md, and SECURITY_FIX_PLAN.md, then optionally dispatches targeted fix passes. Findings use a five-level severity ladder (Critical, High, Medium, Low, Info) and cite the exact file and line. Use whenever the user wants to security-audit a codebase before launch, after a major feature drop, or as the security gate in a build's final integration step before going to production; mentions security review, pen test prep, OWASP, tenancy bypass, secret scan, dependency audit, hardening, or compliance checklist.
 ---
 
 # Security Review and Fix
 
-A six-phase pipeline that audits a Nest.js + Next.js monorepo for security issues, triages them, and produces a fix plan that the orchestrator (or a developer) can execute. Designed to be both standalone (ad-hoc audit) and embedded as a final wave gate in the `prd-design-build-orchestrator`.
+A six-phase pipeline that audits a Nest.js + Next.js monorepo for security issues, triages them, and produces a fix plan that the main agent (or a developer) can execute. Designed to be both standalone (ad-hoc audit) and a Step-6 cross-cutting pass in a `superdev-build` run.
 
 ## When to use this skill
 
@@ -14,7 +14,7 @@ Use when:
 - The user wants a pre-launch security review
 - A major feature drop introduced new attack surface (new external integrations, new file uploads, new payment flows)
 - Compliance prep (SOC2, ISO 27001, HIPAA) needs a documented audit
-- The orchestrator's Phase D should include a security gate before shipping
+- A build's final integration step (superdev-build Step 6) should include a security gate before shipping
 - A pen-test report came back and findings need triage + fix-planning
 - Periodic (quarterly) security hygiene check
 
@@ -36,17 +36,11 @@ After installing the skill, start a Claude Code session and describe what you wa
 Run a security audit on this codebase. Pre-launch review.
 ```
 
-The main session reads this skill's SKILL.md, installs the 5 subagents via the install script, then runs the six phases by delegating to subagents through natural language ("Use the security-inventory subagent to ...") or @-mentions.
+The main session reads this skill's SKILL.md, then runs the six phases with the 5 subagents (auto-loaded from the plugin's `agents/` — no install step) by delegating to subagents through natural language ("Use the security-inventory subagent to ...") or @-mentions.
 
-### Invoked from the orchestrator
+### As part of a superdev-build run
 
-When `prd-design-build-orchestrator` runs end-to-end, this skill's audit is automatically executed as Step D.2 of Phase D — provided the security skill is installed. No separate invocation needed; the orchestrator's main session dispatches the 5 security subagents the same way it dispatches its own.
-
-### Agent-teams mode (optional, experimental)
-
-This skill defaults to subagents (stable, lower-cost). The three auditors (static, dynamic, dependency) can alternatively run as a **3-teammate agent team** that can challenge each other's findings — useful for high-stakes audits. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. See "Agent teams (optional)" near the end of this skill for the specific invocation prompt.
-
-The 5 agent definition files work as both subagent definitions AND teammate types without modification.
+During a [`superdev-build`](../superdev-build/SKILL.md) run, execute this skill at Step 6 (cross-cutting audits), after the integration smoke and before exploratory QA.
 
 ## The six-phase pipeline
 
@@ -71,7 +65,7 @@ Phases 2, 3, 4 run **in parallel** — they share no inputs and write to differe
 | **Low** | Hardening recommendation, no direct exploit | Dependency outdated but no CVE, missing security headers (HSTS, X-Frame-Options), Docker container running as root |
 | **Info** | Informational — review at leisure | License compatibility notes, code style smells with security implications |
 
-Critical findings are **build-blocking**. The orchestrator MUST refuse to ship until they're resolved.
+Critical findings are **build-blocking**. The main agent MUST refuse to ship until they're resolved.
 
 ## Artifacts
 
@@ -85,7 +79,7 @@ Each finding has a stable ID (`S-1`, `S-2`, ...) so cross-references survive edi
 
 ## The five sub-agents
 
-This skill defines five specialized subagents, installable into `.claude/agents/`:
+This skill's five specialized subagents are auto-loaded from the plugin's `agents/` directory:
 
 | Agent | Phase | Tools | Owns |
 |---|---|---|---|
@@ -95,24 +89,11 @@ This skill defines five specialized subagents, installable into `.claude/agents/
 | `dependency-auditor` | 4 | Read, Bash | findings appended to `SECURITY_FINDINGS.md` |
 | `security-fixer` | 6 | Read, Write, Edit, Bash | targeted code edits + commits |
 
-Full definitions in `references/security-agents.md`. The standalone installer at `references/install-security-agents.sh` extracts each definition into `.claude/agents/<name>.md`.
+Full definitions: `../../agents/security-inventory.md`, `static-auditor.md`, `dynamic-auditor.md`, `dependency-auditor.md`, `security-fixer.md` — dispatch by name.
 
-**Triage** (Phase 5) is the orchestrator's job, not a subagent — it requires synthesis across all three findings sources, plus user input for accept/fix decisions on Medium and Low findings.
+**Triage** (Phase 5) is the main agent's job, not a subagent — it requires synthesis across all three findings sources, plus user input for accept/fix decisions on Medium and Low findings.
 
-## Install (Phase 0)
-
-Before running any phase, install the five security agents:
-
-```bash
-# Standalone (ad-hoc audit on an existing project)
-~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
-
-# Verify
-ls .claude/agents/ | grep -E "security-inventory|static-auditor|dynamic-auditor|dependency-auditor|security-fixer"
-# Should print 5 lines
-```
-
-If this skill is invoked **from within** the `prd-design-build-orchestrator` (Phase D.2), the install is already done by the orchestrator's Phase A.1 (it detects this skill's presence and runs `install-security-agents.sh` automatically). Re-running the installer is a no-op — the files are simply overwritten.
+There is no install step: the plugin auto-loads all five agents. If the host cannot dispatch subagents, the main agent executes each agent file's checklist directly.
 
 ## Phase 1 — Inventory
 
@@ -200,11 +181,11 @@ Checks (`references/dependency-audit-checklist.md`):
 - Optional: `osv-scanner` for OSV database matches if installed
 - Optional: `license-checker --summary` for incompatible licenses
 
-## Phase 5 — Triage (orchestrator does this, with user)
+## Phase 5 — Triage (main agent, with the user)
 
 **Goal:** convert raw findings into a fix plan with prioritization and decisions.
 
-The orchestrator reads `SECURITY_FINDINGS.md` and walks the user through:
+The main agent reads `SECURITY_FINDINGS.md` and walks the user through:
 
 1. **Critical findings** — present each, get fix-or-accept decision (default: fix; very narrow accept criteria)
 2. **High findings** — present, default fix, allow defer with explicit justification recorded
@@ -241,30 +222,15 @@ Some fixes can't be automated and require user action — flag them clearly:
 - Upgrading a major dep with breaking changes (needs human review of migration notes)
 - Changing infra topology (DNS, load balancer, WAF rules)
 
-## Integration with the orchestrator
+## Place in a superdev-build run
 
-When `prd-design-build-orchestrator` includes this skill, slot the audit into Phase D — after integration tests, before the final report.
-
-```
-Phase D — INTEGRATE (orchestrator flow):
-
-  Step D.1 — integration-tester       (existing)
-  Step D.2 — security-review-and-fix  (NEW)
-    Phase 1: security-inventory       sequential
-    Phase 2,3,4: static + dynamic + deps   parallel
-    Phase 5: triage with user
-    Phase 6: security-fixer per approved item
-    Re-run Phase 2 to verify
-  Step D.3 — final report
-```
-
-Critical findings block the final report. High findings trigger an explicit acknowledgement. Medium and below appear in the report as recommendations.
+In [`superdev-build`](../superdev-build/SKILL.md) Step 6: after the integration smoke, run this audit (Phase 1 sequential; Phases 2–4 may run as parallel read-only dispatches; Phase 5 triage with the user; Phase 6 fixes; re-run Phase 2 to verify), then exploratory QA. Critical findings block any "done" claim. High findings trigger an explicit user acknowledgement. Medium and below appear as recommendations.
 
 ## Reference files
 
 | File | When to read |
 |---|---|
-| `references/security-agents.md` | Phase 1 install — source-of-truth for all 5 agent definitions |
+| `../../agents/security-inventory.md` etc. | The 5 agent definitions (auto-loaded) |
 | `references/inventory-checklist.md` | Phase 1 — what to extract |
 | `references/static-audit-checklist.md` | Phase 2 — the full grep playbook |
 | `references/dynamic-audit-checklist.md` | Phase 3 — runtime probes |
@@ -302,36 +268,4 @@ Before declaring the audit done:
 **P7 — Re-running the audit on the same SHA after a "fix" and seeing the same finding.** Re-grep with the fix in place; if the pattern still matches, the fix didn't land. The verify step in Phase 6 is non-negotiable.
 
 **P8 — Confusing severity with priority.** A Medium finding in the public-facing login endpoint is more urgent than a High in an admin-only debug tool. Triage uses BOTH severity and exposure.
-
-## Agent teams (optional, experimental)
-
-This skill's default operating mode uses subagents — stable, well-understood, lower token cost. Phases 2–4 (Static + Dynamic + Dependency audits) can alternatively run as an **agent team** when teammates would benefit from cross-talk.
-
-Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `settings.json` or environment.
-
-### When team mode helps
-
-Subagents in this skill don't talk to each other — each writes findings to `SECURITY_FINDINGS.md` with disjoint ID prefixes. That's fine for most audits. But some classes of finding emerge only from cross-discipline correlation:
-
-- The static auditor flags a SQL injection at `companies.repository.ts:84`. The dependency auditor has a CVE database — is the SQL builder library affected? Worth checking.
-- The dynamic auditor reports the CSRF token isn't validated on a particular endpoint. The static auditor can confirm whether middleware actually skips it — or whether the dynamic probe was misconfigured.
-- A high-severity finding from one auditor should survive challenges from the others before being recorded.
-
-In subagent mode, this correlation happens during triage by the main session reading all findings. In team mode, the auditors do it live with each other.
-
-### How to invoke team mode
-
-After Phase 1 (inventory) finishes, instead of dispatching three independent subagents, ask the main session:
-
-> "Spawn a 3-teammate agent team using the static-auditor, dynamic-auditor, and dependency-auditor agent types as bases. Have them debate findings as they go — every Critical or High finding gets cross-checked against the other auditors before being recorded. Produce SECURITY_FINDINGS.md by consensus."
-
-The user can directly message any auditor mid-investigation (Shift+Down in in-process mode, or click the pane in split mode). Useful when you want to dig into a specific finding without waiting.
-
-### What stays in subagent mode
-
-- **`security-inventory`** (Phase 1) — single agent, no cross-talk needed, runs alone before the team spawns.
-- **`security-fixer`** (Phase 6) — one fix at a time, sequential, no benefit from a team.
-
-### Cost note
-
-3-teammate mode costs ~3× the subagent path in tokens (each teammate has its own context window and runs as a separate Claude Code instance). Recommended for pre-launch audits and post-incident reviews where missed findings have real consequences. Not recommended for routine quarterly scans.
+

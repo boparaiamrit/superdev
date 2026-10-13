@@ -58,7 +58,7 @@ functions:
       - httpApi: '*'
 ```
 
-There is no RDS Proxy available without a VPC, so bounded concurrency is the primary connection-count control. Start at 20 and raise after load testing. See `references/postgres-timescale-connection.md` for the full connection-limit discussion.
+There is no RDS Proxy available without a VPC, so bounded concurrency is the primary connection-count control. Start at 20 and raise after load testing. See `postgres-timescale-connection.md` for the full connection-limit discussion.
 
 ## `worker` — the SQS queue function
 
@@ -171,7 +171,7 @@ Factors that push cold starts higher:
 - Eager-loading heavy singleton services that could be lazy
 
 To keep cold starts within the ~250 ms budget:
-- Keep the deploy package under 250 MB (see `references/deploy-checklist.md`)
+- Keep the deploy package under 250 MB (see `deploy-checklist.md`)
 - Use ARM64 (faster boot for the same memory allocation)
 - Defer heavy service-provider registrations with `$this->app->bind()` instead of `$this->app->singleton()` where the service is rarely used
 - Remove unused packages and dev-only code from the production vendor directory

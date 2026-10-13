@@ -11,15 +11,15 @@ This is the deployment counterpart to `laravel-enterprise-backend`. That skill b
 
 ## How to invoke this skill
 
-This is a **recipe skill** — it provides the deploy patterns and references the orchestrator (or a standalone session) follows.
+This is a **recipe skill** — it provides the deploy patterns and references the main agent (or a standalone session) follows.
 
-### Pattern 1 — invoked by the orchestrator (most common)
+### Pattern 1 — invoked by the main agent (most common)
 
-When `prd-design-build-orchestrator` reaches its ship phase (Phase D) and the operator chose the **Laravel** backend stack, it invokes this skill against the already-built `apps/api`. The skill reads `SKILL.md` plus the references for the step in flight (typically `serverless-yml.md`, `runtimes-and-functions.md`, then `deploy-checklist.md`).
+When a [`superdev-build`](../superdev-build/SKILL.md) run that chose the **Laravel** backend stack reaches deployment, it invokes this skill against the already-built `apps/api`. The skill reads `SKILL.md` plus the references for the step in flight (typically `serverless-yml.md`, `runtimes-and-functions.md`, then `deploy-checklist.md`).
 
 ### Pattern 2 — standalone deploy
 
-For shipping an existing Laravel app without the orchestrator, start a Claude Code session:
+For shipping an existing Laravel app without the main agent, start a Claude Code session:
 
 ```text
 Deploy this Laravel app to AWS Lambda with Bref, using the patterns from this skill.

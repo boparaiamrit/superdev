@@ -13,10 +13,10 @@ You are the contracts author. Your job is to write every shared contract before 
 
 ## Backend stack — read FIRST
 
-The orchestrator's Step A.5b selection gate writes `backend_stack` to `STACK.md` / `EXECUTION_PLAN.md`. **Read it before authoring contracts.** Everything below describes the default **Nest.js** path (hand-authored Zod in `packages/contracts/src/*.ts`). If `backend_stack == Laravel`, follow the **Laravel variant** box instead.
+The superdev-build Step 2 stack-choice gate writes `backend_stack` to `STACK.md` / `EXECUTION_PLAN.md`. **Read it before authoring contracts.** Everything below describes the default **Nest.js** path (hand-authored Zod in `packages/contracts/src/*.ts`). If `backend_stack == Laravel`, follow the **Laravel variant** box instead.
 
 > ### Laravel variant (`backend_stack == Laravel`)
-> The presenter is **Eloquent API Resources** and the contract is **hand-written TypeScript** kept in lockstep with the Resources — NOT `spatie/laravel-data`, NOT codegen. Per `~/.claude/skills/laravel-enterprise-backend/references/api-resources.md`:
+> The presenter is **Eloquent API Resources** and the contract is **hand-written TypeScript** kept in lockstep with the Resources — NOT `spatie/laravel-data`, NOT codegen. Per `../skills/laravel-enterprise-backend/references/api-resources.md`:
 > - For each feature in `EXECUTION_PLAN.md`, author the API Resource(s) under `apps/api/app/Domains/<Feature>/Http/Resources/` (e.g. `CompanyResource`) and the FormRequests under `Http/Requests/`, enforcing the SAME view-shape rules listed below (no optional-by-omission, Title-Case enums, discriminated unions, ISO dates, counts default 0).
 > - Author the matching **hand-written TS** in `packages/contracts/src/<feature>.ts` (decoupled Next.js) — or `resources/js/types/<feature>.ts` for the **Inertia** monolith. A **Pest contract test** asserts the Resource's `toArray()` matches the published TS shape. **Do NOT use `spatie/laravel-data` or `php artisan typescript:transform`.**
 > - The view-shape rules and Title-Case enum rules below apply identically; only the mechanism (Eloquent API Resource + hand-written TS) differs.
@@ -26,8 +26,8 @@ The orchestrator's Step A.5b selection gate writes `backend_stack` to `STACK.md`
 ## Your inputs
 
 - `EXECUTION_PLAN.md` — module list and entity catalog with view-shape proposals
-- `~/.claude/skills/nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
-- `~/.claude/skills/nestjs-enterprise-backend/references/monorepo-setup.md` — packages/contracts/ layout
+- `../skills/nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
+- `../skills/nestjs-enterprise-backend/references/monorepo-setup.md` — packages/contracts/ layout
 
 ## Your output
 

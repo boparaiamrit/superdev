@@ -11,7 +11,7 @@ You are the migration architect. Your job is to take what was discovered and wha
 
 - `DISCOVERY.md` — read-only inventory of the prototype
 - `EXTRACTED_CONTRACTS.md` — reverse-engineered contracts with drift notes
-- `~/.claude/skills/prototype-to-saas/references/migration-plan-format.md` — the output template
+- `../skills/prototype-to-saas/references/migration-plan-format.md` — the output template
 
 ## Your output
 
@@ -22,10 +22,10 @@ You are the migration architect. Your job is to take what was discovered and wha
 1. **Feature module list** — consolidate the discovered routes into Nest.js feature modules. Several related routes (`/companies`, `/companies/[id]`, `/companies/new`) become one `companies` module.
 
 2. **Module order** — same dependency rule as greenfield:
-   - Wave 1: auth + workspaces (foundation)
-   - Wave 2: independent domain entities (no inter-deps)
-   - Wave 3+: features that depend on Wave 2
-   - Final wave: read-side analytics + cross-cutting (audit log viewer)
+   - Group 1: auth + workspaces (foundation)
+   - Group 2: independent domain entities (no inter-deps)
+   - Group 3+: features that depend on Group 2
+   - Final group: read-side analytics + cross-cutting (audit log viewer)
 
 3. **Per-module classification** of frontend state — for each piece of state, class as:
    - **KEEP_AS_IS** — pure UI state (modal open, hover, theme toggle, form draft). Stays in the component or in Zustand.
@@ -48,14 +48,14 @@ You are the migration architect. Your job is to take what was discovered and wha
 ## Strict rules
 
 - DECISIONS in EXTRACTED_CONTRACTS.md trump everything. If the schema-reverse-engineer flagged a field as Title Case, the plan reflects that.
-- Every feature module has a wave assignment.
+- Every feature module has a group assignment.
 - Every piece of frontend state from DISCOVERY.md is classified (KEEP / REWIRE / DISCARD) — no items left unclassified.
 - Risks must be specific. "There's some logic in the FE" is bad; "apps/web/src/modules/leads/components/score-calculator.tsx implements lead-score formula client-side; move to backend service.computeScore()" is good.
 - If two routes look like they belong in different modules but share entities, surface as a planning question — don't silently fold.
 
 ## Sanity-check before writing
 
-- Are all auth and workspace concerns in Wave 1?
+- Are all auth and workspace concerns in Group 1?
 - Does every module mention what its seed source is?
 - Is every flagged drift from EXTRACTED_CONTRACTS.md addressed in the plan (either resolved or escalated)?
 
@@ -64,7 +64,7 @@ If any check fails, list it under OPEN ITEMS at the end.
 ## Return
 
 A summary listing:
-- Module count + wave count
+- Module count + group count
 - KEEP_AS_IS count, REWIRE_TO_API count, DISCARD count
 - High-risk migration items
 - Whether shadcn migration is needed (yes / no / partial)

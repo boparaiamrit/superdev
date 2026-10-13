@@ -13,9 +13,9 @@ This is the Laravel counterpart to `nestjs-enterprise-backend`. It preserves eve
 
 This is a **recipe skill** — it provides the patterns and references that builder agents follow.
 
-### Pattern 1 — invoked by the orchestrator (most common)
+### Pattern 1 — invoked by the main agent (most common)
 
-When `prd-design-build-orchestrator` runs and the operator chooses the **Laravel** backend stack, its `laravel-module-builder` subagent reads this skill's references directly. No separate invocation needed; this skill is installed at `~/.claude/skills/laravel-enterprise-backend/`, and the builder loads `SKILL.md` plus the references relevant to the current module (typically `module-structure.md`, `postgres-timescale-eloquent.md`, `api-resources.md`, `view-data-pattern.md`, `auth-sanctum-permissions.md`, `multitenancy-global-scope.md`, `audit-attribute.md`).
+When [`superdev-build`](../superdev-build/SKILL.md) runs and the operator chooses the **Laravel** backend stack at Step 2, its `laravel-module-builder` subagent reads this skill's references directly. No separate invocation needed; this skill is installed at `./`, and the builder loads `SKILL.md` plus the references relevant to the current module (typically `module-structure.md`, `postgres-timescale-eloquent.md`, `api-resources.md`, `view-data-pattern.md`, `auth-sanctum-permissions.md`, `multitenancy-global-scope.md`, `audit-attribute.md`).
 
 ### Pattern 2 — invoked by the migration skill
 
@@ -23,7 +23,7 @@ When a migration skill runs, its extractor agent uses this skill's references th
 
 ### Pattern 3 — standalone (backend-only build)
 
-For backend-only builds without the orchestrator (e.g., a Laravel API to serve an existing frontend or to be consumed by a mobile app), start a Claude Code session:
+For backend-only builds without the main agent (e.g., a Laravel API to serve an existing frontend or to be consumed by a mobile app), start a Claude Code session:
 
 ```text
 Build a Laravel backend with the architecture patterns from this skill.
@@ -74,7 +74,7 @@ Eloquent is the ORM. Schema is defined in Laravel migrations, models declare `ca
 
 ### 4. Fine-grained authorization — Policies + spatie/laravel-permission
 
-Authorization is not just role checks. `spatie/laravel-permission` provides DB-backed roles and permissions; **Policies/Gates** resolve the actual answer, including the workspace-match condition. Roles are an *input* to the policy, not the resolution itself. Enforcement is via the Laravel 13 `#[Authorize(...)]` controller-method attribute. **Authorize every endpoint, including `GET /me`.** See `references/auth-sanctum-permissions.md`. When the frontend is an **Inertia monolith** (Step A.5c), identity is **Laravel Fortify session** (not Sanctum tokens) while `spatie/laravel-permission` + Policies + `#[Authorize]` stay the same — see `references/inertia-variant.md`.
+Authorization is not just role checks. `spatie/laravel-permission` provides DB-backed roles and permissions; **Policies/Gates** resolve the actual answer, including the workspace-match condition. Roles are an *input* to the policy, not the resolution itself. Enforcement is via the Laravel 13 `#[Authorize(...)]` controller-method attribute. **Authorize every endpoint, including `GET /me`.** See `references/auth-sanctum-permissions.md`. When the frontend is an **Inertia monolith** (Step 2), identity is **Laravel Fortify session** (not Sanctum tokens) while `spatie/laravel-permission` + Policies + `#[Authorize]` stay the same — see `references/inertia-variant.md`.
 
 > Laravel equivalent of Nest's CASL: spatie/laravel-permission + Policies. Do not bring CASL into a Laravel build.
 
@@ -287,7 +287,7 @@ This is **standard PostgreSQL** reached through the **stock `pgsql` driver** —
 | `references/sqs-queues.md` | Phase 6 (jobs, dispatch, idempotency keys, DLQ, retry) |
 | `references/db-cache-sessions.md` | Phase 3 (database cache/session config + table migrations + cache-tag invalidation) |
 | `references/module-structure.md` | Phase 2 (planning), Phase 5 (per-module folder layout — what each file owns) |
-| `references/inertia-variant.md` | When the frontend is Inertia (Step A.5c) — Fortify session instead of Sanctum tokens, Inertia props instead of a JSON API, single-app layout |
+| `references/inertia-variant.md` | When the frontend is Inertia (superdev-build Step 2) — Fortify session instead of Sanctum tokens, Inertia props instead of a JSON API, single-app layout |
 
 ---
 

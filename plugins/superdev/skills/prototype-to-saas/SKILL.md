@@ -1,11 +1,11 @@
 ---
 name: prototype-to-saas
-description: Convert a working single-user Next.js prototype (built with AI, fixtures-as-backend, all logic client-side) into a production multi-tenant SaaS by reverse-engineering the implicit backend, extracting shared contracts, building a Nest.js backend that matches what the frontend already expects, and incrementally rewiring the frontend module by module without breaking what works. Defines 5 subagents (codebase-discoverer, schema-reverse-engineer, migration-planner, backend-extractor, frontend-rewirer) and reuses agents from prd-design-build-orchestrator. Use whenever the user has a Next.js app where JSON files or hardcoded arrays serve as backend, business logic runs client-side, and they want a real backend, auth, multi-tenancy, persistence. Mentions productionizing an MVP, vibe-coded app, single-user-to-multi-user, JSON-to-database migration, or frontend-only prototype.
+description: Convert a working single-user Next.js prototype (built with AI, fixtures-as-backend, all logic client-side) into a production multi-tenant SaaS by reverse-engineering the implicit backend, extracting shared contracts, building a Nest.js backend that matches what the frontend already expects, and incrementally rewiring the frontend module by module without breaking what works. Defines 5 subagents (codebase-discoverer, schema-reverse-engineer, migration-planner, backend-extractor, frontend-rewirer) and reuses four more agents from the same plugin roster (monorepo-bootstrapper, contracts-author, ui-auditor, integration-tester). Use whenever the user has a Next.js app where JSON files or hardcoded arrays serve as backend, business logic runs client-side, and they want a real backend, auth, multi-tenancy, persistence. Mentions productionizing an MVP, vibe-coded app, single-user-to-multi-user, JSON-to-database migration, or frontend-only prototype.
 ---
 
 # Prototype to SaaS Converter
 
-Convert a working Next.js prototype (single user, JSON-as-backend, logic in the frontend) into a production multi-tenant SaaS with a real Nest.js backend, auth, persistence, and the same architectural commitments as the greenfield orchestrator.
+Convert a working Next.js prototype (single user, JSON-as-backend, logic in the frontend) into a production multi-tenant SaaS with a real Nest.js backend, auth, persistence, and the same architectural commitments as a greenfield `superdev-build`.
 
 ## When to use this skill
 
@@ -19,7 +19,7 @@ Use when the user has:
 
 Do NOT use this skill for:
 
-- Greenfield builds — use `prd-design-build-orchestrator` instead
+- Greenfield builds — use [`superdev-build`](../superdev-build/SKILL.md) instead
 - Prototype-to-prototype refactors — use the frontend skill directly
 - Adding a feature to an already-productionized app — use the per-skill recipes
 
@@ -43,7 +43,7 @@ Do NOT use this skill for:
 
 ## Architectural target
 
-Same as greenfield orchestrator's commitments — this skill brings the prototype to those standards:
+Same as greenfield main agent's commitments — this skill brings the prototype to those standards:
 
 1. **Monorepo** — `apps/web` (the existing app, refactored) + `apps/api` (new Nest.js) + `packages/contracts`
 2. **View-shape contract** — backend returns view-ready data; frontend renders without `?.` or `??` on contract fields
@@ -104,17 +104,13 @@ Claude: "This looks like a Next.js prototype with implicit JSON backend.
          The right skill for this is prototype-to-saas. I'll proceed."
 ```
 
-If the user instead has a PRD and design and no code yet → use `prd-design-build-orchestrator`. If they have a productionized app and want a security pass → `security-review-and-fix` standalone.
+If the user instead has a PRD and design and no code yet → use [`superdev-build`](../superdev-build/SKILL.md). If they have a productionized app and want a security pass → `security-review-and-fix` standalone.
 
-### Agent-teams mode (optional, experimental)
+## The agents
 
-This skill is **mostly sequential** (discover → extract → plan → build → rewire) with parallel per-feature subagents inside Phases 4 and 5. Agent teams are NOT the default here — see "Agent teams (optional)" at the end of this skill for the one narrow case where they help (Phase 2 reverse-engineering on a messy prototype with conflicting evidence sources).
+Five migration agents, plus reuse of four more from the plugin roster. All are auto-loaded from `agents/` — no install step:
 
-## The agent team
-
-Five new agents, plus reuse of three from the orchestrator:
-
-### New agents (this skill)
+### Migration agents (this skill)
 
 | Agent | Phase | Tools | Owns |
 |---|---|---|---|
@@ -124,39 +120,25 @@ Five new agents, plus reuse of three from the orchestrator:
 | `backend-extractor` | 4 | Read, Write, Edit, Bash | `apps/api/src/modules/<feature>/*` per feature |
 | `frontend-rewirer` | 5 | Read, Write, Edit, Bash | surgical edits to `apps/web/src/modules/<feature>/*` |
 
-### Reused from `prd-design-build-orchestrator` (must be installed)
+### Reused from the plugin agent roster
 
 | Agent | Used in this skill's | Role |
 |---|---|---|
 | `monorepo-bootstrapper` | Phase 4.0 | Converts the standalone Next.js project into a pnpm/Turbo monorepo and scaffolds `apps/api` |
 | `contracts-author` | Phase 2.5 | Formalizes the reverse-engineered drafts into final `@<scope>/contracts` package |
-| `ui-auditor` | Phase 5 wave gates | Verifies shadcn compliance is maintained or achieved during rewiring |
+| `ui-auditor` | Phase 5 module checkpoints | Verifies shadcn compliance is maintained or achieved during rewiring |
 | `integration-tester` | Phase 6 (final) | Functional gate before declaring done |
 
-The five new agents live in `references/migration-agents.md`. Install them with `install-migration-agents.sh` in the same `references/` folder, which uses the orchestrator skill's `extract-agent.py`.
+The five migration agents live in `../../agents/` (`codebase-discoverer.md`, `schema-reverse-engineer.md`, `migration-planner.md`, `backend-extractor.md`, `frontend-rewirer.md`) and are auto-loaded by the plugin.
 
 ## Phase 1 — Discovery
 
 **Goal:** know exactly what's in the prototype before deciding what to migrate.
 
-Install agents first (Phase 0):
-
-```bash
-# Reuses the orchestrator's core agents (monorepo-bootstrapper, contracts-author, ui-auditor, integration-tester)
-~/.claude/skills/prd-design-build-orchestrator/references/install-core-agents.sh
-
-# Plus this skill's 5 migration agents
-~/.claude/skills/prototype-to-saas/references/install-migration-agents.sh
-
-# Plus optionally the security agents
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
-fi
-```
-
+Agents are auto-loaded by the plugin — no install step. Dispatch in natural language:
 Then dispatch in natural language:
 
-> "Use the codebase-discoverer subagent to inventory the existing Next.js prototype: catalog routes, fixture files, entity shapes, client-side mutations, business logic, UI library state, auth state. Produce DISCOVERY.md per `~/.claude/skills/prototype-to-saas/references/discovery-checklist.md`."
+> "Use the codebase-discoverer subagent to inventory the existing Next.js prototype: catalog routes, fixture files, entity shapes, client-side mutations, business logic, UI library state, auth state. Produce DISCOVERY.md per `./references/discovery-checklist.md`."
 
 The discoverer is read-only. It writes `DISCOVERY.md` with everything subsequent agents need.
 
@@ -176,7 +158,7 @@ Then formalize:
 
 > "Use the contracts-author subagent to review the drafts in `packages/contracts/src/`. They were reverse-engineered — review each against view-presenter.md rules. Promote drafts to final contracts. Run `pnpm --filter @<scope>/contracts build` to verify."
 
-`contracts-author` (from the orchestrator skill) reviews and finalizes — same rules as greenfield apply (Title Case, no `.optional()` on view fields, discriminated unions).
+`contracts-author` (from the main agent skill) reviews and finalizes — same rules as greenfield apply (Title Case, no `.optional()` on view fields, discriminated unions).
 
 ## Phase 3 — Planning (user-confirmation gate)
 
@@ -190,7 +172,7 @@ The planner produces three lists per module:
 - **REWIRE_TO_API** — currently client-side but should call the backend (filtering, sorting, paginating, mutating, fetching)
 - **DISCARD** — was needed to fake a backend but won't be needed once the real one exists (in-memory mutation reducers, fake-delay setTimeouts, mock auth providers)
 
-**Mandatory user-confirmation gate.** The orchestrator shows the user:
+**Mandatory user-confirmation gate.** The main agent shows the user:
 
 - N feature modules and their order
 - M JSON files to convert into seed data
@@ -211,21 +193,21 @@ The migration's main session dispatches `monorepo-bootstrapper`:
 
 This is THE risky step — it physically moves files. Run it once, verify the prototype still runs unchanged after the move (`pnpm dev` in `apps/web`), then continue.
 
-### Phase 4.1 — Build backend modules in waves
+### Phase 4.1 — Build backend modules in dependency groups
 
-Same wave structure as greenfield orchestrator, but the per-module agent is `backend-extractor` instead of `backend-module-builder`. The difference: `backend-extractor` has the existing frontend code as ground truth, so it builds endpoints that match what the FE already calls (or will call after Phase 5).
+Same dependency-group build order as a greenfield `superdev-build`, but the per-module builder is `backend-extractor` instead of `backend-module-builder`, and modules are built **sequentially** (backend → boot-verify → rewire), one verified module at a time. The difference: `backend-extractor` has the existing frontend code as ground truth, so it builds endpoints that match what the FE already calls (or will call after Phase 5).
 
-> **Subagents cannot spawn other subagents.** The migration's main session (running this skill) dispatches every wave. Per-feature `backend-extractor` calls return and stop; they do not chain.
+> **Subagents cannot spawn other subagents.** The migration's main session (running this skill) drives each module in turn. A dispatched per-feature `backend-extractor` returns and stops; it does not chain.
 
-The main session emits one batch per wave. For Wave 1 (foundation, 2 features):
+Build Group 1 (foundation) first, one module at a time:
 
-> "Dispatch two backend-extractor subagents in parallel: one for `apps/api/src/modules/auth/`, one for `apps/api/src/modules/workspaces/`, both per MIGRATION_PLAN.md."
+> "Use the backend-extractor subagent (or its checklist) for `apps/api/src/modules/auth/` per MIGRATION_PLAN.md. Boot-verify it, then do `workspaces/` the same way."
 
-For Wave 2 (independent domain features):
+Then Group 2 (independent domain features), still sequentially:
 
-> "Dispatch three backend-extractor subagents in parallel: companies, contacts, mailboxes, each per MIGRATION_PLAN.md."
+> "Build companies, then contacts, then mailboxes — each per MIGRATION_PLAN.md, each boot-verified before the next starts."
 
-Wave gates run typecheck + lint + tests + UI auditor (same as orchestrator).
+Module checkpoints run typecheck + lint + tests + UI auditor (same as superdev-build Step 5).
 
 **Optional: worktree isolation for risky migrations.** Migration is one of the few situations where a builder agent can plausibly damage files outside its scoped folder (a misread of MIGRATION_PLAN.md, a bad search-replace). For projects where the prototype is in active use and a corrupted file would be expensive, dispatch backend-extractor and frontend-rewirer with `isolation: worktree` so each agent runs in a temporary git worktree — its file edits are written to a separate checkout that's discarded if the agent makes no changes. The main session pulls successful changes back into the working tree via a single merge step. Set this via the per-invocation prompt:
 
@@ -257,19 +239,19 @@ For each module in MIGRATION_PLAN.md, BEFORE dispatching `frontend-rewirer`:
 > Phase 5: dispatch conversion-verifier to confirm zero behavior change.
 > Merge to migration branch on PASS. Then proceed to frontend-rewirer for this module in Phase 5."
 
-If `frontend-rewirer` is dispatched on a module that wasn't decomposed first, it will refuse (it has a built-in 300-line file refusal). The orchestrator must respect the ordering.
+If `frontend-rewirer` is dispatched on a module that wasn't decomposed first, it will refuse (it has a built-in 300-line file refusal). The main agent must respect the ordering.
 
 ### When Phase 4.5 can be skipped
 
 For modules that are ALREADY well-structured in the prototype (rare but possible — e.g., a tiny one-page module that's only 80 lines), `module-structure-auditor` returns no P1 findings → skip refactoring for that module → proceed directly to rewiring.
 
-The orchestrator dispatches `module-structure-auditor` on every prototype module as the first step of Phase 4.5 to decide which modules need refactoring.
+The main agent dispatches `module-structure-auditor` on every prototype module as the first step of Phase 4.5 to decide which modules need refactoring.
 
 ## Phase 5 — Frontend rewiring
 
 **Goal:** per module, replace fixture-loading + client-side logic with API calls to the new backend.
 
-The main session dispatches one `frontend-rewirer` per module, in the same wave order as backend. For a wave:
+The main session dispatches one `frontend-rewirer` per module, in the same group order as backend. For a group:
 
 > "Dispatch three frontend-rewirer subagents in parallel: one each for companies, contacts, and mailboxes. Each rewires `apps/web/src/modules/<feature>/` per MIGRATION_PLAN.md: replace fixture imports with `@<scope>/contracts` schemas + `apiRequest` calls, move client-side filter/sort/paginate to server query params, keep components rendering as-is — change data flow, not presentation. Maintain demo mode by routing `/api/mock/*` through the same fixture data."
 
@@ -299,7 +281,7 @@ For each module:
 - Any "fake auth" mocking (replaced by real JWT)
 - `useEffect` loaders that read from JSON (replaced by TanStack Query)
 
-### Wave gate per module
+### Module checkpoint per module
 
 After each rewirer runs:
 
@@ -315,15 +297,15 @@ Plus the ui-auditor:
 
 > "Use the ui-auditor subagent to audit the rewired module(s). Verify shadcn compliance: no raw HTML primitives introduced during rewiring, no competing UI library imports added, sidebar still uses shadcn block."
 
-If the existing prototype was NOT shadcn-based, the rewirer also migrates components to shadcn during this pass (this is in `migration-agents.md`). If it was already shadcn, leave the components alone — just swap data flow.
+If the existing prototype was NOT shadcn-based, the rewirer also migrates components to shadcn during this pass (see `../../agents/frontend-rewirer.md`). If it was already shadcn, leave the components alone — just swap data flow.
 
 ## Phase 6 — Final integration + security
 
-Reuse the orchestrator's Phase D pattern:
+Finish with the superdev-build Step 6 cross-cutting pattern:
 
 > "Use the integration-tester subagent to run cross-workspace isolation tests, CASL ability tests, view-shape compliance, demo+production mode boot, and any tests written during Phase 5."
 
-If the security skill is installed, run its 5-agent pipeline as Step D.2 of the orchestrator's Phase D — see `security-review-and-fix` SKILL.md for the natural-language dispatch sequence.
+Then run [`security-review-and-fix`](../security-review-and-fix/SKILL.md) and, if wanted, [`exploratory-qa`](../exploratory-qa/SKILL.md).
 
 Critical findings block release. High findings get user deferral decisions. Done = green integration + zero unresolved Critical security findings.
 
@@ -335,14 +317,13 @@ Critical findings block release. High findings get user deferral decisions. Done
 | `references/extraction-patterns.md` | Phase 2 — JSON shape + TS type → Zod schema patterns |
 | `references/migration-plan-format.md` | Phase 3 — MIGRATION_PLAN.md template |
 | `references/rewiring-patterns.md` | Phase 5 — common fixture-to-API rewiring transformations |
-| `references/migration-agents.md` | Phase 0 — agent definitions for the 5 new agents |
-| `references/install-migration-agents.sh` | Phase 0 install script |
+| `../../agents/codebase-discoverer.md` etc. | The 5 migration agent definitions (auto-loaded) |
 
 ## Validation checklist
 
 Before declaring the conversion done:
 
-- [ ] `.claude/agents/` contains all 5 migration agents + the 4 reused orchestrator agents + 5 security agents (14 minimum, 19 if security present)
+- [ ] All 5 migration agents + the 4 reused roster agents were dispatched (or their checklists executed directly)
 - [ ] `DISCOVERY.md`, `EXTRACTED_CONTRACTS.md`, `MIGRATION_PLAN.md` exist at project root
 - [ ] User confirmed MIGRATION_PLAN.md before Phase 4 started
 - [ ] Monorepo structure in place: `apps/web` (refactored prototype) + `apps/api` (new Nest.js) + `packages/contracts`
@@ -374,31 +355,4 @@ Before declaring the conversion done:
 **P7 — Assuming the prototype's TS types are correct.** Vibe-coded apps often have `any` and incomplete types. The schema-reverse-engineer treats types as hints, not contracts; JSON fixtures and actual component usage are the ground truth.
 
 **P8 — Ignoring business logic in the frontend.** If `companies.filter(c => c.last_active > 30days && c.deal_value > 10000)` is in a component, that's a real piece of product logic. It belongs in the backend (`/companies?last_active_after=...&min_deal_value=...`), not transplanted as-is into a useMemo.
-
-## Agent teams (optional, experimental)
-
-Most of this skill's pipeline is sequential or per-feature parallel — patterns that fit subagents cleanly. There's one narrow case where an agent team helps:
-
-### Phase 2 schema reverse-engineering on a messy prototype
-
-When the prototype's evidence sources disagree — TS interfaces say one thing, JSON fixtures say another, component usage implies a third — a single `schema-reverse-engineer` subagent has to pick a winner with limited debate. For prototypes where the schemas matter (the contracts you derive will define the entire backend's shape), a 3-teammate team produces stronger schemas.
-
-Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
-
-After Phase 1 (discovery) finishes, instead of dispatching a single `schema-reverse-engineer` subagent, ask the main session:
-
-> "Spawn a 3-teammate agent team using the schema-reverse-engineer agent type as a base: one teammate advocates for the TS interface as the source of truth, one advocates for the JSON fixtures, one advocates for the actual component usage. Have them debate the canonical shape for each entity. Produce EXTRACTED_CONTRACTS.md by consensus, with drift findings recording where each evidence source disagreed."
-
-The resulting contracts have stronger provenance — each schema decision is justified by which evidence won and why. Recommended when:
-
-- The prototype has been worked on by multiple developers (inconsistent evidence)
-- TS interfaces are stale or use `any` heavily
-- Multiple JSON fixtures exist for the same entity with different shapes
-
-Not recommended for clean prototypes where the schemas are obvious from any single source. The token cost (~3×) only pays off when the contracts are genuinely contested.
-
-### What stays in subagent mode
-
-- **`codebase-discoverer`** — read-only inventory; no debate needed
-- **`migration-planner`** — produces a plan reviewed by the user; the user does the debate
-- **`backend-extractor`** and **`frontend-rewirer`** — per-feature parallel work where teammates would have nothing to say to each other (each rewires its own module)
+

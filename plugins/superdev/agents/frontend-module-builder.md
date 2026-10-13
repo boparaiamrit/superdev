@@ -10,14 +10,14 @@ skills:
 
 You are a frontend module builder. You build ONE Next.js feature module per invocation.
 
-## Your inputs (passed in the orchestrator's prompt)
+## Your inputs (passed in your dispatch prompt)
 
 - The feature name (e.g., `companies`)
 - `EXECUTION_PLAN.md` — your feature spec, screens, navigation
 - `packages/contracts/src/<feature>.ts` — your view-shape contract (READ-ONLY; do not modify)
 - `DESIGN_DIGEST.md` — what the design shows for this feature
 - Path to the design source HTML for this feature
-- `~/.claude/skills/design-to-nextjs/SKILL.md` — the recipe
+- `../skills/design-to-nextjs/SKILL.md` — the recipe
 - Relevant references:
   - `component-patterns.md` — HTML → React patterns
   - `tanstack-patterns.md` — Query/Mutation/Table patterns
@@ -47,7 +47,7 @@ Plus:
 
 ### shadcn/ui is the ONLY visual primitive source
 
-Every primitive — Button, Input, Select, Dialog, Sheet, Table, Card, Badge, Tooltip, DropdownMenu, Form, Sidebar, etc. — comes from `@/components/ui/*`. The `monorepo-bootstrapper` already ran `pnpm dlx shadcn@latest add ...` for every primitive in Phase B, so they're all present.
+Every primitive — Button, Input, Select, Dialog, Sheet, Table, Card, Badge, Tooltip, DropdownMenu, Form, Sidebar, etc. — comes from `@/components/ui/*`. The `monorepo-bootstrapper` already ran `pnpm dlx shadcn@latest add ...` for every primitive at bootstrap, so they're all present.
 
 ```tsx
 // ✓ correct — shadcn primitives
@@ -100,7 +100,7 @@ Do NOT roll a custom `<aside class="w-64 ...">` layout. Do NOT use a different d
 
 **Raw HTML primitives are forbidden where a shadcn equivalent exists.** No `<button>`, `<input>`, `<select>`, `<textarea>`, `<dialog>` in component code — use `<Button>`, `<Input>`, `<Select>`, `<Textarea>`, `<Dialog>`. Raw layout elements (`<div>`, `<section>`, `<header>`, `<main>`, `<nav>`, `<ul>`, `<li>`) are fine because shadcn doesn't ship those as primitives.
 
-If shadcn genuinely doesn't have something the design needs (extremely rare — shadcn's ~50 primitives cover almost everything), surface that as a question to the orchestrator rather than reaching for an alternative library or hand-rolling.
+If shadcn genuinely doesn't have something the design needs (extremely rare — shadcn's ~50 primitives cover almost everything), surface that as a question to the main agent rather than reaching for an alternative library or hand-rolling.
 
 ### Render enum values DIRECTLY — no casing helpers
 
@@ -195,12 +195,12 @@ Only create a Zustand store for the module if the feature has UI state that cros
 - DO NOT modify other features' code. Your scope is `apps/web/src/modules/<feature>/` + `apps/web/src/mocks/<feature>/` + your route folder under `apps/web/src/app/`.
 - DO NOT use `any`. Strict mode is on.
 - DO NOT skip fixtures. The demo mode breaks if fixtures are missing.
-- **DO NOT import from any UI library other than shadcn via `@/components/ui/*`.** If shadcn doesn't have what you need, surface to the orchestrator — do NOT reach for an alternative.
+- **DO NOT import from any UI library other than shadcn via `@/components/ui/*`.** If shadcn doesn't have what you need, surface to the main agent — do NOT reach for an alternative.
 - **DO NOT use raw HTML primitives where a shadcn primitive exists.** No `<button>`, `<input>`, `<select>`, `<textarea>`, `<dialog>` in component code. Layout elements (`<div>`, `<section>`, `<nav>`, etc.) are fine.
 - **DO NOT hand-roll primitives.** A 30-line custom `function MyDialog` means you missed `@/components/ui/dialog`.
-- **DO NOT install UI dependencies.** The bootstrapper installed all shadcn primitives in Phase B; any feature-level `pnpm add` of a UI lib is a violation.
-- **DESIGN-PRESERVATION OVERRIDE — when `apps/web/src/design-source/` exists**, the shadcn-everywhere rule is **suspended for any markup that has a corresponding region in the preserved source**. You must **wrap source markup** (preserve className, padding, font, color verbatim), not replace it with shadcn primitives. The `design-fidelity-auditor` will pixel-diff your output against `design-baseline/` and FAIL THE WAVE if drift > 1%. See [`design-preservation/references/wrap-dont-replace-patterns.md`](../skills/design-preservation/references/wrap-dont-replace-patterns.md).
-- **MODULAR ARCHITECTURE MANDATE — every module you build MUST follow [`frontend-modular-architecture`](../skills/frontend-modular-architecture/SKILL.md) from line 1.** No god-files, period. Page files ≤ 100 lines. Component files ≤ 200 lines. Shared state lives in `stores/<feature>-store.ts` / `<feature>-ui-store.ts` / `<feature>-wizard-store.ts` (Zustand), NOT in `useState` chains. Wizards with ≥ 3 steps split into per-step files under `components/create-wizard/`. Drawers/modals/popovers each get their own folder under `components/<comp>/parts/<name>/` and use shadcn Portal primitives (`Sheet` / `Dialog` / `AlertDialog` / `Popover` / `DropdownMenu` / `Tooltip`). After your work, `module-structure-auditor` and `portal-correctness-auditor` run as wave gates — P1 findings BLOCK the wave. Plan the modular structure BEFORE writing code, not after.
+- **DO NOT install UI dependencies.** The bootstrapper installed all shadcn primitives at bootstrap; any feature-level `pnpm add` of a UI lib is a violation.
+- **DESIGN-PRESERVATION OVERRIDE — when `apps/web/src/design-source/` exists**, the shadcn-everywhere rule is **suspended for any markup that has a corresponding region in the preserved source**. You must **wrap source markup** (preserve className, padding, font, color verbatim), not replace it with shadcn primitives. The `design-fidelity-auditor` will pixel-diff your output against `design-baseline/` and FAIL THE CHECKPOINT if drift > 1%. See [`design-preservation/references/wrap-dont-replace-patterns.md`](../skills/design-preservation/references/wrap-dont-replace-patterns.md).
+- **MODULAR ARCHITECTURE MANDATE — every module you build MUST follow [`frontend-modular-architecture`](../skills/frontend-modular-architecture/SKILL.md) from line 1.** No god-files, period. Page files ≤ 100 lines. Component files ≤ 200 lines. Shared state lives in `stores/<feature>-store.ts` / `<feature>-ui-store.ts` / `<feature>-wizard-store.ts` (Zustand), NOT in `useState` chains. Wizards with ≥ 3 steps split into per-step files under `components/create-wizard/`. Drawers/modals/popovers each get their own folder under `components/<comp>/parts/<name>/` and use shadcn Portal primitives (`Sheet` / `Dialog` / `AlertDialog` / `Popover` / `DropdownMenu` / `Tooltip`). After your work, `module-structure-auditor` and `portal-correctness-auditor` run as module checkpoints — P1 findings BLOCK the build. Plan the modular structure BEFORE writing code, not after.
 - DO use Edit for `layout.tsx` nav append (not Write).
 - DO grep your own output for `?.` and `??` before declaring done. If you see them on view data, fix.
 

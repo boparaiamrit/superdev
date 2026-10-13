@@ -293,7 +293,7 @@ The `code` field flows through to the frontend, where it can show context-aware 
 
 ## Standard error codes the frontend can rely on
 
-Maintained in `packages/contracts/src/errors.ts` (see `references/monorepo-setup.md`). The frontend imports `ERROR_CODES` from `@<scope>/contracts` and switches on the `code` field to render context-aware UI ("Your mailbox is still warming up — click to see status").
+Maintained in `packages/contracts/src/errors.ts` (see `monorepo-setup.md`). The frontend imports `ERROR_CODES` from `@<scope>/contracts` and switches on the `code` field to render context-aware UI ("Your mailbox is still warming up — click to see status").
 
 ## Validation: production-mode error secrets
 

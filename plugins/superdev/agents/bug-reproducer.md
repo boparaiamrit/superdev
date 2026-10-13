@@ -9,7 +9,7 @@ You are the bug reproducer. Your single job is to capture the bug as the smalles
 
 ## Inputs
 
-- A failure description from the user (or from a SubagentStop hook)
+- A failure description from the user (or from a failing gate/check)
 - The exact failing command / route / test, if known
 - Suspected recent changes (often "none" — that's fine)
 
@@ -46,7 +46,7 @@ You are the bug reproducer. Your single job is to capture the bug as the smalles
 
 ## Reproduction tactics
 
-Use [`~/.claude/plugins/superdev/skills/systematic-debugging/references/repro-recipes.md`](../skills/systematic-debugging/references/repro-recipes.md) — it covers HTTP, Playwright, test failures, async races, "works locally fails in CI", memory leaks, and production-only bugs.
+Use [`../skills/systematic-debugging/references/repro-recipes.md`](../skills/systematic-debugging/references/repro-recipes.md) — it covers HTTP, Playwright, test failures, async races, "works locally fails in CI", memory leaks, and production-only bugs.
 
 ## Gates
 

@@ -1,6 +1,6 @@
 # Laravel Boost — AI Tooling Setup
 
-Configure Laravel Boost so Claude Code has version-matched guidelines, skills, and an MCP server for the `apps/api` Laravel project. Run this once in Phase 3, right after the base scaffold (`references/scaffolding.md`), before authoring any feature modules.
+Configure Laravel Boost so Claude Code has version-matched guidelines, skills, and an MCP server for the `apps/api` Laravel project. Run this once in Phase 3, right after the base scaffold (`scaffolding.md`), before authoring any feature modules.
 
 Boost is a **dev-only** tool. It never ships to production — it is excluded from the Bref deploy package by being in `require-dev` and by the `.gitignore` rules below.
 
@@ -157,7 +157,7 @@ php artisan boost:update --discover
 
 `--discover` tells Boost to scan `composer.json` and pull in updated guidelines and skills for any newly recognised packages. Run this after every significant `composer require` session, not just after major upgrades.
 
-Workflow integration — add it to the scaffolding checklist in `references/scaffolding.md` and note it in the Phase 3 steps:
+Workflow integration — add it to the scaffolding checklist in `scaffolding.md` and note it in the Phase 3 steps:
 
 ```bash
 # After: composer require laravel/sanctum spatie/laravel-permission aws/aws-sdk-php

@@ -64,7 +64,7 @@ STATUS: DRAFT  (changes to APPROVED after Phase 2 review gate)
 | ... |
 
 Plus:
-- components/create-wizard/index.tsx (orchestrator: reads step from store, renders step component, handles "Next/Prev" + final submit)
+- components/create-wizard/index.tsx (step coordinator: reads step from store, renders step component, handles "Next/Prev" + final submit)
 - components/create-wizard/shared/nav-buttons.tsx (Next / Back / Submit buttons)
 - components/create-wizard/shared/progress-indicator.tsx (1/8 etc.)
 
@@ -112,7 +112,7 @@ The converter executes in this order (dependency-aware so typecheck passes at th
 3. Leaf components (parts/<name>/index.tsx) — depend on stores + UI primitives
 4. Mid-level components (<feature>-table/index.tsx, etc.) — depend on parts/
 5. Wizard step files — depend on stores
-6. Wizard orchestrator (create-wizard/index.tsx) — depends on steps
+6. Wizard step coordinator (create-wizard/index.tsx) — depends on steps
 7. Pages — depend on everything above
 8. Update external consumer imports
 9. Delete old fat files

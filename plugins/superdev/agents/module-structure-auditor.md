@@ -1,6 +1,6 @@
 ---
 name: module-structure-auditor
-description: Read-only auditor that scans one frontend module against the frontend-modular-architecture rules — file size limits (page ≤ 100 lines, component ≤ 200 lines), dedicated module stores when shared state exists (≥ 5 useState hooks per component triggers a finding), wizards split per-step when ≥ 3 steps, sub-sub-components in parts/<name>/ folders, pages-as-thin-shells (no business logic, no inline column defs, no form state). Produces MODULE_STRUCTURE_AUDIT.md with file:line citations and one suggested fix per finding. Dispatched as a wave-gate after every frontend-module-builder / frontend-rewirer run.
+description: Read-only auditor that scans one frontend module against the frontend-modular-architecture rules — file size limits (page ≤ 100 lines, component ≤ 200 lines), dedicated module stores when shared state exists (≥ 5 useState hooks per component triggers a finding), wizards split per-step when ≥ 3 steps, sub-sub-components in parts/<name>/ folders, pages-as-thin-shells (no business logic, no inline column defs, no form state). Produces MODULE_STRUCTURE_AUDIT.md with file:line citations and one suggested fix per finding. Dispatched as a checkpoint after every frontend-module-builder / frontend-rewirer run.
 tools: Read, Glob, Grep, Bash
 model: haiku
 memory: project
@@ -126,7 +126,7 @@ Each hit is a P2 finding — either justify each one (comment why) or eliminate 
 
 ### [P1-3] components/create-wizard.tsx is a single 880-line file with 8 step branches (step === 1, step === 2, …, step === 8)
 - Wizard is not split
-- Suggested fix: refactor to components/create-wizard/index.tsx (orchestrator) + step-1-basics.tsx through step-8-confirm.tsx + stores/<feature>-wizard-store.ts. Dispatch `frontend-refactoring` skill.
+- Suggested fix: refactor to components/create-wizard/index.tsx (step coordinator) + step-1-basics.tsx through step-8-confirm.tsx + stores/<feature>-wizard-store.ts. Dispatch `frontend-refactoring` skill.
 
 ## P2 findings
 
@@ -145,7 +145,7 @@ Each hit is a P2 finding — either justify each one (comment why) or eliminate 
 
 ## Memory write
 
-After audit, update `.claude/memory/superdev-learned/structure-violations.md` with the most-recurring violation classes (e.g., "in this repo, pages frequently inline column definitions") so the orchestrator threads the lesson into the next `frontend-module-builder` dispatch.
+After audit, update `.claude/memory/superdev-learned/structure-violations.md` with the most-recurring violation classes (e.g., "in this repo, pages frequently inline column definitions") so the lesson is included the next time `frontend-module-builder` work is dispatched or executed (see superdev-self-learning).
 
 ## Gates
 

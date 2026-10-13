@@ -11,9 +11,9 @@ A pipeline for building a production-grade Nest.js backend, sized for a monorepo
 
 This is a **recipe skill** — it provides the patterns and references that builder agents follow.
 
-### Pattern 1 — invoked by the orchestrator (most common)
+### Pattern 1 — invoked by the main agent (most common)
 
-When `prd-design-build-orchestrator` runs, its `backend-module-builder` subagent reads this skill's references directly. No separate invocation needed; this skill is installed at `~/.claude/skills/nestjs-enterprise-backend/`, and the builder loads `SKILL.md` plus the references relevant to the current module (typically `module-structure.md`, `drizzle-timescaledb.md`, `view-presenter.md`, `auth-casl.md`, `audit-logging.md`).
+When [`superdev-build`](../superdev-build/SKILL.md) builds a backend module, the main agent (or a single dispatched `backend-module-builder`) reads this skill's references directly. No separate invocation needed; this skill is installed at `./`, and the builder loads `SKILL.md` plus the references relevant to the current module (typically `module-structure.md`, `drizzle-timescaledb.md`, `view-presenter.md`, `auth-casl.md`, `audit-logging.md`).
 
 ### Pattern 2 — invoked by the migration skill
 
@@ -21,7 +21,7 @@ When `prototype-to-saas` runs, its `backend-extractor` agent uses this skill's r
 
 ### Pattern 3 — standalone (backend-only build)
 
-For backend-only builds without the orchestrator (e.g., a Nest.js API to serve an existing frontend or to be consumed by a mobile app), start a Claude Code session:
+For backend-only builds without the main agent (e.g., a Nest.js API to serve an existing frontend or to be consumed by a mobile app), start a Claude Code session:
 
 ```
 Build a Nest.js backend with the architecture patterns from this skill.

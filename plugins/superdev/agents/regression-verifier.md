@@ -93,4 +93,4 @@ For every file in `git diff`:
 
 - ❌ Verdict `READY TO COMMIT` requires: all tests green AND all smoke tests green AND zero `UNINTENDED` rows AND clean cross-cutting checks
 - ❌ Any single UNINTENDED row → REJECT. The fix must be redone in scope.
-- ❌ Do not modify code. If you find a regression, your job is to report it; the orchestrator re-dispatches fix-applier.
+- ❌ Do not modify code. If you find a regression, your job is to report it; the main agent re-dispatches fix-applier.

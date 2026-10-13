@@ -25,7 +25,7 @@ If any rule is violated, the module is unmaintainable at scale. AI agents readin
 
 - ✅ Any greenfield frontend module being built (`frontend-module-builder` defers to this skill for layout)
 - ✅ Auditing an existing module before declaring "done"
-- ✅ As a wave-gate after any frontend agent writes new files
+- ✅ As a checkpoint after any frontend agent writes new files
 - ✅ When the user complains "my page got too big" / "I can't find anything in companies.tsx"
 
 ## When NOT to use
@@ -64,7 +64,7 @@ apps/web/src/modules/<feature>/
 │   │   ├── body.tsx
 │   │   └── footer.tsx
 │   └── create-wizard/                  # Multi-step wizard — ALWAYS split
-│       ├── index.tsx                   # orchestrator: nav + validation only
+│       ├── index.tsx                   # step coordinator: nav + validation only
 │       ├── step-1-basics.tsx
 │       ├── step-2-contacts.tsx
 │       ├── step-3-billing.tsx
@@ -168,10 +168,10 @@ Now `companies-table/row-actions.tsx` calls `useCompaniesUiStore((s) => s.askDel
 
 ### Rule 4 — Wizards always split per-step
 
-A 10-step Create flow is **10 files**, not one. The orchestrator file holds step navigation + cross-step validation. Each step is its own file. Cross-step values live in `<feature>-wizard-store.ts`.
+A 10-step Create flow is **10 files**, not one. The main agent file holds step navigation + cross-step validation. Each step is its own file. Cross-step values live in `<feature>-wizard-store.ts`.
 
 ```tsx
-// components/create-wizard/index.tsx — orchestrator only
+// components/create-wizard/index.tsx — step coordinator only
 export function CreateCompanyWizard() {
   const step = useCompaniesWizardStore((s) => s.step);
   return (
@@ -268,26 +268,13 @@ companies-table/
 
 Why folders: lets the dialog/drawer have its own state, its own subcomponents, its own tests, without polluting the parent component's directory listing. Future-AI can grep "where does the bulk-edit-drawer live" and get one folder, not 4 files.
 
-## How the orchestrator should use this skill
+## How the main agent should use this skill
 
 For every frontend agent dispatch:
 
 1. **Greenfield (`frontend-module-builder`)** — agent prompt is augmented with "you MUST follow [`frontend-modular-architecture`] — no god files, dedicated Zustand stores per module, sub-sub-components in `parts/<name>/`, Portals via shadcn primitives"
-2. **Wave gate** — after the agent finishes, dispatch `module-structure-auditor` + `portal-correctness-auditor` on the just-built module. Any violations → block the wave, surface to the user
-3. **Existing module needing decomposition** — orchestrator dispatches `frontend-refactoring` skill (separate atomic-conversion pipeline)
-
-## Agent teams (optional — for store-architecture debates)
-
-When a module is complex enough that store design is non-obvious (3+ candidate boundaries between entity store / UI store / wizard store / cache store):
-
-```
-Dispatch 3-teammate store-design debate.
-Teammate A — minimalist: "everything in one store unless proven otherwise"
-Teammate B — separator: "default to splitting by concern (entity / UI / wizard)"
-Teammate C — futurist: "where will state live in 6 months?"
-
-Majority verdict. Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
-```
+2. **Module checkpoint** — after the agent finishes, dispatch `module-structure-auditor` + `portal-correctness-auditor` on the just-built module. Any violations → block the build, surface to the user
+3. **Existing module needing decomposition** — the main agent dispatches `frontend-refactoring` skill (separate atomic-conversion pipeline)
 
 ## Reference files
 

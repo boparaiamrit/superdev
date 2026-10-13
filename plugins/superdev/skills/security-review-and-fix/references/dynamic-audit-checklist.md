@@ -39,7 +39,7 @@ TOKEN_B_ADMIN=$(curl -s ... | jq -r '.accessToken')
 API=http://localhost:3001/v1
 ```
 
-If no seed script exists, the orchestrator should add one before running this audit — flag as a precondition gap.
+If no seed script exists, the main agent should add one before running this audit — flag as a precondition gap.
 
 ## Probe categories
 
@@ -361,4 +361,4 @@ If the agent can't probe (no seed script, missing test credentials, stack won't 
 - §8 mock route: prod build failed — needs NEXT_PUBLIC_API_BASE_URL set
 ```
 
-The orchestrator surfaces these to the user. They're not findings, they're gaps — the audit is incomplete until they're resolved.
+The main agent surfaces these to the user. They're not findings, they're gaps — the audit is incomplete until they're resolved.

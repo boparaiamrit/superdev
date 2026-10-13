@@ -102,7 +102,7 @@ pnpm dlx shadcn@latest add \
 
 Why install everything up front rather than per-module?
 
-- Feature modules run **in parallel** in the orchestrator's Phase C. Two modules running `shadcn add` at the same time would race on the lockfile.
+- Modules are built one at a time against a stable primitive set. Adding primitives mid-build invites version/style drift between modules (and on multi-agent hosts, parallel `shadcn add` calls race the lockfile).
 - `sidebar` in particular is non-default — if you skip it, the layout author will reach for a hand-rolled `<aside>` and the `ui-auditor` will flag it.
 - The components are source files you own; unused ones don't ship to the client bundle (tree-shaken). The disk cost is negligible.
 
@@ -117,7 +117,7 @@ test -f src/lib/utils.ts                # cn() helper
 
 ## Step 5 — Replace `tailwind.config.ts` and create `tokens.ts`
 
-Use the Phase 2 output. Drop in the `tailwind.config.ts` and create `src/styles/tokens.ts`. See `references/token-extraction.md` for the templates.
+Use the Phase 2 output. Drop in the `tailwind.config.ts` and create `src/styles/tokens.ts`. See `token-extraction.md` for the templates.
 
 ## Step 6 — Set up the four base files
 
@@ -388,7 +388,7 @@ mkdir -p src/app/api/mock/\[...path\]
 touch src/styles/.gitkeep src/hooks/.gitkeep src/stores/.gitkeep src/types/.gitkeep
 ```
 
-Create the demo-mode Route Handler at `src/app/api/mock/[...path]/route.ts` — full implementation in `references/dual-mode-adapter.md`. This is what makes demo mode work; without it, `NEXT_PUBLIC_API_MODE=demo` returns 404 on every call.
+Create the demo-mode Route Handler at `src/app/api/mock/[...path]/route.ts` — full implementation in `dual-mode-adapter.md`. This is what makes demo mode work; without it, `NEXT_PUBLIC_API_MODE=demo` returns 404 on every call.
 
 For each planned module from Phase 3, create the module skeleton AND the mocks folder:
 
@@ -447,7 +447,7 @@ Install `tsx` as a dev dep for the fixture-validation script:
 pnpm add -D tsx
 ```
 
-Implementation of `scripts/validate-fixtures.ts` is in `references/dual-mode-adapter.md`.
+Implementation of `scripts/validate-fixtures.ts` is in `dual-mode-adapter.md`.
 
 ## Step 11 — Verify the app boots
 

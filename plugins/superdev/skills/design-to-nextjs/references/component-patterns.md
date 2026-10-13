@@ -193,7 +193,7 @@ Rules:
 
 **React (TanStack Table via `<DataTable>`):**
 
-The table itself uses the shared `<DataTable>` component (see `references/tanstack-patterns.md` for the full implementation). The module supplies column defs:
+The table itself uses the shared `<DataTable>` component (see `tanstack-patterns.md` for the full implementation). The module supplies column defs:
 
 ```tsx
 // modules/companies/components/companies-table-columns.tsx

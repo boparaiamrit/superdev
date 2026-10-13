@@ -41,7 +41,7 @@ php artisan vendor:publish --tag=serverless-config
 serverless plugin install -n serverless-lift
 ```
 
-The generated `serverless.yml` is the starting point. Customise it with the full blueprint from `references/serverless-yml.md` before the first deploy.
+The generated `serverless.yml` is the starting point. Customise it with the full blueprint from `serverless-yml.md` before the first deploy.
 
 ### Step 2 — Clear local config cache
 
@@ -81,7 +81,7 @@ DB::statement("SELECT add_compression_policy('audit_logs', INTERVAL '7 days')");
 DB::statement("SELECT add_retention_policy('audit_logs', INTERVAL '180 days')");
 ```
 
-The host must support the TimescaleDB extension (Timescale Cloud or self-managed Postgres+Timescale). See `references/postgres-timescale-connection.md`.
+The host must support the TimescaleDB extension (Timescale Cloud or self-managed Postgres+Timescale). See `postgres-timescale-connection.md`.
 
 **OSS Serverless (`osls`):**
 
@@ -172,7 +172,7 @@ functions:
     ...
 ```
 
-See `references/postgres-timescale-connection.md` for the fan-out analysis. No RDS Proxy — the stack uses no VPC.
+See `postgres-timescale-connection.md` for the fan-out analysis. No RDS Proxy — the stack uses no VPC.
 
 ---
 
@@ -222,7 +222,7 @@ The `--stage` value maps to `${opt:stage, 'prod'}` in `serverless.yml` and is us
 
 ### Step 7 — CloudFront invalidation
 
-Static assets (CSS, JS, images) and public HTML were synced to S3 during the build step (see `references/storage-s3-cloudfront.md`). CloudFront caches them at edge. After every deploy, invalidate the cache so users receive the new assets.
+Static assets (CSS, JS, images) and public HTML were synced to S3 during the build step (see `storage-s3-cloudfront.md`). CloudFront caches them at edge. After every deploy, invalidate the cache so users receive the new assets.
 
 ```bash
 # Replace DISTRIBUTION_ID with your CloudFront distribution ID (from serverless.yml outputs or AWS console)
@@ -313,7 +313,7 @@ aws sqs get-queue-attributes \
 
 A non-zero DLQ depth immediately after deploy indicates a worker crash — check the worker Lambda log group for the exception.
 
-See `references/sqs-worker.md` for the full worker configuration.
+See `sqs-worker.md` for the full worker configuration.
 
 ### Step 10 — Verify EventBridge scheduler fires `schedule:run`
 
@@ -334,9 +334,9 @@ If no log line appears after 2 minutes, check:
 
 1. The EventBridge rule was deployed (`osls info --stage prod` → look for the `ScheduleRule` resource).
 2. The `artisan` function name in `serverless.yml` matches the EventBridge target.
-3. The `input: '"schedule:run"'` field is present in the schedule event definition (see `references/serverless-yml.md`).
+3. The `input: '"schedule:run"'` field is present in the schedule event definition (see `serverless-yml.md`).
 
-See `references/scheduler-eventbridge.md` for the full EventBridge wiring.
+See `scheduler-eventbridge.md` for the full EventBridge wiring.
 
 ### Step 11 — Confirm CloudWatch logs are JSON
 
@@ -441,7 +441,7 @@ echo "==> Deploy complete. Verify SQS worker (Step 9) and scheduler (Step 10) in
 - **Deploying without `--stage`.** Without an explicit stage, `osls deploy` defaults to `dev` and may overwrite the wrong environment's stack.
 - **Skipping the CloudFront invalidation.** Users will see stale CSS/JS after a deploy. The Lambda serves new API responses immediately but the CDN still serves old assets.
 - **Not checking package size before deploy.** A package > 250 MB fails silently during upload, causing a cryptic CloudFormation error. Always run `du -sh vendor/` before `osls deploy`.
-- **Committing `.env` or storing secrets in `serverless.yml` plaintext.** All secrets (`APP_KEY`, `DATABASE_URL`, AWS credentials) live in SSM Parameter Store via `${ssm:/app/...}`. See `references/secrets-ssm.md`.
+- **Committing `.env` or storing secrets in `serverless.yml` plaintext.** All secrets (`APP_KEY`, `DATABASE_URL`, AWS credentials) live in SSM Parameter Store via `${ssm:/app/...}`. See `secrets-ssm.md`.
 - **Using the original `serverless` binary** (`npm install -g serverless`). The original Serverless Framework is no longer open-source. Use `osls` (OSS drop-in) or `bref deploy` (Bref Cloud managed).
 - **Deploying with `composer install` (including dev dependencies).** Dev packages (Pest, Boost, etc.) add tens of MB and may expose debugging tools in production. Always deploy with `--no-dev`.
 - **Forgetting the `arm64` architecture flag.** Without it, Lambda defaults to `x86_64` — ~20% more expensive and no performance benefit for PHP workloads.
