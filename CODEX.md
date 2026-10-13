@@ -1,6 +1,6 @@
 # Superdev for Codex
 
-This repository ships a Codex plugin manifest alongside the Claude Code plugin (v2.0.0 — no conductor/orchestrator, no hooks; see the root README for what changed and why).
+This repository ships a Codex plugin manifest alongside the Claude Code plugin (v2.0.1; see the root README for the current workflow).
 
 ## What Codex loads
 
@@ -18,7 +18,7 @@ There are no hooks in v2 on either host. Verification is explicit everywhere:
 
 - after each backend module: typecheck + tests, then **boot the built dist** and curl its health endpoints
 - after each frontend module: typecheck, then open the route in a browser against the running API
-- before any "done" claim: `node plugins/superdev/scripts/verify-done.mjs` from the target repo root
+- before any "done" claim: `node <superdev-plugin>/scripts/verify-done.mjs` from the target repo root, plus the applicable stack-specific runtime and audit evidence
 - after corrections/verifier rejections: record the lesson in the target project's `.claude/memory/superdev-learned/` (see `superdev-self-learning`)
 
 ## Codex workflow guidance
@@ -40,5 +40,7 @@ From the repo root:
 
 ```bash
 python -m unittest discover -s tests -v
-python ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/superdev
+node --check plugins/superdev/scripts/verify-done.mjs
 ```
+
+On Windows, run the full Python suite inside WSL so installer tests use Bash-compatible paths. The Node syntax check may run on the Windows host if WSL has no Node installation.

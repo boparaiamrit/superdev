@@ -125,7 +125,9 @@ class ProjectScopeStaticTests(unittest.TestCase):
             json.loads(read_text(PLUGIN_ROOT / ".claude-plugin" / "plugin.json"))["version"],
             json.loads(read_text(PLUGIN_ROOT / ".codex-plugin" / "plugin.json"))["version"],
         }
-        self.assertEqual({"2.0.0"}, versions)
+        latest_release = re.search(r"^## v(\d+\.\d+\.\d+) —", read_text(ROOT / "CHANGELOG.md"), re.M)
+        self.assertIsNotNone(latest_release, "CHANGELOG.md must declare the current release")
+        self.assertEqual({latest_release.group(1)}, versions)
 
     def test_skill_descriptions_avoid_reserved_angle_brackets(self) -> None:
         violations: list[str] = []

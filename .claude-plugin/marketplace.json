@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "superdev",
-  "description": "Superdev — workspace-scope-agnostic, package-manager-agnostic Claude Code + Codex plugin: 18 skills and 54 agents for full-stack monorepo builds. v2.0.0 replaces the conductor orchestrator with direct sequential building (superdev-build), live runtime verification (verify-done), and hard rules learned from real production builds.",
+  "description": "Superdev — workspace-scope-agnostic, package-manager-agnostic Claude Code + Codex plugin: 18 skills and 54 agents for full-stack monorepo builds. v2 replaces the conductor orchestrator with direct sequential building (superdev-build), live runtime verification (verify-done), and hard rules learned from real production builds.",
   "owner": {
     "name": "Amritpal Singh Boparai",
     "email": "boparaiamrit@gmail.com",
@@ -10,8 +10,8 @@
   "plugins": [
     {
       "name": "superdev",
-      "description": "18 skills + 54 agents for full-stack monorepo builds. v2.0.0 removes the conductor/orchestrator: the main agent builds directly with superdev-build (plan on disk, stack choice Nest.js/Laravel x Next.js/Inertia, contracts first, then one module at a time — backend, boot-the-dist runtime verify, frontend, browser verify), backed by standalone recipe and audit skills (design-to-nextjs, design-to-laravel, nestjs-enterprise-backend, laravel-enterprise-backend, laravel-bref-deploy, security-review-and-fix, exploratory-qa, systematic-debugging, product-completeness-audit, production-readiness-audit, brutal-exhaustive-audit, frontend-modular-architecture, frontend-refactoring, prototype-to-saas, design-preservation, superdev-self-learning, superdev-done), hard rules distilled from real build failures (dead-on-arrival dist under green tests, ESM contracts, patchNestJsSwagger boot crash, @Audit on the wrong handler, parallel contract races, dev-default secrets, Radix code on Base UI shadcn), and a cross-platform verify-done script that runs the checks live instead of reading a self-graded ledger. Workspace-scope and package-manager agnostic.",
-      "version": "2.0.0",
+      "description": "18 skills + 54 agents for full-stack monorepo builds. Direct sequential builds: the main agent builds directly with superdev-build (plan on disk, stack choice Nest.js/Laravel x Next.js/Inertia, contracts first, then one module at a time — backend, boot-the-dist runtime verify, frontend, browser verify), backed by standalone recipe and audit skills (design-to-nextjs, design-to-laravel, nestjs-enterprise-backend, laravel-enterprise-backend, laravel-bref-deploy, security-review-and-fix, exploratory-qa, systematic-debugging, product-completeness-audit, production-readiness-audit, brutal-exhaustive-audit, frontend-modular-architecture, frontend-refactoring, prototype-to-saas, design-preservation, superdev-self-learning, superdev-done), hard rules distilled from real build failures (dead-on-arrival dist under green tests, ESM contracts, patchNestJsSwagger boot crash, @Audit on the wrong handler, parallel contract races, dev-default secrets, Radix code on Base UI shadcn), and a cross-platform verify-done script that runs the checks live instead of reading a self-graded ledger. Workspace-scope and package-manager agnostic.",
+      "version": "2.0.1",
       "author": {
         "name": "Amritpal Singh Boparai"
       },

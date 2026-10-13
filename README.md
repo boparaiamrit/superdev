@@ -20,7 +20,7 @@
 
 ---
 
-> **v2.0.0 — the conductor is removed.** v1 routed every build through an orchestrator skill that dispatched parallel builder subagents in waves, installed (stale, abridged) agent copies into each project, threaded "lessons" before every dispatch via bash hooks, and let builds mark their own completion ledger `pass`. On the real projects built with it, that produced contract races between parallel agents, production binaries dead on arrival under fully green test suites, 71 audit decorators writing zero audit rows, and done-claims no machine check backed. v2 keeps the recipes, auditors, and conventions that worked — and makes the main agent build directly and sequentially, prove each module at runtime, and finish with a live verification script. Details: [`superdev-build`](plugins/superdev/skills/superdev-build/SKILL.md) and the [`hard rules`](plugins/superdev/skills/superdev-build/references/hard-rules.md) those failures produced.
+> **v2.0.1** keeps direct sequential builds, canonical contracts, and explicit runtime verification. The conductor, hooks, agent-copy installers, and completion ledgers remain removed. Use [`superdev-build`](plugins/superdev/skills/superdev-build/SKILL.md) for the build workflow and the [`hard rules`](plugins/superdev/skills/superdev-build/references/hard-rules.md) for stack-specific requirements and verification.
 
 ## 🧬 What's inside — 18 skills
 
@@ -49,22 +49,26 @@
 
 **Every skill works standalone** — "run a security audit" runs exactly that, no pipeline. `superdev-build` only sequences the skills for a full greenfield build.
 
-## ⚔️ The hard rules (learned in production)
+## ⚔️ The hard rules
 
-v2's center of gravity is [`hard-rules.md`](plugins/superdev/skills/superdev-build/references/hard-rules.md) — twelve failure classes that actually shipped on SuperDev-built projects, now enforced by recipes and checks instead of rediscovered per project:
+[`hard-rules.md`](plugins/superdev/skills/superdev-build/references/hard-rules.md) defines twelve reusable requirements. Each states where it applies and how to verify it:
 
-1. **Boot the built artifact** — 119 green tests once hid a dead-on-arrival production binary. `node dist/main.js` + health curl, every module.
-2. **Never `patchNestJsSwagger()`** with @nestjs/swagger 11 — crashes boot (hit two projects; the second *after* the first "learned" it project-locally).
-3. **Contracts build as CommonJS** for Nest consumers — ESM-only contracts throw at boot, not at typecheck.
-4. **Contracts first, one owner** — parallel frontend/backend work against a same-step contract invents conflicting schemas that only fail in production mode.
-5. **Verify side effects, not decorators** — 71 `@Audit` service methods wrote 0 audit rows because interceptors read controller handlers.
+1. **Boot the built artifact** after each backend module, using the selected stack's production entry point and health checks.
+2. **Use supported validation and documentation integration** — do not scaffold `patchNestJsSwagger()` or private Swagger imports.
+3. **Match contract exports to their consumers** — CommonJS contracts for the default CommonJS Nest.js stack.
+4. **Contracts first, one owner** — import canonical response shapes and build dependent modules sequentially.
+5. **Verify permissions and side effects** through real mutations, audit rows, denied requests, and source-backed aggregates.
 6. **No default secrets, no unsanitized filesystem routes, no ungated mocks** in scaffold output.
-7. **Confirm Radix vs Base UI** (`components.json`) before writing shadcn code — `asChild` does not exist on Base UI.
-8. **drizzle-kit gets its own tsconfig target** — its esbuild rejects `es2023`.
-9. **Browser-smoke client-mounted routes** — React-19/r3f crashes pass every static gate.
+7. **Confirm Radix vs Base UI** from installed primitives before composing shadcn components.
+8. **Keep migration tooling compatible** — isolate its compiler configuration when needed and verify generated SQL.
+9. **Browser-test client-mounted routes** with dependency versions compatible with the installed React major.
 10. **No raw JSON in operator UI** — structured controls with plain-language labels.
 11. **One canonical public origin** for every public URL, identical across apps.
-12. **Live provider keys only in gitignored env; tests use stubs.**
+12. **Keep provider keys private** — tests use stubs, saved evidence is redacted, and production never silently substitutes demo data.
+
+### Public documentation and saved lessons
+
+READMEs, release notes, and bundled guidance use generic technical requirements without real project names, customer domains, incident anecdotes, or private metrics. Keep source evidence in project-local memory. Promote only the failure mechanism, applicable conditions, corrective action, and verification check.
 
 ## 🚀 Quick start
 
@@ -109,7 +113,7 @@ superdev-build (main agent executes; subagents optional, one at a time)
   Step 1  Plan: PRD_DIGEST → DESIGN_DIGEST → AUDIT (+DECISIONS) → EXECUTION_PLAN → user confirms
   Step 2  Stack: Nest.js | Laravel  (→ Inertia | Next.js)   → STACK.md
   Step 3  Bootstrap monorepo + Docker infra → prove it boots (health endpoints)
-  Step 4  Contracts: ALL view shapes, one owner → build (CJS) → checkpoint
+  Step 4  Contracts: ALL view shapes, one owner → build for consumers → checkpoint
   Step 5  Per module, sequentially:
             backend → typecheck/tests → BOOT dist → curl → side-effect proof
             frontend (canonical contract only) → typecheck → browser-open in prod mode
@@ -117,11 +121,11 @@ superdev-build (main agent executes; subagents optional, one at a time)
   Step 7  verify-done.mjs green + audits clean = done. Lessons written down.
 ```
 
-**Agents (54)** are auto-loaded from `plugins/superdev/agents/` — the single source of truth, never copied into projects. Read-only auditors can be dispatched any time; builder agents are checklists the main agent usually executes itself, dispatchable for one bounded module when context demands. No install scripts, no extraction, no stale copies (v1's installer shipped abridged agent versions — e.g. a 774-char `integration-tester` where the real one is ~9k).
+**Agents (54)** are auto-loaded from `plugins/superdev/agents/`, the single source of truth. Read-only auditors can check bounded scopes; builder agents provide checklists for one module at a time. Agent-copy installers and extraction scripts remain removed.
 
-**No hooks.** v1's bash hook machinery (auto-typecheck, stack-up checks, frustration detection, done-gate Stop sentinel) was Windows-hostile and silently inert in practice. Verification is explicit and cross-platform: run the checks, read the result.
+**Verification is explicit:** run the checks and read their results. Browser, database, and stack-specific runtime evidence supplement the automated gate.
 
-## 🏗️ Architectural commitments (unchanged, now actually enforced)
+## 🏗️ Architectural commitments
 
 | # | Commitment |
 |:---:|:---|
@@ -167,7 +171,9 @@ superdev/
 python -m unittest discover -s tests -v
 ```
 
-Fails on: missing/mismatched frontmatter, broken skill links, stale counts in README/manifests, any reference to the removed conductor/install/hook machinery, recipes re-teaching the `patchNestJsSwagger` crash, and zip drift.
+On Windows, run the full Python suite inside WSL so installer tests use Bash-compatible paths. Run `node --check plugins/superdev/scripts/verify-done.mjs` separately if Node is available only on the Windows host.
+
+Checks cover frontmatter, links, inventory, removed machinery, unsafe Swagger scaffolding, archive parity, public-guidance attribution, and hard-rule scope/verification fields.
 
 ## ⚙️ Requirements
 

@@ -2,7 +2,7 @@
 
 A Claude Code + Codex plugin bundling **18 skills + 54 agents** for full-stack monorepo builds: direct sequential building by the main agent, recipe skills for each stack layer, read-only auditor agents, design preservation, atomic frontend refactoring, and live runtime verification.
 
-> **v2.0.0 — the conductor is gone.** SuperDev v1 routed everything through a conductor skill that dispatched parallel builder waves, installed agent copies into each project, and graded its own completion ledger. Across the production projects built with it (ForgeMyTool, PostMitra, 4Brokr), that model caused parallel contract races, green static gates over dead runtimes, stale abridged agent installs, and "done" claims nothing machine-checkable backed. v2 keeps everything that proved valuable — the recipes, the auditors, the conventions — and replaces the conductor with [`superdev-build`](skills/superdev-build/SKILL.md): the main agent builds directly, one verified module at a time, and [`scripts/verify-done.mjs`](scripts/verify-done.mjs) runs the done checks live (including booting the built API). The failure lessons are codified in [`hard-rules.md`](skills/superdev-build/references/hard-rules.md).
+> **v2.0.1** uses [`superdev-build`](skills/superdev-build/SKILL.md) for direct sequential builds and [`scripts/verify-done.mjs`](scripts/verify-done.mjs) for automated checks. The conductor, hooks, agent-copy installers, and completion ledgers remain removed. Each of the 12 [`hard rules`](skills/superdev-build/references/hard-rules.md) states its scope and required verification.
 
 ## Host support
 
@@ -52,8 +52,14 @@ The default build path executes builder checklists in the main session; dispatch
 |---|---|---|
 | Typecheck + tests + **boot the dist + curl health** + one real endpoint + one side effect | After every backend module | `superdev-build` Step 5 (hard-rules #1, #5) |
 | Typecheck + browser-open the route in production mode | After every frontend module | Step 5 (hard-rules #9) |
-| Full live gate: per-package typecheck/lint/build, boot, contracts format, swagger landmine, suppression + placeholder sweeps | Before any "done" claim | `node scripts/verify-done.mjs` (see `superdev-done`) |
+| Automated gate: per-package typecheck/lint/build, default Nest.js boot, contracts format, Swagger landmine, suppression + placeholder sweeps | Before any "done" claim | `node <superdev-plugin>/scripts/verify-done.mjs` (see `superdev-done`) |
 | Security / QA / completeness / readiness | Step 6, by risk | Standalone audit skills above |
+
+The script does not prove all hard rules or Laravel runtime readiness. Record the remaining stack-specific, browser, database, and security checks separately.
+
+## Public documentation and lessons
+
+Public READMEs, release notes, and bundled guidance contain no real project names, customer domains, incident anecdotes, or private metrics. Private provenance stays in project-local memory. Promote only a generic rule, its scope, corrective action, and verification check.
 
 ## Placeholder convention
 
@@ -90,7 +96,7 @@ I have a PRD at docs/PRD.md and a design at design/. Build the full-stack app.
 
 ## Architectural commitments (all skills)
 
-1. **Monorepo + shared contracts** — one source of truth for wire shapes (CommonJS contracts build, hard-rules #3)
+1. **Monorepo + shared contracts** — one source of truth for wire shapes (CommonJS exports for the default CommonJS Nest.js consumer, hard-rules #3)
 2. **View-shape contract** — API returns render-ready data; UI renders without `?.`/`??` on contract fields
 3. **Title-Case enums** — DB = wire = UI label
 4. **shadcn/ui only** — every visual primitive from `@/components/ui/*`; confirm Radix vs Base UI first
@@ -106,6 +112,8 @@ python -m unittest discover -s tests -v   # plugin integrity: frontmatter, links
 ```
 
 After changing `skills/`, `agents/`, or `scripts/`, refresh `superdev.zip` (zip the `plugins/superdev/` tree under a `superdev/` prefix) and run the tests — they fail on zip drift. In Claude Code, `/reload-plugins` picks up changes.
+
+On Windows, run the full Python suite inside WSL. If Node is available only on Windows, run `node --check plugins/superdev/scripts/verify-done.mjs` separately from the repository root.
 
 ## License
 

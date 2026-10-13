@@ -2,9 +2,16 @@
 
 All notable changes to Superdev are documented here. Releases are annotated git tags (`vX.Y.Z`) on `main`; from v2.0.0 they are also published as GitHub Releases with the packaged `superdev.zip` attached.
 
+## v2.0.1 — 2026-10-13
+
+- Public READMEs, release guidance, and bundled skills describe generic requirements without real project names, customer domains, incident anecdotes, or private metrics.
+- All 12 hard rules now state their applicable scope and verification. Dependency guidance follows the installed stack; credentials and saved evidence must be redacted, and production integrations cannot silently substitute demo stubs.
+- Self-learning retains redacted provenance in project-local memory and promotes only the generic mechanism, scope, corrective action, and verification check. Removed conductor, hooks, agent-copy installers, and completion ledgers remain removed.
+- Validation instructions cover Windows/WSL path handling, and regression checks cover public attribution, generic domains, and hard-rule scope/verification fields. The packaged plugin is refreshed.
+
 ## v2.0.0 — 2026-10-13
 
-**The conductor is removed.** SuperDev v1 routed every build through an orchestrator skill that dispatched parallel builder waves, installed agent copies into each project, threaded lessons via bash hooks, and graded its own completion ledger. Evidence from the production projects built with it (ForgeMyTool, PostMitra, 4Brokr) showed parallel contract races, production binaries dead on arrival under green test suites, stale abridged agent installs, and done-claims no machine check backed. v2 keeps the recipes, auditors, and conventions — the main agent builds directly and proves each step at runtime.
+**The conductor is removed.** Superdev v2 uses direct sequential builds, canonical contracts, and live runtime verification. The main agent executes the recipes and uses standalone audits; agent copies, bash hook machinery, and self-graded completion ledgers are removed.
 
 ### Added
 
@@ -17,7 +24,7 @@ All notable changes to Superdev are documented here. Releases are annotated git 
 
 - Recipes fixed at the source: NestJS scaffolding/validation no longer call `patchNestJsSwagger()` (boot crash on @nestjs/swagger 11; docs setup is try/catch-guarded), contracts package builds as **CommonJS** with `require` exports, `@Audit` guidance now places the decorator on **controller handlers** with a runtime side-effect proof, env schema warns against secret defaults, the dual-mode mock route sanitizes path segments and is demo-gated, and `design-to-nextjs` requires confirming the shadcn backing library (Radix vs Base UI) before composing components.
 - `production-readiness-audit`: every 1–10 score must cite its command/browser/DB evidence (uncited = 0); state lives in `READINESS.md` only.
-- `superdev-self-learning`: deliberate, manual lesson capture (no hooks); stack-general lessons are promoted into `hard-rules.md` instead of staying siloed in one project (the failure mode that let the same boot crash ship twice).
+- `superdev-self-learning`: deliberate, manual lesson capture (no hooks); transferable technical rules are promoted into `hard-rules.md`.
 - Build order language is dependency **groups** built **sequentially** everywhere (plan format, builders, migration) — no parallel backend+frontend work against a same-step contract.
 - All bundled-resource references are plugin-relative; the v1.8.1 project-scoped install contract (installer helper, `--scope project`, tests) is retained and its docs updated to v2.
 
