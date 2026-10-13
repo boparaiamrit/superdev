@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import unittest
 import zipfile
@@ -71,6 +72,7 @@ class ConductorRemovedTests(unittest.TestCase):
                     bad.append(f"{p.relative_to(ROOT)}: {needle}")
         self.assertEqual([], bad, "\n" + "\n".join(bad[:30]))
 
+    @unittest.skipUnless(shutil.which("node"), "node not on PATH in this environment")
     def test_verify_script_parses(self) -> None:
         script = PLUGIN / "scripts" / "verify-done.mjs"
         res = subprocess.run(["node", "--check", str(script)], capture_output=True, text=True)

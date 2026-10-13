@@ -73,11 +73,11 @@ v2's center of gravity is [`hard-rules.md`](plugins/superdev/skills/superdev-bui
 **Claude Code:**
 
 ```shell
-/plugin marketplace add boparaiamrit/superdev
-/plugin install superdev@superdev
+claude plugin marketplace add boparaiamrit/superdev --scope project
+claude plugin install superdev@superdev --scope project
 ```
 
-Or from the bundled zip: `bash install-superdev.sh` (extracts to `~/.claude/plugins/superdev/` and registers it). For local dev: `claude --plugin-dir ~/superdev/plugins/superdev`.
+Run them from the target Git project — Superdev is **project-scoped only** (never user scope). The bundled helper `bash /path/to/superdev/install-superdev.sh` delegates to the same two commands with `--scope project` and refuses to run outside a Git project. For plugin development only: `claude --plugin-dir ~/superdev/plugins/superdev`.
 
 **Codex:** the repo-local marketplace at `.agents/plugins/marketplace.json` exposes the same plugin; see [CODEX.md](CODEX.md).
 
@@ -152,10 +152,11 @@ superdev/
 │   ├── scripts/verify-done.mjs  the live Definition-of-Done check (Node, cross-platform)
 │   ├── .claude-plugin/          Claude Code manifest
 │   └── .codex-plugin/           Codex manifest
-├── tests/                       plugin integrity tests (frontmatter, links, counts, zip parity)
+├── tests/                       plugin integrity + project-scope tests
+├── CHANGELOG.md                 release history (v2.0.0 notes + migration guide)
 ├── docs/superpowers/            historical design specs/plans (v1 era, kept for provenance)
 ├── superdev.zip                 packaged plugin (kept in sync by the integrity tests)
-├── install-superdev.sh          zip installer
+├── install-superdev.sh          project-scoped Claude installer helper
 ├── CODEX.md                     Codex host notes
 └── README.md
 ```

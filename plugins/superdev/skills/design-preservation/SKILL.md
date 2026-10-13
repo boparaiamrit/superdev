@@ -1,6 +1,6 @@
 ---
 name: design-preservation
-description: Use ONLY when the user provides a **prototype** that must be preserved — an existing HTML/Figma export, a built-and-shipping app's frontend being migrated, a hand-coded mockup the user has iterated on. Treats that prototype as a HOLY GRAIL — copies it verbatim, mirrors it inside the Next.js app, refuses to "improve" or restyle. Runs design-fidelity-auditor at every module checkpoint; flags pixel drift > 1%. Do NOT use this for Claude Design output (those are blueprints meant to be translated into shadcn; preservation would defeat the design-to-nextjs purpose).
+description: Use ONLY when the user provides a **prototype** that must be preserved — an existing HTML/Figma export, a built-and-shipping app's frontend being migrated, a hand-coded mockup the user has iterated on. Treats that prototype as a HOLY GRAIL — copies it verbatim, mirrors it inside the Next.js app, refuses to "improve" or restyle. Runs design-fidelity-auditor at every module checkpoint; flags pixel drift over 1 percent. Do NOT use this for Claude Design output (those are blueprints meant to be translated into shadcn; preservation would defeat the design-to-nextjs purpose).
 ---
 
 # Design Preservation — the Holy Grail rule
