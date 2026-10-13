@@ -2,7 +2,7 @@
 
 Every state-changing **controller handler** gets one decorator. An interceptor reads the metadata, runs the handler, and writes a structured row to the `audit_logs` TimescaleDB hypertable. Free compliance trail, zero per-handler boilerplate.
 
-> **Placement is load-bearing (hard-rules #5):** a Nest interceptor resolves metadata from `context.getHandler()` — the **controller** method. Putting `@Audit` on a *service* method makes it invisible: PostMitra shipped 71 decorated service methods writing **zero** audit rows while every test stayed green. Decorate controller handlers (or make the decorator self-acting), and prove it at runtime: perform a mutation and assert `audit_logs` gained a row.
+> **Check placement and effect (hard-rules #5):** an interceptor using `context.getHandler()` reads the **controller** handler. A service-only `@Audit` annotation is insufficient unless the decorator performs its own logging. Decorate controller handlers, then perform a real mutation and inspect the resulting `audit_logs` row, actor, and tenant.
 
 ## What gets logged
 

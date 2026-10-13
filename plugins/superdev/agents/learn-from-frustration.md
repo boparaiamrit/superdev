@@ -63,7 +63,7 @@ metadata:
 
 <The rule, stated as a directive — "Do X" or "Never Y" — in one or two sentences.>
 
-**Why:** <The triggering event. Cite specific commits / files / agent outputs.>
+**Why:** <The triggering event with redacted project-local evidence. Never include credentials or customer payloads.>
 
 **How to apply:** <When / where the rule kicks in. Which agent's prompt should include it. Specific phrasing that would catch the case.>
 
@@ -83,6 +83,8 @@ This index is what the main agent skims at build start to know which lessons exi
 ### 6. Enforce project scope
 
 Keep every lesson in the current repository. Superdev must never write learned memory or instructions to a user-level or personal configuration file. If the user asks to reuse a lesson elsewhere, explain that they must copy or restate it in the other project explicitly.
+
+For public plugin guidance, propose only the failure mechanism, applicable scope, corrective action, and verification check. Project names, customer domains, incident dates, private metrics, and source anecdotes stay in project-local memory.
 
 ## Output
 

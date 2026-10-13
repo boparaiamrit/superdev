@@ -1,68 +1,114 @@
-# Hard Rules — failures that already shipped once
+# Hard Rules — reusable build and verification requirements
 
-Every rule below was learned on a real project built with SuperDev (ForgeMyTool/ForgeMesh, PostMitra, 4Brokr, June 2026) and originally recorded in that project's `.claude/memory/superdev-learned/`. They live here now because project-siloed lessons did not prevent the *same* bug on the *next* project (rule #2 was learned on ForgeMyTool on 2026-06-20 and still hit PostMitra). Read this file before building; the checks are part of [`verify-done.mjs`](../../../scripts/verify-done.mjs) where automatable.
+Read these rules before building. Apply each rule to the stack and configuration actually in use, and record its verification result. Static checks, runtime checks, and product audits cover different failure modes; none substitutes for the others.
 
-## Runtime truth beats static green
+Public documentation and bundled guidance contain no real project names, customer domains, local paths, incident dates, or customer metrics. Keep private provenance in project-local memory. Promote only the failure mechanism, applicable conditions, corrective action, and a reproducible check. Do not restore the removed conductor, hooks, agent-copy installers, or completion ledgers.
 
-### 1. Boot the built artifact, every module — green tests prove nothing about boot
+## Runtime and contract verification
 
-Run `node apps/api/dist/main.js` and `curl /health` + `/health/ready` (DB up) after every backend module. PostMitra had **119 unit + 15 e2e tests passing and `turbo build` green while the production binary was dead on arrival**. Jest hides boot failures twice: `moduleNameMapper` runs TS source (not the built exports), and `Test.createTestingModule` never executes `main.ts`.
+### 1. Boot the built artifact after each backend module
 
-### 2. Never call `patchNestJsSwagger()` with @nestjs/swagger 11
+**Scope:** Backend modules and their production entry points, on the selected stack.
 
-`nestjs-zod@4.3.1`'s `patchNestJsSwagger()` deep-imports `@nestjs/swagger/dist/services/schema-object-factory`, which swagger 11 no longer exports — the app crashes on boot (both ForgeMyTool and PostMitra). Use `ZodValidationPipe` for validation; wrap `SwaggerModule.setup` in try/catch so doc generation can never crash boot. Only reintroduce with a verified compatible version pair, proven by rule #1.
+Build and start the artifact using the actual production command. For the default Nest.js layout, run `node apps/api/dist/main.js`; for Laravel, start the configured application runtime. Source-based test imports and test application factories do not exercise the production entry point.
 
-### 3. The contracts package builds as CommonJS (Nest.js stack)
+**Verify:** With required infrastructure healthy, request the configured health and readiness endpoints, then exercise a real module endpoint. Confirm the process stays alive and inspect its logs. Record the command and results.
 
-A CommonJS Nest app `require()`-ing an ESM-only `@<scope>/contracts` (`"type": "module"`, import-only exports) throws `ERR_PACKAGE_PATH_NOT_EXPORTED` at boot. Build contracts with `module: "CommonJS"`, `moduleResolution: "node10"`, no `"type": "module"`, and `exports` covering `require`/`import`/`default` → `./dist/index.js`. Next.js consumes it via `transpilePackages`. Never flip it back.
+### 2. Use supported validation and API-documentation integration
 
-### 4. Contracts have one owner and come first — the parallel race rule
+**Scope:** Nest.js projects using Zod and Swagger.
 
-When backend and frontend are built against a contract created *in the same step*, the frontend cannot see it and invents a local schema; demo mode passes, production parsing fails, and typecheck/build see nothing (PostMitra Wave 6, `InsightsView`). Author all view shapes in `packages/contracts` up front; the frontend imports the canonical type and **must not** define a local `z.object`/`z.discriminatedUnion` for a server view (form/filter input schemas may stay local). New shape mid-build → contracts first, rebuild, then code.
+Do not scaffold `patchNestJsSwagger()` or private deep imports into Swagger internals. Use `ZodValidationPipe` and documented integration supported by the installed dependency versions. Keep optional documentation initialization isolated from application startup; report failures instead of silently hiding them. Required documentation must pass verification.
 
-### 5. Cross-cutting decorators must sit where the framework reads them — verify the side effect
+**Verify:** Build and boot the production artifact, submit valid and invalid request bodies, and request the generated documentation when enabled. A package-version change requires repeating these checks.
 
-A Nest interceptor/guard resolves metadata from the **controller** handler (`context.getHandler()`). PostMitra shipped **71 `@Audit`-decorated service methods writing 0 `audit_log` rows** because the decorator sat on services. Either put the decorator on the controller method, or make it self-acting (wrapping decorator reading actor/tenant from request context). Then prove it: perform a real mutation and assert the row exists (`SELECT count(*) FROM audit_log` increased). General form: **verify the side effect at runtime, never the decorator's presence** — same for permission checks, metrics, and computed aggregates (presenters must `SELECT COUNT`, never hardcode counts).
+### 3. Match contracts to the backend module format
 
-## Scaffolding defaults are production defaults
+**Scope:** Shared TypeScript contracts consumed by the default CommonJS Nest.js backend.
 
-### 6. No default secrets, no unsanitized filesystem routes, no ungated mocks
+Build contracts as CommonJS with a working `require` export and matching output paths. Do not expose import-only ESM exports to a CommonJS consumer. Keep frontend imports pointed at the same canonical package. An intentional module-format migration must cover all consumers, build configuration, tests, and verification together.
 
-Scaffolders optimize for "boots out of the box" and silently trade away security (flagged on PostMitra's bootstrap commit):
+**Verify:** Load the built contracts from the backend's built entry point, boot the API, and build the frontend. Source aliases in a test runner are insufficient evidence of package-export compatibility.
 
-- Secret env vars (`JWT_*_SECRET`, `S3_*_KEY`, …) get **no `.default()`** in the schema. Use a `NODE_ENV`-gated refine that aborts boot when absent outside development; dev values live only in the gitignored `.env`.
-- Any `[...path]` route touching the filesystem validates each segment (`/^[a-zA-Z0-9_-]+$/`), rejects `..`/separators/NUL, and asserts the resolved path stays inside its base dir.
-- Demo/mock route handlers register only behind an explicit demo-mode flag and are excluded from production builds.
+### 4. Author canonical contracts before feature code
 
-### 7. Confirm the shadcn backing library before writing components
+**Scope:** API responses and frontend consumers sharing a wire contract.
 
-SuperDev references are Radix-shaped, but a project may run **base-nova on `@base-ui/react`** (PostMitra: `"style": "base-nova"` in `components.json`, 54 primitives importing `@base-ui/react`). On Base UI: **no `asChild`** — compose with the `render` prop (a React element); menu items use `onClick`, not `onSelect`; state classes use `data-open`/`data-active`, not `data-[state=...]`; `FormControl` is render-prop; tooltips need a provider ancestor. Before writing any component, read one existing `components/ui/*` primitive and mirror an existing usage. A missing primitive gets copied from a sibling app — never `shadcn add` the Radix version into a Base UI project.
+Give contracts one owner. Define all planned view shapes before building their modules, and import the canonical types and runtime schemas. Do not invent local response schemas in the frontend; form and filter input schemas may remain local. For a new shape during implementation, update and rebuild contracts before either consumer. Build dependent modules sequentially.
 
-### 8. drizzle-kit gets its own tsconfig target
+**Verify:** Compare an actual production-mode response with the shared schema and render it through the frontend. Check for duplicate local response schemas and conflicting exports.
 
-`drizzle-kit generate` crashes with `Invalid target "es2023"` reading a shared tsconfig whose target its bundled esbuild rejects (ForgeMyTool bootstrap). Give drizzle-kit its own tsconfig/config with `target: "es2022"` (or a JS config) and prove `db:generate` emits SQL before calling the first backend module done.
+### 5. Verify permissions and side effects at runtime
 
-### 9. Client-mounted libraries fail only in the browser — smoke them
+**Scope:** Mutations, audit logging, authorization, metrics, and computed aggregates.
 
-`@react-three/fiber` v8 on React 19 throws `ReactCurrentOwner` undefined the moment `<Canvas>` mounts; `tsc`, `next build`, and eslint all pass (ForgeMyTool; fix: `@react-three/fiber@^9` + `@react-three/drei@^10`, zero API changes). Rule: pin React-19-compatible majors for reconciler-based libs, and **browser-smoke every route that client-mounts canvas/WebGL/charts/editors** with zero console errors. A green build is not evidence these routes work.
+Put metadata where the framework reads it. A Nest.js interceptor using `context.getHandler()` reads the controller handler, so a service-only `@Audit` annotation is insufficient unless the decorator executes its own logging. Compute aggregates from the real data source rather than fixture constants.
 
-## Operator-facing product rules
+**Verify:** Perform an authorized mutation and inspect the resulting `audit_logs` row, including actor and tenant. Attempt a denied mutation and confirm no unauthorized change occurs. Compare aggregate output with source data. The presence of a decorator is not proof of its effect.
 
-### 10. No raw JSON in operator UI
+## Scaffolding and dependency requirements
 
-Admin/operator surfaces are run by non-developers. Never ship raw JSON textareas, key-value blobs, or magic-number sentinels (`999999999` = unlimited) — render structured controls (number/text inputs, switches, selects, "Unlimited" toggles) with plain-language labels and readable summaries (4Brokr, 2026-06-27). A "structured form + advanced JSON escape hatch" still fails; an advanced editor is an explicit product decision, not a default. Smell test: grep operator apps for `Textarea`, `JSON.stringify`, `JSON.parse`, `<pre>` in config UIs.
+### 6. Require secrets, constrain filesystem access, and gate mocks
 
-### 11. One canonical public origin for every public URL
+**Scope:** Environment schemas, filesystem-backed routes, and demo adapters.
 
-Public links (microsites, share links, profiles) come from a single dedicated public origin (apex domain, e.g. `NEXT_PUBLIC_PUBLIC_SITE_URL` or a shared contracts constant) — never from dashboard/app env vars (`*_APP_URL` is for authenticated handoffs). 4Brokr's admin showed `app.4brokr.com/broker/…` while every public surface showed `4brokr.com/broker/…`. When you touch a public URL builder, grep the other apps and confirm identical output for the same entity.
+Do not provide default credentials in source or schemas. Require production credentials through server environment or secret storage. Validate filesystem path segments, reject traversal and separators, and prove resolved paths stay within the permitted base directory. Enable demo/mock routes only in explicit demo mode and exclude them from production builds.
 
-### 12. Secrets and live providers stay out of tests and commits
+**Verify:** Missing required production secrets prevent startup or explicitly disable the dependent feature. Traversal requests cannot read outside the permitted directory. Production requests cannot reach demo routes or silently receive fixture data.
 
-Live API keys live only in the gitignored server `.env`; never in committed files or client bundles (grep the client output for key absence before shipping AI features). Tests/CI use stub adapters — never call a real paid provider from a test suite. Verify a provider integration once, live, by hand (record endpoint, auth header, exact working payload, and real model names — do not guess model IDs), then env-gate the real adapter behind key presence with the stub as no-key fallback.
+### 7. Confirm the installed shadcn backing library
+
+**Scope:** Frontend components composed from shadcn primitives.
+
+Inspect `components.json`, installed dependencies, and existing primitive imports. A style such as `base-nova` is a hint; the installed implementation is the source of truth. Mirror its composition API. Do not copy Radix `asChild` patterns into Base UI components or install an incompatible primitive. Reuse a sibling implementation only after checking compatibility.
+
+**Verify:** Typecheck and browser-test the composed component, including open/close behavior, selection events, keyboard interaction, and provider requirements. Use the actual installed component API.
+
+### 8. Keep migration tooling compatible with its compiler
+
+**Scope:** Projects using drizzle-kit.
+
+If migration tooling rejects the application's TypeScript target, isolate its configuration with a supported target, such as `es2022`, rather than changing the whole application blindly. Check the installed tooling's accepted configuration; an `es2023` rejection is a compatibility condition, not a universal ban on that target.
+
+**Verify:** Run `db:generate` or the configured migration-generation command and inspect the emitted SQL before completing the first backend module.
+
+### 9. Verify client-mounted libraries in the browser
+
+**Scope:** Routes mounting canvas, WebGL, charts, editors, or custom React reconcilers.
+
+Choose dependency versions compatible with the installed React major and with one another. A successful typecheck or server build does not prove that a browser-mounted component works. Avoid treating a previously working version pair as a permanent recommendation.
+
+**Verify:** Open each affected route against the running application, mount and interact with the component, and inspect console and network errors. Verify production-mode loading as well as development rendering.
+
+## Product and provider requirements
+
+### 10. Use structured controls in operator interfaces
+
+**Scope:** Configuration surfaces used by non-developer operators.
+
+Use labeled inputs, switches, selects, readable summaries, and explicit controls for states such as unlimited. Do not require raw JSON, opaque key-value blobs, or numeric sentinels for routine operation. A developer-oriented editor requires an explicit product requirement and appropriate validation.
+
+**Verify:** Complete the configuration task through the UI without editing JSON or knowing internal field names. Inspect validation, saved values, and the resulting behavior. Source searches identify candidates; inspect their user-facing purpose before deciding they violate this rule.
+
+### 11. Use the configured canonical origin for public links
+
+**Scope:** Public-site links generated by dashboards, APIs, and other applications.
+
+Use one dedicated public-site origin, such as `NEXT_PUBLIC_PUBLIC_SITE_URL`, consistently across link builders. Keep authenticated application origins separate. The public origin may use an apex domain or a configured subdomain; do not derive it from an unrelated dashboard setting.
+
+**Verify:** Generate the same public entity link from each application and compare the result. Open it without an authenticated dashboard session and verify it reaches the intended public surface.
+
+### 12. Keep provider credentials private and production behavior explicit
+
+**Scope:** Live provider integrations, tests, logs, and saved lessons.
+
+Keep keys in server-side secret storage or gitignored environment files, never in committed files, client bundles, logs, or memory. Automated tests use stubs. A live integration probe requires task authorization and a configured test account. Record the endpoint shape, header names, redacted payload, supported model identifier, and result; never record authentication-header values or customer payloads.
+
+**Verify:** Check client output and saved artifacts for secret leakage. Confirm tests use stub adapters. A required production integration with missing credentials must fail clearly or be explicitly disabled; it must not silently fall back to a demo stub.
 
 ## Applying these rules
 
-- **Step 3 (bootstrap):** #3, #6, #7 (detect at scaffold), #8, #9 (pins).
-- **Step 4 (contracts):** #3, #4.
-- **Step 5 (build loop):** #1, #2, #5, #9 after every module; #10, #11 on every operator/public surface.
-- **Step 6–7 (audits + verify):** `verify-done.mjs` automates #1 (boot+curl when a dist exists) and the suppression/placeholder sweeps; auditors explicitly check #5 side effects and #4 local view schemas.
+- **Bootstrap:** apply #3, #6, #7, #8, and #9 to the selected stack.
+- **Contracts:** verify #3 and #4 before implementing consumers.
+- **Module loop:** verify #1, #2, #5, and #9 where applicable; check #10 and #11 on operator and public surfaces.
+- **Audits and completion:** [`verify-done.mjs`](../../../scripts/verify-done.mjs) checks configured package scripts, default Nest.js boot/health, contracts format, forbidden Swagger patch calls, suppressions, and placeholders. It does not prove all 12 rules or Laravel runtime readiness. Record the remaining browser, database, security, and stack-specific evidence separately.

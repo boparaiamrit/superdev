@@ -149,5 +149,34 @@ class HardLearnedRulesTests(unittest.TestCase):
             self.assertIn(needle, hard, f"hard-rules.md must cover: {needle}")
 
 
+class PublicGuidanceTests(unittest.TestCase):
+    def test_hard_rules_have_scope_and_verification(self) -> None:
+        hard = read(SKILLS / "superdev-build" / "references" / "hard-rules.md")
+        rules = re.findall(r"^### (\d+)\. (.*?)(?=^### |^## |\Z)", hard, re.M | re.S)
+        self.assertEqual(list(range(1, 13)), [int(number) for number, _ in rules])
+        for number, rule in rules:
+            with self.subTest(rule=number):
+                self.assertIn("**Scope:**", rule)
+                self.assertIn("**Verify:**", rule)
+
+    def test_public_guidance_has_no_case_study_attribution(self) -> None:
+        paths = [ROOT / "README.md", PLUGIN / "README.md", ROOT / "CHANGELOG.md",
+                 SKILLS / "superdev-build" / "SKILL.md",
+                 SKILLS / "superdev-build" / "references" / "hard-rules.md",
+                 SKILLS / "superdev-self-learning" / "SKILL.md"]
+        attribution = re.compile(
+            r"projects built with it\s*\(|learned on [A-Z][\w-]+|"
+            r"\b\d+ (?:unit|audit decorators)|\bWave \d+,", re.M)
+        for path in paths:
+            with self.subTest(path=str(path.relative_to(ROOT))):
+                self.assertIsNone(attribution.search(read(path)))
+
+    def test_hard_rule_domains_are_generic(self) -> None:
+        hard = read(SKILLS / "superdev-build" / "references" / "hard-rules.md")
+        domains = re.findall(r"\b(?:[a-z0-9-]+\.)+(?:com|org|net|io)\b", hard, re.I)
+        for domain in domains:
+            self.assertIn(domain.lower(), {"example.com", "example.org", "example.net"})
+
+
 if __name__ == "__main__":
     unittest.main()

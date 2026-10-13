@@ -5,18 +5,18 @@ description: Capture hard lessons from corrections, reverts, verifier rejections
 
 # SuperDev Self-Learning — lessons, written down once
 
-When a build goes wrong in a way that teaches something — the user corrects the approach, reverts generated code, a verifier rejects a fix, a runtime check catches what static gates missed — write the lesson to project memory in a strict format, and read project memory **once at the start of a build** (plus before dispatching an agent a lesson explicitly names). That is the whole loop. Earlier versions automated this with bash frustration-detection hooks and per-dispatch threading; the hooks never ran reliably cross-platform and at least once filed one project's frustration into another project's memory, so capture is now a deliberate act by the main agent.
+When a correction or failed verification reveals an actionable rule, write it deliberately to project-local memory. Read relevant lessons **once at build start**, and before a dispatch explicitly named by a lesson. Keep the evidence local and redact credentials and customer payloads.
 
 ## The rule
 
 ```
 A REAL FAILURE BECOMES A WRITTEN LESSON, OR IT WILL HAPPEN AGAIN.
 PROJECT LESSONS LIVE IN .claude/memory/superdev-learned/.
-STACK-GENERAL LESSONS ARE PROMOTED TO superdev-build/references/hard-rules.md —
-A LESSON SILOED IN ONE PROJECT DID NOT PREVENT THE SAME BUG IN THE NEXT.
+TRANSFERABLE RULES MAY BE PROMOTED TO superdev-build/references/hard-rules.md.
+PRIVATE PROVENANCE STAYS IN PROJECT-LOCAL MEMORY.
 ```
 
-The canonical cautionary tale: the `patchNestJsSwagger` boot crash was learned on ForgeMyTool (2026-06-20, project memory only) and still shipped on PostMitra. Both lessons now live in `hard-rules.md`. When you write a project lesson, ask: *would this bite a different project on the same stack?* If yes, say so in your summary so it can be promoted — do not just file it locally.
+Before promotion, identify the failure mechanism, applicable conditions, corrective action, and reproducible check. Public READMEs, release notes, and bundled guidance must contain no real project names, customer domains, local paths, incident dates, private metrics, commit anecdotes, or copied customer evidence. Preserve those details only in the originating project's memory when needed, with secrets and personal data redacted.
 
 ## When to write a lesson
 
@@ -46,7 +46,7 @@ metadata:
 
 <The rule>
 
-**Why:** <the concrete failure — files, agents, observed behavior. Cite evidence.>
+**Why:** <the concrete failure and redacted local evidence; never credentials or customer payloads>
 
 **How to apply:** <when/where the rule kicks in; the exact check that proves compliance>
 
@@ -59,7 +59,7 @@ Full template and field rules: [`references/memory-entry-format.md`](references/
 
 1. **Build start:** `superdev-build` Step 0 — the main agent skims `.claude/memory/superdev-learned/` once and keeps relevant constraints in working memory for the build.
 2. **Before a named dispatch:** if an entry's `applies_to_agents` includes the agent about to be dispatched, append the entry (rule + why) to its prompt under `## Lessons learned in this project`.
-3. **Promotion:** stack-general lessons are proposed for [`../superdev-build/references/hard-rules.md`](../superdev-build/references/hard-rules.md) with their project/date provenance. Only the user edits global/personal memory outside the project — never write there unasked.
+3. **Promotion:** propose the generic rule, applicable scope, corrective action, and verification check for [`../superdev-build/references/hard-rules.md`](../superdev-build/references/hard-rules.md). Keep project/date provenance local; do not copy it into the plugin, public documentation, package, or release notes. Do not write global/personal memory without an explicit user instruction.
 
 ## Reference files
 

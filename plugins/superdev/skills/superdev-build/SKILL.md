@@ -5,7 +5,7 @@ description: Build a full-stack monorepo from a PRD + design handoff, directly a
 
 # SuperDev Build — direct, sequential, verified
 
-**You build the product yourself, in this session.** There is no orchestrator/conductor dispatching a fleet of builder subagents in parallel waves — that model was removed in v2.0.0 because, across the projects built with it, it produced contract races between parallel agents, green static gates over dead runtimes, and "done" ledgers the same agents had graded themselves.
+**You build the product yourself, in this session.** Plan the work, author canonical contracts, and build dependent modules sequentially with runtime proof. The conductor, parallel builder waves, hooks, agent-copy installers, and completion ledgers remain removed.
 
 What you have instead:
 
@@ -15,7 +15,7 @@ What you have instead:
 
 ## Before anything: read the hard rules
 
-Read [`references/hard-rules.md`](references/hard-rules.md) once at the start of the build. Every rule in it is a failure that already shipped once on a real SuperDev project (dead-on-arrival dist under green tests, 71 `@Audit` decorators writing zero rows, parallel agents inventing conflicting schemas, dev-default JWT secrets, Radix code on a Base UI install). They override any conflicting general habit.
+Read [`references/hard-rules.md`](references/hard-rules.md) once at build start. Each rule states its applicable scope and required verification. Apply stack-specific requirements to the installed configuration, and preserve project-specific evidence in local memory rather than public guidance.
 
 If the target project has `.claude/memory/superdev-learned/`, skim it once now (not before every step) for project-specific constraints.
 
@@ -45,7 +45,7 @@ Persist `backend_stack` (and `frontend_stack`) in `STACK.md` and `EXECUTION_PLAN
 
 Scaffold the monorepo (the `monorepo-bootstrapper` agent file is the checklist; execute it yourself): pnpm/Turbo workspace (or the repo's existing PM), `apps/api` + `apps/web` + `packages/contracts` (single Laravel app for Inertia), root `docker-compose.yml` with healthchecks for every infra service, shadcn init + bulk primitives, `.env.example` complete.
 
-Scaffold-specific hard rules apply here (no `.default()` secrets, contracts built as CommonJS, drizzle-kit gets its own tsconfig target, React-19-compatible 3D libs, mock routes sanitized and demo-gated — see hard-rules).
+Apply the hard rules for the selected stack: no `.default()` secrets, CommonJS contracts for the default CommonJS Nest.js consumer, compatible migration-tool configuration and client libraries, and sanitized, demo-gated mock routes.
 
 Then prove the skeleton: infra up and healthy, API boots, web boots, `/health` + `/health/ready` answer. Do not proceed on "it typechecks."
 
@@ -89,9 +89,9 @@ Run the gate from the target repo root and read its verdict:
 node <superdev-plugin>/scripts/verify-done.mjs
 ```
 
-Exit 0 plus clean Step-6 audits is "done." Anything red is fixed at root cause and re-run. There is no ledger to mark `pass` by hand and no sentinel to delete.
+Exit 0 is required alongside clean Step-6 audits and recorded verification of every applicable hard rule. The script's default Nest.js boot check does not establish Laravel runtime readiness or replace browser, database, and security evidence. Fix failed checks at their root cause and re-run them.
 
-If the user corrected you, a verifier rejected work, or a runtime check caught what static gates missed, append the lesson to `.claude/memory/superdev-learned/<topic>.md` in the format from [`superdev-self-learning`](../superdev-self-learning/SKILL.md). If the lesson is stack-general (it would bite the next project too), say so — it belongs in this plugin's `hard-rules.md`, not siloed in one project.
+If a correction or failed check reveals a reusable lesson, record redacted evidence in `.claude/memory/superdev-learned/<topic>.md` using [`superdev-self-learning`](../superdev-self-learning/SKILL.md). Propose only the generic rule, scope, corrective action, and verification check for `hard-rules.md`. Keep project names, domains, incident details, and private metrics out of public documentation and bundles.
 
 ## Conventions every step enforces
 
