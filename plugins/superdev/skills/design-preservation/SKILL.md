@@ -1,6 +1,6 @@
 ---
 name: design-preservation
-description: Use ONLY when the user provides a **prototype** that must be preserved — an existing HTML/Figma export, a built-and-shipping app's frontend being migrated, a hand-coded mockup the user has iterated on. Treats that prototype as a HOLY GRAIL — copies it verbatim, mirrors it inside the Next.js app, refuses to "improve" or restyle. Runs design-fidelity-auditor at every Phase C wave gate; flags pixel drift > 1%. Do NOT use this for Claude Design output (those are blueprints meant to be translated into shadcn; preservation would defeat the design-to-nextjs purpose).
+description: Use ONLY when the user provides a **prototype** that must be preserved — an existing HTML/Figma export, a built-and-shipping app's frontend being migrated, a hand-coded mockup the user has iterated on. Treats that prototype as a HOLY GRAIL — copies it verbatim, mirrors it inside the Next.js app, refuses to "improve" or restyle. Runs design-fidelity-auditor at every module checkpoint; flags pixel drift > 1%. Do NOT use this for Claude Design output (those are blueprints meant to be translated into shadcn; preservation would defeat the design-to-nextjs purpose).
 ---
 
 # Design Preservation — the Holy Grail rule
@@ -44,15 +44,15 @@ Pixel drift > 1% in any region against the source = build fails.
 | Screenshots only, no DOM/CSS | ❌ No | ✅ Yes |
 | Mood-board / reference images | ❌ No | ✅ Yes |
 
-## How the orchestrator should use this skill
+## How the main agent should use this skill
 
-The orchestrator inspects the user's design source and routes accordingly:
+The main agent inspects the user's design source and routes accordingly:
 
-- **Source is a prototype** (user-built HTML, Figma export, existing app) → insert `design-preservation` as **Phase B.0** before `monorepo-bootstrapper`. Subsequent waves run against the preserved mirror.
+- **Source is a prototype** (user-built HTML, Figma export, existing app) → run `design-preservation` **before bootstrap** (superdev-build Step 3 reads its output). Subsequent groups run against the preserved mirror.
 - **Source is Claude Design output** → skip `design-preservation` entirely. Hand directly to `design-to-nextjs` for shadcn translation.
 - **`prototype-to-saas` is running** → `design-preservation` runs alongside `codebase-discoverer` so the UI baseline is captured before `frontend-rewirer` touches anything.
 
-When `design-preservation` IS active, the orchestrator schedules `design-fidelity-auditor` as a wave gate at the end of every Phase C feature build. Any drift > 1% from the source mirror blocks the wave from completing.
+When `design-preservation` IS active, the main agent schedules `design-fidelity-auditor` as a checkpoint at the end of every frontend module build. Any drift > 1% from the source mirror blocks the group from completing.
 
 ## The 3 phases
 
@@ -84,7 +84,7 @@ When `design-preservation` IS active, the orchestrator schedules `design-fidelit
 
 `design-source-mirror` adds a Next.js dev-only route `/__design-source/` that serves the copied files statically. The mirror renders pixel-identical to the source when opened in a browser.
 
-This is the SOURCE OF TRUTH for every later auditor. When the auditor screenshots and compares, it compares **against the mirror** — not against the original handoff path. If the mirror drifts from the source, that's a Phase 0 bug; if the componentized app drifts from the mirror, that's a Phase C bug.
+This is the SOURCE OF TRUTH for every later auditor. When the auditor screenshots and compares, it compares **against the mirror** — not against the original handoff path. If the mirror drifts from the source, that's a preservation bug; if the componentized app drifts from the mirror, that's a build bug.
 
 ### Phase 0c — Establish fidelity baseline
 
@@ -95,16 +95,16 @@ This is the SOURCE OF TRUTH for every later auditor. When the auditor screenshot
 
 Saves to `design-baseline/<page>/<viewport>.png`. Writes `FIDELITY_BASELINE.md` recording every page+viewport pair.
 
-These baselines are what every Phase C wave-gate audit compares against.
+These baselines are what every module-checkpoint audit compares against.
 
-## Phase C wave-gate audit (continuous)
+## Module-checkpoint audit (continuous)
 
 Every time a frontend agent finishes a feature, `design-fidelity-auditor` runs:
 
 1. For each route the agent built, screenshot at each viewport
 2. Pixel-diff against `design-baseline/<page>/<viewport>.png`
 3. Compute drift % per region
-4. **Fail the wave** if any region drifts > 1%
+4. **Fail the group** if any region drifts > 1%
 
 Findings go to `DESIGN_DRIFT_<feature>.md` with side-by-side images.
 
@@ -123,7 +123,7 @@ The rule: **if `design-fidelity-auditor` flags pixel drift, you violated the rul
 
 ## When the user WANTS to deviate
 
-If a wave-gate audit flags drift and the deviation is intentional, the user must explicitly mark it in `DESIGN_DEVIATIONS.md`:
+If a checkpoint audit flags drift and the deviation is intentional, the user must explicitly mark it in `DESIGN_DEVIATIONS.md`:
 
 ```markdown
 # Approved design deviations
@@ -135,20 +135,7 @@ If a wave-gate audit flags drift and the deviation is intentional, the user must
 - Drift accepted: 8% on button region
 ```
 
-The auditor reads this file. Deviations listed here don't fail the wave. **Everything else does.**
-
-## Agent teams (drift severity, optional)
-
-For drift findings between 1% and 5%, the deviation may or may not be visible to a human. Optional:
-
-```
-Dispatch 3-teammate drift debate.
-Teammate A — designer: "would this drift be noticed by the designer who made the source?"
-Teammate B — pixel-strict: "no drift is acceptable; flag everything > 0.5%"
-Teammate C — pragmatist: "is this drift below human-perception threshold for this region type?"
-
-Majority verdict. Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
-```
+The auditor reads this file. Deviations listed here don't fail the checkpoint. **Everything else does.**
 
 ## Reference files
 

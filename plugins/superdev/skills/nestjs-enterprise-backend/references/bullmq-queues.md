@@ -423,7 +423,7 @@ Each queue gets:
 - A histogram for job duration
 - A gauge for queue depth (sampled every 30s)
 
-See `references/observability.md`.
+See `observability.md`.
 
 ## Anti-patterns
 

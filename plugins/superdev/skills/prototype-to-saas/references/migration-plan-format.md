@@ -14,7 +14,7 @@ The MIGRATION_PLAN.md template that `migration-planner` writes and the user revi
 ## Summary
 
 - **Feature modules:** 11
-- **Migration waves:** 5
+- **Migration groups:** 5
 - **Total state items classified:** 87 (KEEP: 23, REWIRE: 41, DISCARD: 23)
 - **shadcn migration scope:** partial — sidebar block + form primitives + drawer
 - **Risk items:** 6 (see Risks section)
@@ -32,7 +32,7 @@ The MIGRATION_PLAN.md template that `migration-planner` writes and the user revi
 
 ## Module list
 
-| ID | Module | Wave | Source routes | Source fixtures | Notes |
+| ID | Module | Group | Source routes | Source fixtures | Notes |
 |---|---|---|---|---|---|
 | M-1 | auth | 1 | /login, /signup, /forgot-password | (none — mock auth currently) | Build from scratch; replace fake user context |
 | M-2 | workspaces | 1 | /onboarding (workspace creation) | src/data/workspaces.json (1 record — current "demo workspace") | Wire user → workspace relationship |
@@ -46,17 +46,17 @@ The MIGRATION_PLAN.md template that `migration-planner` writes and the user revi
 | M-10 | analytics | 5 | /analytics, /dashboard | src/data/analytics.json (precomputed) | Move all aggregation backend-side |
 | M-11 | audit | 5 | (no current route) | (none) | New: audit log viewer for compliance |
 
-## Waves
+## Groups
 
 ```
-Wave 1 (foundation):     auth, workspaces
-Wave 2 (independent):    companies, contacts, mailboxes
-Wave 3 (depends on W2):  campaigns, pipeline
-Wave 4 (engines):        inbox, ai
-Wave 5 (read-side):      analytics, audit
+Group 1 (foundation):     auth, workspaces
+Group 2 (independent):    companies, contacts, mailboxes
+Group 3 (depends on W2):  campaigns, pipeline
+Group 4 (engines):        inbox, ai
+Group 5 (read-side):      analytics, audit
 ```
 
-Each wave builds backend modules in parallel; rewire passes follow in same wave order. Frontend rewiring of a module can begin as soon as that module's backend is up and seeded.
+Each group builds backend modules in parallel; rewire passes follow in same group order. Frontend rewiring of a module can begin as soon as that module's backend is up and seeded.
 
 ## Per-module migration plans
 
@@ -222,7 +222,7 @@ After migration:
 ## Open items (needs user decision)
 
 - **O-1: Templates.** A "Templates" sidebar item exists in the layout but no page implements it; DISCOVERY notes it as "Coming soon". Is this in scope for v1? If yes, schedule a module. If no, hide the sidebar item until v2.
-- **O-2: AI compose.** `@anthropic-ai/sdk` is installed; a "Compose with AI" button exists on campaigns. Is AI in v1? If yes, schedule M-9 ai (currently in Wave 4); if no, remove the button.
+- **O-2: AI compose.** `@anthropic-ai/sdk` is installed; a "Compose with AI" button exists on campaigns. Is AI in v1? If yes, schedule M-9 ai (currently in Group 4); if no, remove the button.
 - **O-3: Mobile.** Designs include a mobile menu drawer but the prototype only works at desktop widths. Mobile breakpoints in scope for v1?
 
 ## Acceptance criteria
@@ -242,12 +242,12 @@ Migration complete when:
 
 ## Approval gate
 
-Before the user approves MIGRATION_PLAN.md, the orchestrator surfaces:
+Before the user approves MIGRATION_PLAN.md, the main agent surfaces:
 
 ```
 MIGRATION PLAN READY FOR REVIEW
 
-11 feature modules across 5 waves.
+11 feature modules across 5 groups.
 - 23 KEEP_AS_IS state items (unchanged)
 - 41 REWIRE_TO_API state items (data flow rewrite)
 - 23 DISCARD items (fake-backend cruft removed)

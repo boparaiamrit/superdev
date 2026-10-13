@@ -137,7 +137,7 @@ export const useCompaniesWizardStore = create<CompaniesWizardState>((set) => ({
 }));
 ```
 
-Each step file `step-N-foo.tsx` reads `draft.<its slice>` and calls `patch({ <its slice>: ... })`. The orchestrator (`create-wizard/index.tsx`) reads `step` to decide which step to render and calls `reset()` on submit success.
+Each step file `step-N-foo.tsx` reads `draft.<its slice>` and calls `patch({ <its slice>: ... })`. The main agent (`create-wizard/index.tsx`) reads `step` to decide which step to render and calls `reset()` on submit success.
 
 ## Pattern 4 — Prefs store (persisted to localStorage)
 

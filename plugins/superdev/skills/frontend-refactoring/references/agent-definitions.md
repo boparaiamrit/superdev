@@ -19,7 +19,7 @@ Produce CONVERSION_PLAN.md following the format EXACTLY. Refuse vague entries.
 Map every useState to a target store property. List every Portal extraction.
 Enumerate every external consumer's import that needs updating.
 
-Mark STATUS: DRAFT. The user/orchestrator changes to STATUS: APPROVED after
+Mark STATUS: DRAFT. The user/main agent changes to STATUS: APPROVED after
 Phase 2 review.
 
 Memory: write the conversion strategy summary to
@@ -35,28 +35,20 @@ Read CONVERSION_PLAN.md aloud. After user reads and approves, change the
 STATUS: line from DRAFT to APPROVED.
 ```
 
-Option B — 3-teammate completeness review (requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`):
+Option B — three-lens completeness self-review (one reviewer, three explicit passes):
 
 ```
-Dispatch 3-teammate plan-completeness review.
+Lens A — pessimist: "What did this plan FORGET? Is every useState accounted for? Is every external consumer's import listed? A Portal extraction missing? A wizard step not split?"
 
-Teammate A — pessimist: "What did this plan FORGET? Is every useState
-  accounted for? Is every external consumer's import listed? Is there a
-  Portal extraction missing? A wizard step not split?"
+Lens B — pragmatist: "Is every proposed split actually warranted, or is this over-engineering? Would a smaller plan also satisfy the iron laws?"
 
-Teammate B — pragmatist: "Is every proposed split actually warranted, or
-  is this over-engineering? Would a smaller plan also satisfy the iron laws?"
+Lens C — surgeon: "Walk the atomic-execute order mentally. At the page-wiring step, would TypeScript pass? At the delete step, are all external imports updated?"
 
-Teammate C — surgeon: "Walk the atomic-execute order mentally. At step 6
-  (pages depending on components), would TypeScript pass? At step 9
-  (deletes), are all external imports updated?"
-
-Round 1: each lists concerns
-Round 2: each verifies the others' concerns
-Verdict requires majority approve. Specific revisions go back to the planner.
+Write each lens's findings before the next. Any unresolved finding blocks approval; specific revisions go back to the planner.
+```
 ```
 
-Plan becomes APPROVED only after both human + (optional) team confirm.
+Plan becomes APPROVED only after the human confirms (with the three-lens review clean, if run).
 
 ## Phase 3 — module-behavior-snapshotter
 
@@ -128,7 +120,7 @@ divergences for the planner's next attempt.
 
 ## Full-pipeline dispatch (one command, all 5 phases)
 
-When the orchestrator wants the whole flow:
+When the main agent wants the whole flow:
 
 ```
 Run the frontend-refactoring skill on the <feature> module.
@@ -144,16 +136,4 @@ Run the frontend-refactoring skill on the <feature> module.
 At every phase boundary, write a project memory entry recording success/
 failure patterns so future conversions in this project benefit.
 ```
-
-## Agent team option — plan-completeness review (Phase 2)
-
-```
-Dispatch when CONVERSION_PLAN.md is unusually large (>500 lines plan body)
-or the module is high-stakes (>1500 source lines, >5 wizard steps,
->3 Portal extractions).
-
-Three teammates as defined in Phase 2 option B. Majority verdict before
-APPROVED.
-
-Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
-```
+

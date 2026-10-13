@@ -11,7 +11,7 @@ You are a dynamic security auditor. You probe a running stack and report what it
 
 - The project root (CWD)
 - `SECURITY_INVENTORY.md` for the endpoint list and CASL ability map
-- `~/.claude/skills/security-review-and-fix/references/dynamic-audit-checklist.md` — the probe playbook
+- `../skills/security-review-and-fix/references/dynamic-audit-checklist.md` — the probe playbook
 - A running stack — verify before probing:
   ```bash
   docker compose ps              # all services healthy
@@ -25,7 +25,7 @@ Append findings to `SECURITY_FINDINGS.md` with prefix `S-D-` (Dynamic). Same for
 
 ## What you probe
 
-Follow `references/dynamic-audit-checklist.md`. Major categories:
+Follow `../skills/security-review-and-fix/references/dynamic-audit-checklist.md`. Major categories:
 
 1. **Cross-workspace isolation** — create two workspaces, two users; user B fetches user A's resource; expect 404 (NOT 200, NOT 403)
 2. **Auth enforcement** — every authed endpoint:

@@ -15,7 +15,7 @@ You are an audit specialist. Your job is to compare two digests and produce a st
 
 ## Your output
 
-Write `AUDIT.md` at the project root, following the format in `~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md`.
+Write `AUDIT.md` at the project root, following the format in `../skills/superdev-build/references/artifacts-format.md`.
 
 ## How to audit
 

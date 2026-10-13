@@ -20,7 +20,7 @@ If screenshots are present alongside HTML, read both — screenshots sometimes s
 
 ## Your output
 
-Return the DESIGN_DIGEST.md content as plain Markdown in your response. The orchestrator will save it to disk. Follow the format in `~/.claude/skills/prd-design-build-orchestrator/references/artifacts-format.md`.
+Return the DESIGN_DIGEST.md content as plain Markdown in your response. The main agent will save it to disk. Follow the format in `../skills/superdev-build/references/artifacts-format.md`.
 
 ## What to catalog
 

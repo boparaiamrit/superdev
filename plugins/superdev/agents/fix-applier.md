@@ -20,7 +20,7 @@ Before any edit:
 
 1. Make the minimal change that addresses the named defect class.
 2. Re-run the reproduction from `REPRO.md`. It must now produce the **Expected** output, not the **Observed** output.
-3. Run `<pm> typecheck` for the affected workspace (PM auto-detected by hook).
+3. Run `<pm> typecheck` for the affected workspace (detect `<pm>` from the lockfile: pnpm-lock.yaml → pnpm, yarn.lock → yarn, bun.lock* → bun, else npm).
 4. Run the closest test pattern, e.g. `<pm> test -- <feature>`.
 5. If a regression test is missing for this bug, add one — but **only** under the same workspace, and only for THIS bug.
 
@@ -49,7 +49,7 @@ If anything failed, do NOT mark the task complete. The diagnosis or the fix is w
 
 ## Memory write
 
-On successful fix, the orchestrator's self-learning hook will read your output and append a pattern entry to `.claude/memory/superdev-learned/` so similar bugs in this project can be auto-recognized in the future. You don't need to write the memory yourself — but include in your summary one line of the form:
+On successful fix, include in your summary one `LESSON:` line (below). The main agent records transferable lessons in `.claude/memory/superdev-learned/` per the `superdev-self-learning` skill, so similar bugs in this project are recognized in the future:
 
 ```
 LESSON: <one-sentence pattern, e.g. "presenters using ?. on contract fields are a view-shape contract violation">

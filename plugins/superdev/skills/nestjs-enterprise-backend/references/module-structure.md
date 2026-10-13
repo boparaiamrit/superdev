@@ -28,7 +28,7 @@ apps/api/
     └── modules/                ← Feature modules (the bulk of the app)
 ```
 
-Two entrypoints (`main.ts` and `worker.ts`) is intentional. The API process serves HTTP. The worker process consumes BullMQ jobs. They share modules but boot differently — see `references/scaffolding.md` and `references/bullmq-queues.md`.
+Two entrypoints (`main.ts` and `worker.ts`) is intentional. The API process serves HTTP. The worker process consumes BullMQ jobs. They share modules but boot differently — see `scaffolding.md` and `bullmq-queues.md`.
 
 ## `src/infrastructure/` — cross-cutting modules
 
@@ -351,7 +351,7 @@ src/db/schema/
 └── send-metrics.ts       ← (view onto a continuous aggregate)
 ```
 
-See `references/drizzle-timescaledb.md` for the schema-authoring patterns and hypertable conversion migrations.
+See `drizzle-timescaledb.md` for the schema-authoring patterns and hypertable conversion migrations.
 
 ## Naming conventions
 

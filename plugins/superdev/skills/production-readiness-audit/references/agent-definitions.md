@@ -8,7 +8,7 @@ This skill composes existing superdev specialists (the completeness, QA, and sec
 |---|---|---|
 | `seed-data-architect` | Authors the deterministic seeder + initial owner/admin user + a second tenant with overlapping data; ensures aggregates are computed, not hardcoded; product works with demo mode OFF. | Precondition, before any scoring |
 | `tenancy-isolation-tester` | Adversarial cross-tenant attacks (IDOR, list/search/export scoping, bulk, tokens/webhooks, UI deep-links) with DB cross-check. Any leak caps the module ≤3. | Pass 3, each round |
-| `module-readiness-rater` | Aggregates the five pass reports into per-module 1–10 scores (min of passes, hard caps applied), writes `READINESS.md` + `READINESS_CHECKLIST.md`, updates `COMPLETION_LEDGER.json`. | After the passes, each round |
+| `module-readiness-rater` | Aggregates the five pass reports into per-module 1–10 scores (min of passes, hard caps applied), writes `READINESS.md` + `READINESS_CHECKLIST.md` with an evidence citation per score. | After the passes, each round |
 
 ## Reused specialists (already in the roster)
 

@@ -1,6 +1,6 @@
 # The five passes — dispatch prompts
 
-The orchestrator dispatches these. Scanning passes (1, 2, 5-static) are read-only and run in parallel. Browser passes (3, 4) need the stack up in production mode. Every dispatch is prefixed with relevant lessons from `.claude/memory/superdev-learned/`.
+The main agent dispatches these. Scanning passes (1, 2, 5-static) are read-only and run in parallel. Browser passes (3, 4) need the stack up in production mode. Every dispatch is prefixed with relevant lessons from `.claude/memory/superdev-learned/`.
 
 Each pass agent writes a per-module score line into its report:
 `MODULE <name>: <0-10> — <one-line reason>` so `module-readiness-rater` can aggregate.
@@ -91,7 +91,7 @@ Output: QUALITY_SECURITY.md with per-module scores.
 
 ```
 Use the module-readiness-rater agent → READINESS.md + READINESS_CHECKLIST.md and
-update COMPLETION_LEDGER.json (per-module readiness_score, gates.readiness).
+record per-module scores + evidence citations in READINESS.md.
 For each module < 9, dispatch the matching fixer on its checklist items:
 - backend-module-builder / laravel-module-builder  (API gaps, authz, tenancy scope)
 - frontend-module-builder / frontend-rewirer / inertia-module-builder  (wiring, states, shapes)

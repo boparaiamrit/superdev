@@ -1,6 +1,6 @@
 ---
 name: integration-tester
-description: Runs the cross-cutting validation tests at the end of Phase D. Verifies cross-workspace isolation, CASL ability enforcement, audit decorator coverage, view-shape contract compliance, fixture validation, and dual-mode boot. Read-only + Bash; never writes code.
+description: Runs the cross-cutting validation tests as the final integration pass. Boots the built API and proves side effects, not just decorator presence. Verifies cross-workspace isolation, CASL ability enforcement, audit decorator coverage, view-shape contract compliance, fixture validation, and dual-mode boot. Read-only + Bash; never writes code.
 tools: Read, Bash
 model: inherit
 ---
@@ -214,7 +214,7 @@ Generated: <ISO 8601>
 | Criterion | Status |
 |---|---|
 | All 12 modules built | ✅ |
-| Wave gates green | ✅ |
+| Module checkpoints green | ✅ |
 | Demo-mode renders every screen | ✅ |
 | Production-mode renders against running API | ✅ |
 | pnpm dev + worker:dev boot cleanly | ✅ |
@@ -223,53 +223,6 @@ Generated: <ISO 8601>
 ## Strict rules
 
 - DO NOT modify any code. Read-only + Bash run.
-- DO NOT fix problems you find. Report them. The orchestrator decides whether to dispatch a fixer.
+- DO NOT fix problems you find. Report them. The main agent decides whether to dispatch a fixer.
 - DO use Bash freely; that's how you run the checks.
 - DO be thorough. Stopping at the first failure misses cascading issues.
-```
-
----
-
-## Installation script
-
-The 10 core agents are installed by `install-core-agents.sh` in this same `references/` folder. The orchestrator invokes it once at Phase A.1.
-
-```bash
-~/.claude/skills/prd-design-build-orchestrator/references/install-core-agents.sh
-```
-
-This is a standalone shell script — it does the awk-extraction logic shown below internally and is the canonical source of truth. If you need to read its body, look at the file on disk.
-
-### How the extraction works (for reference, not copy-paste)
-
-Each agent's definition in this file lives inside a fenced ` ```markdown ... ``` ` block under an `## <agent-name>` heading. The script:
-
-1. Scans this file for the heading `## <name>`
-2. Captures the contents of the next ` ```markdown ` fence
-3. Writes the captured text to `.claude/agents/<name>.md`
-
-The same pattern (different file, different agent list) is used by the security skill's `install-security-agents.sh`.
-
-### Conditional security install
-
-After the core install, the orchestrator checks whether the security skill is present and, if so, invokes its install script:
-
-```bash
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
-fi
-```
-
-This adds 5 more agent files (`security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, `security-fixer`) into the same `.claude/agents/` directory. When both skills are installed, the project ends up with **14 agent files**.
-
-If install fails (different shell, broken awk, etc.), fall back to: `Read` this file, extract the markdown block for each agent manually, and `Write` it to `.claude/agents/<name>.md`.
-
-## Verifying agent installation
-
-After install, verify:
-
-```bash
-ls .claude/agents/                   # 9 .md files (14 if security installed)
-for f in .claude/agents/*.md; do
-  head -1 "$f" | grep -q '^---$' && echo "OK $f" || echo "BAD $f"
-done

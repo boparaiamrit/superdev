@@ -144,7 +144,7 @@ import { Link } from '@inertiajs/react'
 ```
 
 Re-run `php artisan wayfinder:generate` whenever you add or rename a route, and commit the
-generated files. See `references/pages-props-routing.md` for the full Wayfinder usage guide.
+generated files. See `pages-props-routing.md` for the full Wayfinder usage guide.
 
 ---
 

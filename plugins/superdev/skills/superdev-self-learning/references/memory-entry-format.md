@@ -22,7 +22,7 @@ metadata:
 
 **Why:** <Cite the specific event. Include commit hashes, file:line, agent names. Future readers must understand WHEN the lesson was learned and WHY the failure happened.>
 
-**How to apply:** <When the rule kicks in. Which agent's prompt should include it. The exact phrase the orchestrator should thread into the agent prompt.>
+**How to apply:** <When the rule kicks in. Which agent's prompt should include it. The exact phrase the main agent should thread into the agent prompt.>
 
 **Related:** [[other-learned-topic-slug]]   ← optional, link to related lessons
 ```
@@ -104,6 +104,6 @@ Do NOT add `<ErrorBoundary>` wrappers to list pages. They already handle errors 
 ## Rules
 
 - **One rule per file.** Two unrelated lessons → two files.
-- **The `description` is the most important field** — the orchestrator filters by it. Make it accurate and specific.
-- **`applies_to_agents` is critical** — without it, the orchestrator doesn't know which dispatches to thread the lesson into.
+- **The `description` is the most important field** — the main agent filters by it. Make it accurate and specific.
+- **`applies_to_agents` is critical** — without it, the main agent doesn't know which dispatches must include the lesson.
 - **Update, don't duplicate.** If a similar entry exists, add the new event as more evidence in the existing `**Why:**` section.

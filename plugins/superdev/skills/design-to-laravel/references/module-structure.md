@@ -555,7 +555,7 @@ It does NOT touch:
 - Other features' pages, components, or types
 - Backend domain logic: models, actions, events, jobs, migrations (`laravel-module-builder` owns those)
 - `HandleInertiaRequests` shared props (auth is global — see `auth-fortify-permissions.md`)
-- The sidebar nav (`resources/js/components/app-sidebar.tsx`) — the orchestrator adds nav items after all features are built, or coordinates a separate sidebar-update pass
+- The sidebar nav (`resources/js/components/app-sidebar.tsx`) — the main agent adds nav items after all features are built, or coordinates a separate sidebar-update pass
 
 ---
 

@@ -13,7 +13,7 @@ You make the product real on a clean database. The test of your work: drop the D
 1. **An initial product user** — a tenant owner/admin with a known, documented login (email + password, or the project's auth scheme). This is the account a PM uses to evaluate the system. It must work through the real auth flow, not a demo bypass.
 2. **Realistic volumes per module** — enough rows that lists paginate, charts have shape, and aggregates are meaningful. Match what a real tenant would have (e.g., dozens–hundreds of records), with believable names, dates, statuses, and relationships — not `foo`/`bar`/`lorem`.
 3. **A second tenant (B)** with its own owner and overlapping data (same candidate emails, same-looking company names) so `tenancy-isolation-tester` has something to try to leak.
-4. **Title-Case enums** matching the contract (DB value = wire value = UI label), per the orchestrator's convention.
+4. **Title-Case enums** matching the contract (DB value = wire value = UI label), per the main agent's convention.
 5. **Deterministic + re-runnable** — stable IDs/values where possible; clean re-seed (`TRUNCATE ... RESTART IDENTITY CASCADE` for SQL, or the framework's fresh-seed) so it's idempotent.
 
 ## Stacks

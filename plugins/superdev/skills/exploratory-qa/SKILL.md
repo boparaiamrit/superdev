@@ -21,9 +21,9 @@ Use when:
 Do NOT use this skill for:
 
 - Unit test generation — Jest/Vitest skills handle that
-- Functional regression suites — that's `integration-tester` from the orchestrator
+- Functional regression suites — that's `integration-tester` from the main agent
 - Security audit — that's `security-review-and-fix`
-- Initial build — use the orchestrator or prototype-to-saas
+- Initial build — use the main agent or prototype-to-saas
 
 This skill assumes a working app exists and runs. It explores; it doesn't build.
 
@@ -40,22 +40,11 @@ Run a production-readiness QA pass on this app. The stack is up at
 localhost:3000 (web) and localhost:3001 (api).
 ```
 
-The main session reads this skill's SKILL.md, installs the 4 QA subagents via the install script, and runs the six phases by delegating to subagents through natural language.
+The main session reads this skill's SKILL.md and runs the six phases by delegating to the 4 QA subagents through natural language. The agents are auto-loaded from the plugin's `agents/` directory — there is no install step.
 
-### Pattern 2 — invoked from the orchestrator
+### Pattern 2 — as part of a superdev-build run
 
-When `prd-design-build-orchestrator` runs end-to-end and this skill is installed, the QA pass automatically runs as Step D.3 of Phase D. No separate invocation needed.
-
-### Pattern 3 — agent-teams mode for specific phases
-
-This skill defaults to subagents. Two phases benefit from agent teams:
-
-- **Phase 6 (report synthesis)** — 3-teammate adversarial team that debates each finding's severity before writing QA_REPORT.md
-- **Performance investigation for hard issues** — competing-hypotheses team when a perf issue has multiple plausible causes
-
-Both require `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. See "Agent teams (optional)" at the end of this skill for the invocation prompts.
-
-The 4 QA agent definitions work as both subagent definitions AND teammate types without modification.
+During a [`superdev-build`](../superdev-build/SKILL.md) run, execute this skill at Step 6 (cross-cutting audits), after the security pass.
 
 ## What this skill catches that automated tests don't
 
@@ -91,7 +80,7 @@ Phase 5: PERFORMANCE      Load times, layout shift, frozen frames, database quer
 Phase 6: REPORT           QA_REPORT.md with severity-ranked findings + recommendations
 ```
 
-Phases 2, 3, 4 are largely parallel-safe — they share no inputs and write to different scratch directories. Phase 5 needs exclusive control of the running stack (performance measurement is sensitive to other activity). Phase 6 is the orchestrator's synthesis.
+Phases 2, 3, 4 are largely parallel-safe — they share no inputs and write to different scratch directories. Phase 5 needs exclusive control of the running stack (performance measurement is sensitive to other activity). Phase 6 is the main agent's synthesis.
 
 ## The four agents
 
@@ -102,26 +91,21 @@ Phases 2, 3, 4 are largely parallel-safe — they share no inputs and write to d
 | `qa-consistency-checker` | 4 | Read, Glob, Grep, Bash | `qa/consistency/` with cross-route diff data + `QA_CONSISTENCY.md` |
 | `qa-performance-prober` | 5 | Read, Bash | `qa/performance/` with timing data + `QA_PERFORMANCE.md` |
 
-Plus reuse of `integration-tester` from the orchestrator skill for the pre-flight functional smoke (if integration tests fail, exploration is pointless — fix functional issues first).
+Plus reuse of `integration-tester` from the plugin agent roster for the pre-flight functional smoke (if integration tests fail, exploration is pointless — fix functional issues first).
 
 Five agents would feel like the right number to match other skills, but a fifth agent here would just split work artificially. Four works.
 
-All agent definitions in `references/qa-agents.md`. The standalone installer at `references/install-qa-agents.sh` extracts them via the orchestrator's `extract-agent.py`.
+Agent definitions live in `../../agents/` (`qa-environment.md`, `qa-flow-tester.md`, `qa-consistency-checker.md`, `qa-performance-prober.md`) and are auto-loaded by the plugin — dispatch by name.
 
 ## Phase 1 — Environment
 
 **Goal:** the stack is up, the data is realistic, the baselines are captured.
 
-Install agents:
-
-```bash
-# Reuses the orchestrator's extract-agent.py
-~/.claude/skills/exploratory-qa/references/install-qa-agents.sh
-```
+Agents are auto-loaded by the plugin — no install step.
 
 Then dispatch in natural language:
 
-> "Use the qa-environment subagent to verify Docker + API + worker + web are running and healthy. Seed test data at REALISTIC SCALE (not toy size — see the seed-scale rules in `~/.claude/skills/exploratory-qa/references/environment-checklist.md`). Capture baselines: take screenshots of every route at 1440px, 768px, and 375px viewports. Plant the edge-case fixtures listed in the checklist. Produce QA_ENVIRONMENT.md."
+> "Use the qa-environment subagent to verify Docker + API + worker + web are running and healthy. Seed test data at REALISTIC SCALE (not toy size — see the seed-scale rules in `./references/environment-checklist.md`). Capture baselines: take screenshots of every route at 1440px, 768px, and 375px viewports. Plant the edge-case fixtures listed in the checklist. Produce QA_ENVIRONMENT.md."
 
 The "realistic scale" matters. A test DB with 5 companies hides the performance and overflow issues that show up with 500. The agent seeds to numbers like:
 
@@ -141,9 +125,9 @@ Baseline screenshots become the reference for Phase 4's consistency checks.
 
 **Goal:** the canonical flow works end-to-end for every feature. Find what's broken even on the easy case.
 
-The main session dispatches one `qa-flow-tester` per feature, in parallel batches of up to 6. For a 6-feature wave:
+The main session dispatches one `qa-flow-tester` per feature, in parallel batches of up to 6. For a 6-feature group:
 
-> "Dispatch six qa-flow-tester subagents in parallel, each scoped to one feature module (companies, contacts, mailboxes, campaigns, pipeline, inbox). Mode: happy-path. Each should follow the recipes in `~/.claude/skills/exploratory-qa/references/flow-recipes.md` — login → list page → filter → sort → detail → create → toast verification → list refresh. Take screenshots at every step. Write to `qa/flows/<feature>/happy-path/`."
+> "Dispatch six qa-flow-tester subagents in parallel, each scoped to one feature module (companies, contacts, mailboxes, campaigns, pipeline, inbox). Mode: happy-path. Each should follow the recipes in `./references/flow-recipes.md` — login → list page → filter → sort → detail → create → toast verification → list refresh. Take screenshots at every step. Write to `qa/flows/<feature>/happy-path/`."
 
 For projects with more than 6 features, run in successive batches; do not exceed 6 concurrent subagents per tool-use turn.
 
@@ -163,7 +147,7 @@ qa/flows/companies/
   └── observations.md            (what the agent noticed)
 ```
 
-`observations.md` is the structured output: timed steps, visual issues spotted, console errors, network anomalies. The orchestrator collates these in Phase 6.
+`observations.md` is the structured output: timed steps, visual issues spotted, console errors, network anomalies. The main agent collates these in Phase 6.
 
 ## Phase 3 — Edge Cases
 
@@ -297,7 +281,7 @@ The agent produces `QA_PERFORMANCE.md` with timing tables, query counts, flagged
 
 ## Phase 6 — Report
 
-The orchestrator (not a subagent) reads everything:
+The main agent (not a subagent) reads everything:
 
 - `qa/flows/*/observations.md` (every happy + edge case observation)
 - `qa/consistency/QA_CONSISTENCY.md`
@@ -326,39 +310,28 @@ Severity ladder:
 
 Critical findings should block launch. High findings need explicit user acknowledgment. Medium/Low/Refactor go in the report as recommendations.
 
-## Integration with the orchestrator
+## Place in a superdev-build run
 
-When the user runs the build orchestrator end-to-end, this skill slots into Phase D (after the security review):
+In [`superdev-build`](../superdev-build/SKILL.md) Step 6, run the cross-cutting passes in this order: integration smoke (`integration-tester`) → `security-review-and-fix` → **this skill** → final report. A failed integration test stops the sequence before security/QA runs (no point exploring broken). Unresolved Critical findings in the QA report block any "done" claim.
 
-```
-Phase D — INTEGRATE (orchestrator flow):
-  D.1  integration-tester       (functional smoke)
-  D.2  security-review-and-fix  (security audit, if installed)
-  D.3  exploratory-qa           (THIS skill, if installed)
-  D.4  final report (orchestrator synthesizes everything)
-```
-
-A failed integration test stops the pipeline before security/QA runs (no point exploring broken). Unresolved Critical findings in the QA report block the final orchestrator report.
-
-If this skill is run standalone (post-launch quality pass), it's invoked directly without the orchestrator.
+Standalone (post-launch quality pass), invoke this skill directly.
 
 ## Reference files
 
 | File | When to read |
 |---|---|
-| `references/qa-agents.md` | Phase 0 install — source-of-truth for all 4 agent definitions |
+| `../../agents/qa-*.md` | The 4 QA agent definitions (auto-loaded) |
 | `references/environment-checklist.md` | Phase 1 — seed scale + baseline capture procedure |
 | `references/flow-recipes.md` | Phase 2 + 3 — Playwright snippets for common flows (login, list, create, update, delete, etc.) and edge-case scenarios |
 | `references/consistency-checklist.md` | Phase 4 — what to compare across pages, what counts as a finding |
 | `references/performance-checklist.md` | Phase 5 — metrics to capture, anti-patterns to flag, query-count methodology |
 | `references/qa-report-format.md` | Phase 6 — QA_REPORT.md template |
-| `references/install-qa-agents.sh` | Phase 0 install script |
 
 ## Validation checklist
 
 Before declaring QA complete:
 
-- [ ] `.claude/agents/` contains the 4 QA agents
+- [ ] The 4 QA agents ran (or the main agent executed their checklists directly)
 - [ ] `QA_ENVIRONMENT.md` exists with seed counts and baseline screenshots
 - [ ] `qa/flows/<feature>/` exists for every feature module (happy + edge)
 - [ ] `QA_CONSISTENCY.md` exists
@@ -387,36 +360,4 @@ Before declaring QA complete:
 **P7 — Reporting without evidence.** Every finding cites a screenshot path, source file:line, trace ID, or query log excerpt. "Companies page is slow" is a useless finding; "Companies list with 250 rows: LCP 3.8s, TBT 1.1s, see qa/performance/companies-list.trace.zip" is actionable.
 
 **P8 — Running Phase 5 alongside Phase 2/3.** Performance measurement needs an idle system. Run perf last, after all flow testing is done and the system has settled.
-
-## Agent teams (optional, experimental)
-
-Most of this skill's pipeline fits the subagent pattern cleanly — per-feature flow-testing parallelizes, then a single consistency-checker and performance-prober follow. Two phases benefit from agent teams when stakes are high.
-
-Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `settings.json` or environment.
-
-### Adversarial report synthesis (Phase 6 alternative)
-
-The default Phase 6 has the orchestrator read all observations and write QA_REPORT.md with severity assignments. A single perspective can be wrong about what blocks launch versus what's polish.
-
-After Phases 1-5 finish, instead of synthesizing as orchestrator, ask the main session:
-
-> "Spawn a 3-teammate agent team for the QA report synthesis: a harshest-critic teammate that pushes every Medium up to High by default, a pragmatist teammate that pushes back on inflated severities, and a shipping-advocate teammate that argues what genuinely blocks launch versus what's polish. Have them read all qa/flows/*/observations.md, QA_CONSISTENCY.md, and QA_PERFORMANCE.md, and debate every finding's severity before recording it. Produce QA_REPORT.md by consensus, with each Critical and High finding requiring sign-off from all three teammates."
-
-Useful when the report's recommendations drive launch/no-launch decisions or budget for a fix sprint.
-
-### Competing-hypotheses for hard performance issues
-
-When `qa-performance-prober` flags an issue with multiple plausible causes (the canonical example: "companies list LCP 3.8s with 250 records — could be N+1 query, large bundle, unindexed column, or client-side filter blocking the main thread"), a single investigator picks one theory and may stop there.
-
-On-demand for a specific issue:
-
-> "Spawn a 3-teammate agent team to investigate the companies list LCP issue: one teammate investigating the N+1 hypothesis (query logs, Postgres EXPLAIN), one investigating bundle size (Next.js build output, dynamic import analysis), one investigating the client-side filter/sort hypothesis (Playwright trace, longtask measurements). Have them message each other to disprove competing theories. The theory that survives adversarial scrutiny gets recorded in QA_PERFORMANCE.md as the root cause."
-
-This is the exact pattern the Claude Code docs call out for debugging: parallel investigation with debate. The theory that survives is much more likely to be the actual cause than what a sequential investigator would land on.
-
-### What stays in subagent mode
-
-- **`qa-environment`** — one-shot setup, no debate needed
-- **`qa-flow-tester`** — per-feature parallelism; flow-testers for different features have nothing to say to each other
-- **`qa-consistency-checker`** — single-perspective cross-module audit; teammates would just duplicate work
-- **`qa-performance-prober`** — runs the systematic measurement pass; the competing-hypotheses team only spawns on specific findings, not as a replacement
+

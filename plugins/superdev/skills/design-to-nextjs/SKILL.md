@@ -5,6 +5,8 @@ description: Convert design handoff bundles from claude.ai/design (or other desi
 
 # Claude Design → Next.js Enterprise Conversion
 
+> **Before writing any component, confirm which library backs the installed shadcn primitives** (hard-rules #7 in [`superdev-build`](../superdev-build/references/hard-rules.md)): check `components.json` (`"style": "base-nova"` = **Base UI**, not Radix) and read one existing `components/ui/*` file. On Base UI there is no `asChild` — compose with the `render` prop, use `onClick` not `onSelect`, and `data-open`/`data-active` not `data-[state=...]`. The Radix-shaped patterns in these references must be translated accordingly; copy missing primitives from a sibling app, never `shadcn add` a Radix version.
+
 A pipeline for turning Claude Design HTML output into a production-grade Next.js application. The skill operates in five phases. Walk them in order; skipping phases produces the throwaway code most "design-to-code" pipelines generate.
 
 ## When to use this skill
@@ -20,9 +22,9 @@ Do NOT use this skill for:
 
 This is a **recipe skill** — it provides the patterns and references that builder agents follow. Three invocation paths:
 
-### Pattern 1 — invoked by the orchestrator (most common)
+### Pattern 1 — invoked by the main agent (most common)
 
-When `prd-design-build-orchestrator` runs, its `frontend-module-builder` subagent reads this skill's references directly. No separate invocation needed; the orchestrator's Phase A.1 install puts this skill at `~/.claude/skills/design-to-nextjs/`, and the builder reads `SKILL.md` + relevant references per the module it's building.
+When [`superdev-build`](../superdev-build/SKILL.md) builds a frontend module, the main agent (or a single dispatched `frontend-module-builder`) reads this skill's references directly. No separate invocation needed; the builder reads `SKILL.md` + the references relevant to the module being built.
 
 ### Pattern 2 — invoked by the migration skill
 
@@ -30,7 +32,7 @@ When `prototype-to-saas` runs Phase 4.0 (bootstrap), the `monorepo-bootstrapper`
 
 ### Pattern 3 — standalone (frontend-only build)
 
-For frontend-only builds without the orchestrator (e.g., converting a Claude Design output into a Next.js codebase you'll wire to an existing backend), start a Claude Code session:
+For frontend-only builds without the main agent (e.g., converting a Claude Design output into a Next.js codebase you'll wire to an existing backend), start a Claude Code session:
 
 ```
 I have a Claude Design handoff at design/index.html and screenshots in design/screenshots/.
@@ -157,7 +159,7 @@ Hand-rolled primitives are also banned. If you find yourself writing a 30-line `
 
 **The exception** is the rare case where shadcn genuinely doesn't have something. shadcn covers ~50 primitives — almost everything. If something is missing, surface as a question rather than reaching for an alternative library.
 
-This commitment is enforced by the `ui-auditor` agent at every wave gate (in orchestrator mode) and as a standalone grep when this skill runs alone — see the validation checklist.
+This commitment is enforced by the `ui-auditor` agent at every module checkpoint and as a standalone grep when this skill runs alone — see the validation checklist.
 
 ## The five-phase pipeline
 

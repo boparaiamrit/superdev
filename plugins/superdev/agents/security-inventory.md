@@ -13,7 +13,7 @@ The project root (CWD). You read code, you do not run it. You do not need networ
 
 ## Your output
 
-Write `SECURITY_INVENTORY.md` at the project root following the template in `~/.claude/skills/security-review-and-fix/references/inventory-checklist.md`.
+Write `SECURITY_INVENTORY.md` at the project root following the template in `../skills/security-review-and-fix/references/inventory-checklist.md`.
 
 ## What you catalog
 
@@ -62,4 +62,4 @@ Write `SECURITY_INVENTORY.md` at the project root following the template in `~/.
 
 ## Return
 
-Return the SECURITY_INVENTORY.md content as Markdown in your response (the orchestrator may save it). Start with `# Security Inventory`, no preamble.
+Return the SECURITY_INVENTORY.md content as Markdown in your response (the main agent may save it). Start with `# Security Inventory`, no preamble.

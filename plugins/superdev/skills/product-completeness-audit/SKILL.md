@@ -1,6 +1,6 @@
 ---
 name: product-completeness-audit
-description: Use when a product "looks done" but you suspect flows are broken, pages are placeholders, data is hardcoded, or the frontend and backend aren't fully wired. Audits every route and component for FUNCTIONAL completeness vs visual completeness. A beautiful UI rendering hardcoded data is a demo, not a product — this skill proves it either way. Dispatches 5 agents (placeholder-hunter, route-completeness-checker, wiring-auditor, data-flow-real-vs-mock, journey-walker) with optional 3-teammate demo-vs-product debate for edge cases. Reuses exploratory-qa's Playwright MCP server.
+description: Use when a product "looks done" but you suspect flows are broken, pages are placeholders, data is hardcoded, or the frontend and backend aren't fully wired. Audits every route and component for FUNCTIONAL completeness vs visual completeness. A beautiful UI rendering hardcoded data is a demo, not a product — this skill proves it either way. Dispatches 5 agents (placeholder-hunter, route-completeness-checker, wiring-auditor, data-flow-real-vs-mock, journey-walker); ambiguous HYBRID verdicts are surfaced to the user with the evidence, not decided internally. Reuses exploratory-qa's Playwright MCP server.
 ---
 
 # Product Completeness Audit
@@ -28,16 +28,16 @@ If a user cannot complete their intended journey end-to-end with real data, the 
 - ❌ For performance (use `exploratory-qa`'s `qa-performance-prober`)
 - ❌ For brutal whole-product audit (use `brutal-exhaustive-audit` — this skill is more focused)
 
-## How the orchestrator should use this skill
+## How the main agent should use this skill
 
-The orchestrator dispatches `product-completeness-audit` after `integration-tester` and `exploratory-qa` pass — BEFORE `brutal-exhaustive-audit`. The order matters:
+The main agent dispatches `product-completeness-audit` after `integration-tester` and `exploratory-qa` pass — BEFORE `brutal-exhaustive-audit`. The order matters:
 
 1. Integration tests prove the wires connect
 2. Exploratory QA proves the flows behave
 3. **Product-completeness audit proves the wires + flows are connected to REAL DATA, not mocks** ← here
 4. Brutal exhaustive audit dots every i and crosses every t
 
-The orchestrator also reads `.claude/memory/superdev-learned/completeness-patterns.md` before dispatch — if past audits found certain placeholder-shaped patterns are common in this repo, those become extra grep targets.
+The main agent also reads `.claude/memory/superdev-learned/completeness-patterns.md` before dispatch — if past audits found certain placeholder-shaped patterns are common in this repo, those become extra grep targets.
 
 ## The 5 agents (run in parallel where possible)
 
@@ -130,19 +130,6 @@ Walks the top 3–5 user journeys in **production mode against a real backend** 
 ## Recommendation
 - Block ship until P0 items in the above tables are resolved
 - Or: ship as "early access" with explicit "Reports coming soon" UX
-```
-
-## Agent teams (optional — demo-vs-product debate)
-
-For findings classified HYBRID where it's ambiguous whether it counts as DEMO or PRODUCT, dispatch:
-
-```
-Dispatch 3-teammate demo-vs-product debate.
-Teammate A: strict — anything mocked = DEMO
-Teammate B: pragmatic — mocked fields that are eventually-computed (e.g. counts derived from other tables) can ship as TODO if labeled in UI
-Teammate C: user — "would I feel cheated if I bought this?"
-
-Majority verdict. Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
 ```
 
 ## Reference files

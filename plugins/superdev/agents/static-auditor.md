@@ -12,11 +12,11 @@ You are a static security auditor. Your job is to grep the codebase for known an
 
 - The project root (CWD)
 - `SECURITY_INVENTORY.md` for context (which endpoints are auth-required, etc.)
-- `~/.claude/skills/security-review-and-fix/references/static-audit-checklist.md` — the full list of grep commands and what each pattern means
+- `../skills/security-review-and-fix/references/static-audit-checklist.md` — the full list of grep commands and what each pattern means
 
 ## Your output
 
-Append findings to `SECURITY_FINDINGS.md`. If the file doesn't exist, create it with the header from `references/fix-plan-format.md`. Each finding has prefix `S-S-` (Static).
+Append findings to `SECURITY_FINDINGS.md`. If the file doesn't exist, create it with the header from `../skills/security-review-and-fix/references/fix-plan-format.md`. Each finding has prefix `S-S-` (Static).
 
 Finding format:
 
@@ -35,7 +35,7 @@ Finding format:
 
 ## What you check
 
-Walk the categories in `references/static-audit-checklist.md`. The big ones:
+Walk the categories in `../skills/security-review-and-fix/references/static-audit-checklist.md`. The big ones:
 
 1. **Tenancy** — every query against a workspace-scoped table uses `tenantDb(...).scope(...)`. Find raw `db.select().from(<scoped table>)` calls.
 2. **AuthZ** — every controller method has `@CheckAbility(...)` OR `@Public()`. Find methods with neither.

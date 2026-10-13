@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: Use for ANY technical issue — test failures, runtime bugs, unexpected behavior, performance regressions, build failures, integration breakages, "it works on my machine" mysteries. Especially when under time pressure, when "just one quick fix" seems obvious, when previous fixes didn't work, or when the same bug keeps coming back. Dispatches a 5-agent investigation pipeline (reproduce → root-cause → hypothesis-test → fix → regression-verify) with optional 3-teammate competing-hypotheses team when the root cause is ambiguous. Refuses to apply fixes until a verified root cause exists.
+description: Use for ANY technical issue — test failures, runtime bugs, unexpected behavior, performance regressions, build failures, integration breakages, "it works on my machine" mysteries. Especially when under time pressure, when "just one quick fix" seems obvious, when previous fixes didn't work, or when the same bug keeps coming back. Dispatches a 5-agent investigation pipeline (reproduce → root-cause → hypothesis-test → fix → regression-verify), explicitly testing competing hypotheses when the root cause is ambiguous. Refuses to apply fixes until a verified root cause exists.
 ---
 
 # Systematic Debugging
@@ -146,27 +146,6 @@ Use the regression-verifier agent. Run full test suite for the affected
 workspace, Playwright smoke for any touched route, and diff-aware behavior
 review. Produce REGRESSION.md.
 ```
-
-## Agent teams (optional — for ambiguous root causes)
-
-When Phase 2 returns `CANDIDATES.md` with **3+ candidates** that all look equally plausible, run a **competing-hypotheses team** instead of parallel hypothesis-testers.
-
-Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
-
-> *Three teammates each champion one hypothesis. They share an evidence chat — each must attack the others' evidence and defend their own. When two agree, the third's hypothesis is rejected. When all three disagree, the investigation is incomplete and Phase 2 must re-run with new instrumentation.*
-
-The team is dispatched as:
-
-```
-Dispatch a 3-teammate competing-hypotheses team.
-Teammate A champions candidate 1 (from CANDIDATES.md).
-Teammate B champions candidate 2.
-Teammate C champions candidate 3.
-Each must propose an experiment that would falsify the others' candidates.
-Run them. Produce ROOT_CAUSE.md if 2+ teammates converge.
-```
-
-This is **~3× the token cost** of single-agent investigation. Use only when the bug is expensive (production outage, repeat regression) and the root cause is genuinely ambiguous.
 
 ## Anti-patterns this skill exists to prevent
 

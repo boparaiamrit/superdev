@@ -2,7 +2,7 @@
 
 This is the spine of the Inertia path: a Laravel route hits a controller, the controller returns `Inertia::render('<page>', $props)`, Inertia resolves a React component from `resources/js/pages/`, and that component receives `$props` as typed React props. There is **no client router, no fetch layer, no REST contract** — routing is server-driven and data arrives as props.
 
-If you are coming from `design-to-nextjs`, this is the single biggest mental shift. See `references/claude-design-to-inertia.md` for the full idiom-by-idiom mapping.
+If you are coming from `design-to-nextjs`, this is the single biggest mental shift. See `claude-design-to-inertia.md` for the full idiom-by-idiom mapping.
 
 ---
 
@@ -50,10 +50,10 @@ Rules that keep the frontend honest:
 
 - **Shape the props in the controller**, not the page. Eager-load relations (`withCount`, `loadCount`, `with`) and project to a view shape so the page never has to guard for missing data.
 - **Counts default to numbers.** `withCount('contacts')` always yields an integer (0 when empty) — the page renders `{c.counts.contacts}` with no `?.` or `?? 0`.
-- **Enum values arrive Title-Cased and render directly** — no label maps. (See `references/typed-props.md`.)
+- **Enum values arrive Title-Cased and render directly** — no label maps. (See `typed-props.md`.)
 - The prop keys you pass here are the prop names the page destructures. They are the contract — and that contract is hand-written in `resources/js/types/` (decision D4), so it is your job to keep `Inertia::render`'s shape and the type file in lockstep.
 
-> An **Eloquent API Resource** is used here only to **shape the data on the backend**. It is NOT the frontend type source for the Inertia path — frontend types are hand-written. See `references/typed-props.md`.
+> An **Eloquent API Resource** is used here only to **shape the data on the backend**. It is NOT the frontend type source for the Inertia path — frontend types are hand-written. See `typed-props.md`.
 
 ---
 
@@ -130,7 +130,7 @@ Layout variants shipped by the starter kit:
 
 Do **not** hand-roll an `<aside>` or a bespoke shell — reuse the shipped layouts so the sidebar block stays the single source of chrome (`ui-auditor` flags hand-rolled shells). Pick the layout that matches the Claude Design's chrome; restyle via Tailwind tokens, not by replacing the layout.
 
-> Next.js `app/layout.tsx` files map to these Inertia persistent layouts — see the mapping table in `references/claude-design-to-inertia.md`.
+> Next.js `app/layout.tsx` files map to these Inertia persistent layouts — see the mapping table in `claude-design-to-inertia.md`.
 
 ---
 
@@ -154,7 +154,7 @@ router.delete(`/companies/${c.id}`)
 ```
 
 - A plain `<a href>` triggers a full reload — only use it to leave the app. **Inside the app, always `<Link>`** (or `router`).
-- For state-changing navigation use `method="post|put|patch|delete"` (with `as="button"` so it renders an accessible button). For actual create/edit **forms**, use `useForm` — see `references/forms-useform.md`.
+- For state-changing navigation use `method="post|put|patch|delete"` (with `as="button"` so it renders an accessible button). For actual create/edit **forms**, use `useForm` — see `forms-useform.md`.
 - Wrap a shadcn `Button` around a `Link` with `asChild`: `<Button asChild><Link href="...">…</Link></Button>`.
 
 ---
@@ -192,7 +192,7 @@ auth.user            // { id, name, email } | null
 auth.permissions     // string[]  — gate <Link>/buttons in the UI
 ```
 
-The exact `HandleInertiaRequests::share` snippet (auth.user + resolved permissions), the `#[Authorize]` controller pattern, and the rule that **UI gating is convenience while the server `#[Authorize]` is the real guard** all live in `references/auth-fortify-permissions.md`. This page only consumes the shared `auth` prop; that page defines it.
+The exact `HandleInertiaRequests::share` snippet (auth.user + resolved permissions), the `#[Authorize]` controller pattern, and the rule that **UI gating is convenience while the server `#[Authorize]` is the real guard** all live in `auth-fortify-permissions.md`. This page only consumes the shared `auth` prop; that page defines it.
 
 ---
 
@@ -211,7 +211,7 @@ Route::middleware(['auth','verified'])->group(function () {
 
 - **Always name routes** (`->name('companies.index')`) — Wayfinder helpers and `route()` calls key off the name, and a named route is what survives a URL refactor.
 - The `auth` middleware enforces a session (Fortify); `verified` requires a verified email. Public pages (the Fortify login/register screens) live **outside** this group.
-- Authorization (who may do *what*) is layered on top with `#[Authorize]` / Policies — middleware gets you "logged in", `#[Authorize]` gets you "allowed". See `references/auth-fortify-permissions.md`.
+- Authorization (who may do *what*) is layered on top with `#[Authorize]` / Policies — middleware gets you "logged in", `#[Authorize]` gets you "allowed". See `auth-fortify-permissions.md`.
 
 ---
 
@@ -222,5 +222,5 @@ Route::middleware(['auth','verified'])->group(function () {
 - **Plain `<a href>` inside the app.** Full reload, lost SPA state. Use `<Link>` / `router`.
 - **Hand-rolled layout shells.** Reuse the shipped `app-layout.tsx` + sidebar block; restyle with tokens.
 - **Stale Wayfinder helpers after a route edit.** Regenerate (or `npm run build`) after every change to `routes/web.php`; keep `config/fortify.php` features and generated route helpers in sync to avoid build failures.
-- **Client-side data fetching.** No `fetch`, no `@tanstack/react-query`, no `axios` in a page to load server data — data is a prop. For refreshing a subset of props use Inertia partial reloads (`router.reload({ only: [...] })`); see `references/state-and-data.md`.
-- **Next.js routing idioms** (`next/link`, `next/navigation`, file-based `app/.../page.tsx` routes). These do not exist on the Inertia path — they appear only in the translation table in `references/claude-design-to-inertia.md`, never as the way to do it here.
+- **Client-side data fetching.** No `fetch`, no `@tanstack/react-query`, no `axios` in a page to load server data — data is a prop. For refreshing a subset of props use Inertia partial reloads (`router.reload({ only: [...] })`); see `state-and-data.md`.
+- **Next.js routing idioms** (`next/link`, `next/navigation`, file-based `app/.../page.tsx` routes). These do not exist on the Inertia path — they appear only in the translation table in `claude-design-to-inertia.md`, never as the way to do it here.

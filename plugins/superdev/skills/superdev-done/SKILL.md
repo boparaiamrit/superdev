@@ -1,37 +1,34 @@
 ---
 name: superdev-done
-description: Run superdev's machine-checkable Definition-of-Done gate on demand. Reads COMPLETION_LEDGER.json (build/typecheck/lint/integration/completeness/security/qa/brutal verdicts) plus live no-suppressions and demo/placeholder sweeps, and reports PASS/FAIL with the exact failing checks. Use when asked "are we done", "is it production ready", "run the done gate / completeness gate", or BEFORE declaring any superdev build complete. The same gate runs automatically as a Stop hook during superdev builds, so a "done" claim cannot be made while any check is red.
+description: Run superdev's live Definition-of-Done verification on demand. Executes (never reads a ledger): per-package typecheck/lint/build, boots the built API dist and polls its health endpoints, contracts module-format check, patchNestJsSwagger landmine check, no-new-suppressions sweep vs git HEAD, and demo/placeholder sweep. Use when asked "are we done", "is it production ready", "run the done gate / verify done", or BEFORE declaring any superdev build complete. Cross-platform (Node), no hooks, no sentinel files.
 ---
 
-# superdev — Definition of Done
+# superdev — Definition of Done (live verification)
 
-The single source of truth for "is this build actually done?" — not narrative, not "it typechecks", but every Phase D verdict plus live anti-regression sweeps. This is what prevents the failure mode where a build is declared "done / live / production-ready" while it still has lint errors, mock data, or unaudited security holes.
+"Is this build actually done?" is answered by running checks against the real tree and the real built artifact — not by reading a ledger the build marked `pass` itself, and not by narrative. This replaced the old bash Stop-hook gate, whose ledger a shipped project once marked all-green without running the formal passes.
 
 ## How to run
 
-Run the gate in report mode and read the result:
+From the target monorepo root:
 
 ```bash
-_d="${CLAUDE_PLUGIN_DIR:-}"
-[ -z "$_d" ] && _d="$(ls -d ~/.claude/plugins/cache/*/superdev/*/ 2>/dev/null | sort -V | tail -1)"
-[ -z "$_d" ] && _d="$(ls -d ~/.claude/plugins/superdev/ 2>/dev/null | head -1)"
-bash "${_d%/}/hooks/scripts/done-gate.sh" --report
+node <superdev-plugin>/scripts/verify-done.mjs
 ```
 
-- Exit `0` → **DONE**: every gate in `COMPLETION_LEDGER.json` is `pass` (or an explicitly `deferred` accepted risk), no suppressions were introduced since the build base, and no demo/placeholder content remains in `apps/web/src`.
-- Exit `1` → **NOT DONE**: the report lists the exact failing checks. Resolve each at the ROOT CAUSE — do NOT suppress (no `eslint-disable`, `@ts-ignore`, `as any`, rule downgrades) and do NOT leave mock data on success paths. Then re-run.
+`<superdev-plugin>` is this plugin's install location (`plugins/superdev` inside the superdev repo, or wherever the host loaded the plugin from). Options: `--root <dir>`, `--skip-build`, `--skip-boot`, `--health-url <url>`.
+
+- Exit `0` → **DONE (machine layer)**: every package typechecks/lints/builds, the built API boots and answers health, contracts are require-able by the API, no new suppressions vs HEAD, no placeholder content in the frontend.
+- Exit `1` → **NOT DONE**: the report lists the exact failing checks with output tails. Fix each at the ROOT CAUSE — suppressions (`eslint-disable`, `@ts-ignore`, `as any`) are themselves a failing check — then re-run.
 
 ## What it checks
 
-See [`../prd-design-build-orchestrator/references/done-gate.md`](../prd-design-build-orchestrator/references/done-gate.md) for the full ledger schema and check definitions. In short:
+1. **Per-package scripts** — `typecheck`, `lint`, `build` for every `apps/*` and `packages/*` package that defines them (package manager detected from the lockfile).
+2. **Contracts module format** — an ESM-only `packages/contracts` consumed by a CommonJS API fails (boot-time `ERR_PACKAGE_PATH_NOT_EXPORTED`; hard-rules #3 in [`superdev-build`](../superdev-build/references/hard-rules.md)).
+3. **Swagger landmine** — any executable `patchNestJsSwagger()` call in `apps/api/src` fails (crashes boot on @nestjs/swagger 11; hard-rules #2).
+4. **Runtime boot** — spawns `node apps/api/dist/main.js`, polls `/health/ready`, `/health`, `/v1/health` (or `--health-url`). A process that exits during boot, or never answers, fails with its log tail. This is the check green test suites kept hiding (hard-rules #1).
+5. **No new suppressions** — added lines vs `git HEAD` plus untracked files under `apps/` and `packages/` must contain no `eslint-disable` / `@ts-ignore` / `@ts-expect-error` / `as any` / `as unknown as`.
+6. **No demo/placeholder content** — frontend `src/` is swept for lorem ipsum, "coming soon", `mockData`, test card numbers, etc. (tests/mocks/stories excluded).
 
-1. **Ledger gates** — `typecheck`, `lint`, `build`, `integration`, `completeness`, `security`, `qa`, `brutal` must all be `pass`. A `deferred` value is allowed only as a recorded accepted risk.
-2. **Ledger freshness** — the ledger's `head_sha` must match the current `HEAD`; a stale ledger (code changed after the last gate run) is a fail.
-3. **No new suppressions** — `git diff` vs the build base AND new untracked files must contain no `eslint-disable` / `@ts-ignore` / `@ts-expect-error` / `as any` / `as unknown as`.
-4. **No demo/placeholder** — `apps/web/src` must be free of `lorem ipsum`, `coming soon`, `not implemented`, hardcoded test cards (`4242…`), `mockData`/`fakeUsers`, etc. (mocks/tests/stories excluded).
+## What it does NOT prove
 
-## Relationship to the automatic gate
-
-The orchestrator writes `COMPLETION_LEDGER.json` as each Phase D agent finishes and creates `.claude/.superdev-orchestrating` at Phase B. While that sentinel exists, the **Stop hook** runs this same script and BLOCKS any turn that ends on a completion claim while a check is red. This skill is the manual/explicit way to query the same gate at any time.
-
-To intentionally accept the current state and stop anyway, create `.claude/.superdev-done-override` (records that the user consciously overrode the gate).
+Browser behavior, tenancy isolation, business correctness, and security posture are the judgment layer: [`exploratory-qa`](../exploratory-qa/SKILL.md), [`security-review-and-fix`](../security-review-and-fix/SKILL.md), [`product-completeness-audit`](../product-completeness-audit/SKILL.md), and [`production-readiness-audit`](../production-readiness-audit/SKILL.md) (scores cited with evidence). "Done" = this script green **and** those audits clean for the scope being shipped. There is no override file and no sentinel: if a check is wrong for your repo shape, fix the repo or pass the documented flags and say so in your summary.

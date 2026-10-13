@@ -1,6 +1,6 @@
 # Inertia variant — backend deltas when the frontend is Inertia
 
-Read this when the orchestrator's **Step A.5c** chose `frontend_stack == Inertia` (the default for the Laravel option). It describes how the backend changes versus the **decoupled Next.js** default this skill otherwise assumes. The frontend itself is built by the [`design-to-laravel`](../../design-to-laravel/SKILL.md) skill.
+Read this when superdev-build **Step 2** chose `frontend_stack == Inertia` (the default for the Laravel option). It describes how the backend changes versus the **decoupled Next.js** default this skill otherwise assumes. The frontend itself is built by the [`design-to-laravel`](../../design-to-laravel/SKILL.md) skill.
 
 ## What stays exactly the same
 

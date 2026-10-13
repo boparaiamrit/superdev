@@ -406,7 +406,7 @@ The `code` field flows through to the frontend, where it can show context-aware 
 | Domain rule violation (MailboxNotWarmed, etc.) | **422** | _(typed domain code)_ |
 | Uncaught `\Throwable` | **500** | `INTERNAL_ERROR` |
 
-**The 404 for cross-workspace reads is intentional.** The global `BelongsToWorkspace` scope silently filters out records belonging to other workspaces before the query runs. `findOrFail()` then throws `ModelNotFoundException`, which maps to 404. The caller cannot distinguish "does not exist" from "belongs to another tenant" — existence is not leaked. See `references/multitenancy-global-scope.md` for the scope implementation and the mandatory Pest test.
+**The 404 for cross-workspace reads is intentional.** The global `BelongsToWorkspace` scope silently filters out records belonging to other workspaces before the query runs. `findOrFail()` then throws `ModelNotFoundException`, which maps to 404. The caller cannot distinguish "does not exist" from "belongs to another tenant" — existence is not leaked. See `multitenancy-global-scope.md` for the scope implementation and the mandatory Pest test.
 
 ## Throwing errors from services
 
@@ -448,7 +448,7 @@ Laravel's validator (FormRequest) includes field-level errors in `errors()`, sur
 }
 ```
 
-See `references/validation.md` for the FormRequest setup that produces this output.
+See `validation.md` for the FormRequest setup that produces this output.
 
 ## Production safety
 

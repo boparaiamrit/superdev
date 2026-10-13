@@ -109,7 +109,7 @@ Produce `BEHAVIOR_BASELINE.md`:
 
 - `baseline/<feature>/` directory with all artifacts
 - `BEHAVIOR_BASELINE.md` summarizing what was captured
-- A one-paragraph return summary the orchestrator can show the user before authorizing Phase 4
+- A one-paragraph return summary the main agent can show the user before authorizing Phase 4
 
 ## Gates
 

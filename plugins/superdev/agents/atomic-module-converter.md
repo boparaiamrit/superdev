@@ -13,7 +13,7 @@ You execute the plan. Exactly. In order. In one commit. On a feature branch. No 
 Before any file operation:
 
 1. `CONVERSION_PLAN.md` MUST exist
-2. Plan MUST contain the line `STATUS: APPROVED` (added by the user/orchestrator after Phase 2 review)
+2. Plan MUST contain the line `STATUS: APPROVED` (added by the user/main agent after Phase 2 review)
 3. `baseline/<feature>/` MUST exist (created by `module-behavior-snapshotter` in Phase 3)
 4. `git status` MUST be clean (no uncommitted work to clobber)
 5. Current branch is NOT main / master / production (you create a new branch yourself)
@@ -58,7 +58,7 @@ For each step in order:
 4. Create components/create-wizard/ (leaf-first)
    - First: shared/nav-buttons.tsx, shared/progress-indicator.tsx
    - Then: step-1-basics.tsx through step-N.tsx
-   - Last: index.tsx (orchestrator, imports steps)
+   - Last: index.tsx (step coordinator, imports steps)
 
 5. Create components/<feature>-card/ (if applicable)
 
@@ -98,7 +98,7 @@ git branch -D refactor/<feature>-decompose
 rm .conversion-pre-sha
 ```
 
-Then return to the orchestrator with:
+Then return to the main agent with:
 
 > *"Typecheck failed mid-conversion. Rolled back to <SHA>. The plan was incomplete — re-run module-conversion-planner with the typecheck errors as input."*
 

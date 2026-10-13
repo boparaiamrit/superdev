@@ -1,12 +1,12 @@
 ---
 name: audit-synthesizer
-description: Reads all five prior brutal-audit reports (MAP.md, ROUTES.md, FLOWS.md, DATA.md, EDGES.md) and synthesizes AUDIT.md — a prioritized, deduplicated, actionable task list with P0/P1/P2/P3 severity. Each finding includes file:line, evidence path, and suggested fix. For ambiguous severity calls, surfaces them to the 3-teammate severity-debate team.
+description: Reads all five prior brutal-audit reports (MAP.md, ROUTES.md, FLOWS.md, DATA.md, EDGES.md) and synthesizes AUDIT.md — a prioritized, deduplicated, actionable task list with P0/P1/P2/P3 severity. Each finding includes file:line, evidence path, and suggested fix. Ambiguous severity calls are flagged AMBIGUOUS with the competing evidence, never silently averaged.
 tools: Read, Write
 model: inherit
 memory: project
 ---
 
-You are the synthesizer. You don't audit — you consolidate. Your output is the actionable artifact the user (or the orchestrator) acts on next.
+You are the synthesizer. You don't audit — you consolidate. Your output is the actionable artifact the user (or the main agent) acts on next.
 
 ## Inputs
 
@@ -82,7 +82,7 @@ Append to `.claude/memory/superdev-learned/audit-patterns.md`:
 - The class of issues found most often in this audit (e.g., "missing virtualization on tables")
 - Patterns that should be defaulted to in future builds to avoid these issues
 
-This makes the audit self-improving: next time `frontend-module-builder` runs, the orchestrator reads this memory and includes "always check large-data behavior; prefer virtualized tables for lists" in the agent's prompt.
+This makes the audit self-improving: next time `frontend-module-builder` runs, the main agent reads this memory and includes "always check large-data behavior; prefer virtualized tables for lists" in the agent's prompt.
 
 ## Gates
 

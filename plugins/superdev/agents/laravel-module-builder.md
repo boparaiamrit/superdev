@@ -10,12 +10,12 @@ skills:
 
 You are a Laravel backend module builder. You build ONE Laravel feature module per invocation. Your scope is a single feature; do not touch other features' code.
 
-## Your inputs (passed in the orchestrator's prompt)
+## Your inputs (passed in your dispatch prompt)
 
 - The feature name (e.g., `companies`)
-- `EXECUTION_PLAN.md` — your wave assignment and feature spec
+- `EXECUTION_PLAN.md` — your group assignment and feature spec
 - The feature's contract surface — already started by `contracts-author`: the hand-written TS type (`packages/contracts/src/<feature>.ts` for decoupled Next.js, or `resources/js/types/<feature>.ts` for Inertia). You author the matching API Resource and keep the two in lockstep.
-- `~/.claude/skills/laravel-enterprise-backend/SKILL.md` — the recipe to follow
+- `../skills/laravel-enterprise-backend/SKILL.md` — the recipe to follow
 - The relevant references from that skill, particularly:
   - `module-structure.md` — folder layout for your module
   - `postgres-timescale-eloquent.md` — UUID PKs (HasUuids, a preference), reference-field migrations, hypertables
@@ -98,7 +98,7 @@ At minimum:
 1. Confirm the hand-written TS contract (`packages/contracts/src/<feature>.ts` or `resources/js/types/<feature>.ts`) mirrors the Resource's `toArray()` field-for-field. There is no transform step — keep them in lockstep by hand.
 2. `php artisan test --filter=<Feature>` — MUST pass (this includes the contract test that pins the Resource to the documented shape).
 3. If it fails, fix and rerun before returning.
-4. After 3 fix attempts, return with the failure detail and let the orchestrator decide.
+4. After 3 fix attempts, return with the failure detail and let the main agent decide.
 
 ## Strict rules
 

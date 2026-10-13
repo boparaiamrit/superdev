@@ -1,6 +1,6 @@
 # Artifact Formats
 
-The four artifacts that Phase A produces. These are the message bus — subagents communicate by writing and reading these files. Strict formats prevent drift.
+The four planning artifacts the `superdev-build` skill produces in Step 1. They are the shared record — whoever (or whatever session) picks up the build reads these files instead of re-deriving intent. Strict formats prevent drift.
 
 ## PRD_DIGEST.md
 
@@ -227,7 +227,7 @@ For each computed field shown in the design:
 
 ## AUDIT.md
 
-Owned by `gap-auditor`. Read by `plan-architect`. **The DECISIONS section is written by the user** (or the orchestrator, on the user's explicit instructions).
+Owned by `gap-auditor` (or the main agent). Read by `plan-architect`. **The DECISIONS section is written by the user** (or the main agent, on the user's explicit instructions).
 
 ```markdown
 # Audit — PRD vs Design
@@ -300,7 +300,7 @@ Owned by `gap-auditor`. Read by `plan-architect`. **The DECISIONS section is wri
 
 ## EXECUTION_PLAN.md
 
-Owned by `plan-architect`. Read by every Phase B/C/D agent.
+Owned by `plan-architect` (or the main agent). Read at every build step that follows.
 
 ```markdown
 # Execution Plan
@@ -350,26 +350,28 @@ For each entity:
 
 (repeat for each entity)
 
-## Build waves
+## Build order
+
+Modules grouped by dependency. Build **sequentially, one module fully verified before the next** (backend → runtime-verify → frontend → browser-verify) — groups express dependency order, not parallel dispatch.
 
 ```
-Wave 1 (parallel): auth, workspaces
+Group 1: auth, workspaces
   ↳ Foundation. Everything else depends on these.
 
-Wave 2 (parallel): companies, contacts, mailboxes
+Group 2: companies, contacts, mailboxes
   ↳ Independent domain entities. No inter-feature deps.
 
-Wave 3 (parallel): campaigns, pipeline
-  ↳ Depend on Wave 2 entities.
+Group 3: campaigns, pipeline
+  ↳ Depend on Group 2 entities.
 
-Wave 4 (parallel): email, ai, webhooks
+Group 4: email, ai, webhooks
   ↳ Depend on campaigns + mailboxes.
 
-Wave 5 (parallel): analytics, audit
-  ↳ Read-side. Depend on hypertables populated by earlier waves.
+Group 5: analytics, audit
+  ↳ Read-side. Depend on hypertables populated by earlier groups.
 ```
 
-**Total: 5 waves, 12 features, 24 builder dispatches.**
+**Total: 5 groups, 12 features.**
 
 ## CASL ability map
 
@@ -412,18 +414,18 @@ Wave 5 (parallel): analytics, audit
 
 These are decisions deferred to mid-build:
 
-- O-1: After Wave 3, decide whether to deploy AI behind a feature flag or always-on.
-- O-2: After Wave 4, decide on webhook signature verification approach (HMAC vs JWT).
+- O-1: After Group 3, decide whether to deploy AI behind a feature flag or always-on.
+- O-2: After Group 4, decide on webhook signature verification approach (HMAC vs JWT).
 
-These do NOT block any wave; they're checklist items at the wave boundary.
+These do NOT block any group; they're checklist items at the group boundary.
 
 ## Acceptance criteria
 
 The build is complete when:
 
 - All 12 modules in the table above are built
-- Wave gates all green
-- Phase D integration tests all pass
+- Per-module runtime verification all green (boot + curl + browser)
+- Integration tests all pass; `verify-done.mjs` exits 0
 - The user runs `pnpm dev` and `pnpm worker:dev` in two terminals and both boot cleanly
 - The demo-mode frontend renders every screen with realistic fixture data
 - The production-mode frontend (pointed at the running backend) renders the same data from live API
@@ -436,7 +438,7 @@ Every artifact MUST:
 - Have a generated-by line at the top (which agent + ISO timestamp)
 - Be valid Markdown — parseable by every agent that reads it
 - Use stable IDs (F-1, S-1, A-1, M-1) so cross-references survive edits
-- Survive the orchestrator's prompt-construction (no markdown that breaks code blocks when quoted)
+- Survive being quoted into an agent prompt (no markdown that breaks code blocks when quoted)
 - **Use Title Case for every enum value mentioned.** Statuses, stages, roles, industries, discriminator `kind` fields — all Title Case (with spaces allowed: `"In Progress"`, `"Proposal Sent"`, `"Email Sent"`). Numeric ranges (`"1-10"`, `"51-200"`) stay as ranges. If a digest or audit finding shows a non-Title-Case value, the agent that produced it is wrong; rerun it.
 
 If an agent has reason to deviate, it adds a `## DEVIATIONS` section at the bottom explaining why. Subsequent agents read that section first.
@@ -446,5 +448,5 @@ If an agent has reason to deviate, it adds a `## DEVIATIONS` section at the bott
 - ❌ Sneaking architectural decisions into PRD_DIGEST. That's plan-architect's job.
 - ❌ Sneaking implementation details into DESIGN_DIGEST. ("Use a Tailwind grid here" — no.)
 - ❌ AUDIT.md without a DECISIONS section. The user can't navigate findings without one.
-- ❌ EXECUTION_PLAN with hand-wavy waves ("Wave 2: most things"). Each wave lists exact features.
+- ❌ EXECUTION_PLAN with hand-wavy groups ("Group 2: most things"). Each group lists exact features.
 - ❌ Mixing artifacts. One file per artifact, exclusively owned, no exceptions.

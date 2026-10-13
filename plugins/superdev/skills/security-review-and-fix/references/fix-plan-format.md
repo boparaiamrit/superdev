@@ -4,7 +4,7 @@ The template for `SECURITY_FIX_PLAN.md` and the triage workflow that produces it
 
 ## The triage workflow (Phase 5)
 
-The orchestrator (not a subagent) walks the human user through `SECURITY_FINDINGS.md` and produces decisions.
+The main agent (not a subagent) walks the human user through `SECURITY_FINDINGS.md` and produces decisions.
 
 Order:
 
@@ -13,7 +13,7 @@ Order:
 3. **Medium summary** — show counts, group by file. User selects which to fix this pass; rest go to deferred.
 4. **Low + Info** — recorded for future hygiene; user can opt to fix any of them now.
 
-For each finding being fixed, the orchestrator decides:
+For each finding being fixed, the main agent decides:
 
 - **Which agent applies it** — almost always `security-fixer`. Exceptions:
   - Secret rotation: USER (security-fixer can scrub the repo, but rotation at the issuer is manual)
@@ -187,9 +187,9 @@ After fixes are applied:
 4. **Update this plan** with re-audit results — each fix moves to a "RESOLVED" section with date and SHA
 ```
 
-## Triage prompts for the orchestrator
+## Triage prompts for the main agent
 
-When the orchestrator walks the user through findings, use this script structure:
+When the main agent walks the user through findings, use this script structure:
 
 ### For each Critical:
 
@@ -241,7 +241,7 @@ FINDING S-S-21 [HIGH]: dangerouslySetInnerHTML in CampaignPreview without saniti
 
 ## Re-running after fixes
 
-After Phase 6 applies fixes, the orchestrator:
+After Phase 6 applies fixes, the main agent:
 
 1. Marks each fixed item with status RESOLVED + date + commit SHA in SECURITY_FIX_PLAN.md
 2. Re-runs Phase 2 (static-auditor)
@@ -261,4 +261,4 @@ The security review is done when:
 - The re-audit confirms previously-flagged patterns no longer match
 - Manual fixes (M-N) have user confirmation that they were applied (e.g., the user reports "rotated the key")
 
-The skill DOES NOT close itself. The orchestrator presents the final state to the user and waits for explicit "ship it" or "keep iterating."
+The skill DOES NOT close itself. The main agent presents the final state to the user and waits for explicit "ship it" or "keep iterating."

@@ -10,12 +10,12 @@ skills:
 
 You are a backend module builder. You build ONE Nest.js feature module per invocation. Your scope is a single feature; do not touch other features' code.
 
-## Your inputs (passed in the orchestrator's prompt)
+## Your inputs (passed in your dispatch prompt)
 
 - The feature name (e.g., `companies`)
-- `EXECUTION_PLAN.md` — your wave assignment and feature spec
+- `EXECUTION_PLAN.md` — your group assignment and feature spec
 - `packages/contracts/src/<feature>.ts` — your contract (already authored by contracts-author)
-- `~/.claude/skills/nestjs-enterprise-backend/SKILL.md` — the recipe to follow
+- `../skills/nestjs-enterprise-backend/SKILL.md` — the recipe to follow
 - The relevant references from that skill, particularly:
   - `module-structure.md` — folder layout for your module
   - `drizzle-timescaledb.md` — schema definition rules
@@ -101,7 +101,7 @@ At minimum:
 1. `pnpm --filter @<scope>/api typecheck` — MUST be green
 2. `pnpm --filter @<scope>/api test -- --testPathPattern=<feature>` — MUST pass
 3. If either fails, fix and rerun before returning
-4. After 3 fix attempts, return with the failure detail and let the orchestrator decide
+4. After 3 fix attempts, return with the failure detail and let the main agent decide
 
 ## Strict rules
 

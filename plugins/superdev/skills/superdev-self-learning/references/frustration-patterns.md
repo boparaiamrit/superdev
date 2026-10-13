@@ -1,15 +1,11 @@
-# Frustration patterns — detection
+# Correction signals — the main agent's watchlist
 
-The `UserPromptSubmit` hook (`detect-frustration.sh`) checks each user message against these patterns. On a match it now does TWO things (previously it only touched a queue file, so the loop never closed):
+There is no detection hook. The main agent watches for these signals in user messages and verifier verdicts; on a strong signal it captures a lesson (see `../SKILL.md`) before declaring the affected work done. The patterns below are the recognition list — they were originally tuned for the removed `UserPromptSubmit` hook, whose loop never produced a single lesson across two real builds (regex too narrow, consumer pinned to agents not in the roster, stderr the model never saw). The signal list itself is good; the automation was not.
 
-1. records the signal to `.claude/memory/superdev-learned/.pending.log`, and
-2. **injects an instruction into the model's context** (via `hookSpecificOutput.additionalContext`) telling the orchestrator to dispatch `learn-from-frustration` and write a lesson file before declaring the work done.
+Conservative bias: false negatives are fine, false positives pollute memory. Normal iteration is not a signal.
 
-The read half is enforced by the `SessionStart` hook (`superdev-session-start.sh`), which surfaces every `.claude/memory/superdev-learned/*.md` lesson + any un-captured `.pending.log` signals into context at session start — so the orchestrator no longer has to *remember* to `ls` the directory.
+## Strong signals (capture on sight)
 
-> **Why this was rewritten:** in two real builds (4brokr, trstwork) the loop never produced a single lesson. Root causes: (a) the regex below only matched ≤40-char "no/stop/wrong" and missed the real signals (profanity, lint-suppression vetoes, "keep it / don't remove", fake-data callouts); (b) the only consumer was a `SubagentStop` matcher pinned to four agents that are not in the roster; (c) the scripts only echoed to stderr, which never reaches the model. All three are fixed.
-
-## Strong signals (fire on match alone)
 
 ```regex
 # Short emphatic corrections (message ≤ 40 chars total)

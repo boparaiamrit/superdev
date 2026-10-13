@@ -8,12 +8,12 @@ permissionMode: acceptEdits
 
 You are a security fixer. You apply ONE fix per invocation, verify it, and return.
 
-## Your inputs (in the orchestrator's prompt)
+## Your inputs (in your dispatch prompt)
 
 - The fix ID from SECURITY_FIX_PLAN.md (e.g., `S-S-12`)
 - The plan file: `SECURITY_FIX_PLAN.md`
 - The originating finding: `SECURITY_FINDINGS.md`
-- Skill references for the code you'll edit (e.g., `~/.claude/skills/nestjs-enterprise-backend/references/auth-casl.md` if the fix is auth-related)
+- Skill references for the code you'll edit (e.g., `../skills/nestjs-enterprise-backend/references/auth-casl.md` if the fix is auth-related)
 
 ## Your scope
 
@@ -122,45 +122,4 @@ Fix S-S-<N> applied:
   User action required: <none, or specific>
 ```
 
-If anything's "partial" or "user action required", be explicit. The orchestrator decides next step.
-```
-
----
-
-## Installation script
-
-The 5 security agents are installed by `install-security-agents.sh` in this same `references/` folder. Same pattern as the orchestrator's core install (awk-extract each `## <name>` block's ` ```markdown ` fence into `.claude/agents/<name>.md`).
-
-### Usage modes
-
-**As part of the orchestrator's pipeline (typical):**
-
-The `prd-design-build-orchestrator` skill's Phase A.1 detects this skill and invokes the script automatically:
-
-```bash
-# Inside the orchestrator's Phase A.1
-if [[ -f ~/.claude/skills/security-review-and-fix/references/security-agents.md ]]; then
-  ~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
-fi
-```
-
-**Standalone (ad-hoc audit on an existing codebase):**
-
-```bash
-cd /path/to/monorepo
-~/.claude/skills/security-review-and-fix/references/install-security-agents.sh
-```
-
-Then dispatch agents directly from the Claude Code session per the SKILL.md six-phase pipeline.
-
-### Verifying installation
-
-```bash
-ls .claude/agents/ | grep -E "security-inventory|static-auditor|dynamic-auditor|dependency-auditor|security-fixer" | wc -l
-# Should print 5
-
-for f in .claude/agents/security-inventory.md .claude/agents/static-auditor.md \
-         .claude/agents/dynamic-auditor.md .claude/agents/dependency-auditor.md \
-         .claude/agents/security-fixer.md; do
-  head -1 "$f" | grep -q '^---$' && echo "OK $f" || echo "BAD $f"
-done
+If anything's "partial" or "user action required", be explicit. The main agent decides next step.

@@ -23,7 +23,7 @@ MUST NEVER LAND ON A SHARED BRANCH.
 ## When to use
 
 - ✅ A module's structure was flagged by `module-structure-auditor` and needs decomposition
-- ✅ Before running `prototype-to-saas` on a prototype with fat files (Phase B.5)
+- ✅ Before running `prototype-to-saas` rewiring on a prototype with fat files
 - ✅ User says "this file is too big" / "this wizard is unmaintainable"
 - ✅ A 5+ step wizard lives in one file
 - ✅ A page exceeds 100 lines OR a component exceeds 200 lines
@@ -35,10 +35,10 @@ MUST NEVER LAND ON A SHARED BRANCH.
 - ❌ Renames-only / formatting-only changes (run codemods directly)
 - ❌ Cross-module changes (each module gets its own conversion dispatch)
 
-## How the orchestrator should use this skill
+## How the main agent should use this skill
 
 - After `module-structure-auditor` returns P1 findings on a module → dispatch `frontend-refactoring` for that one module
-- In `prototype-to-saas` pipeline → run as **Phase B.5** between discovery and rewiring. The prototype's UI must be decomposed before `frontend-rewirer` touches anything (rewiring a fat file just preserves the antipattern with new data wiring)
+- In `prototype-to-saas` pipeline → run **between discovery and rewiring**. The prototype's UI must be decomposed before `frontend-rewirer` touches anything (rewiring a fat file just preserves the antipattern with new data wiring)
 - User explicitly asks for a refactor → dispatch directly
 
 ## The 5 strict phases
@@ -47,7 +47,7 @@ MUST NEVER LAND ON A SHARED BRANCH.
 ┌─────────────────────────┐    ┌─────────────────────────┐    ┌─────────────────────────┐
 │ PHASE 1 — DEEP PLAN     │───▶│ PHASE 2 — REVIEW GATE   │───▶│ PHASE 3 — SNAPSHOT      │
 │ module-conversion-      │    │ User confirms plan      │    │ module-behavior-        │
-│ planner                 │    │ Optional 3-teammate     │    │ snapshotter             │
+│ planner                 │    │ Optional three-lens     │    │ snapshotter             │
 │                         │    │ completeness review     │    │                         │
 │ EXHAUSTIVE plan:        │    │                         │    │ Playwright records ALL  │
 │ every new file (full    │    │ REJECT if plan has any  │    │ behavior: every route,  │
@@ -120,7 +120,7 @@ The planner reads the entire module top to bottom and produces `CONVERSION_PLAN.
 - apps/web/src/modules/companies/components/companies-table/parts/bulk-edit-drawer/index.tsx
 - apps/web/src/modules/companies/components/companies-table/parts/bulk-edit-drawer/form.tsx
 - apps/web/src/modules/companies/components/companies-table/parts/bulk-edit-drawer/footer.tsx
-- apps/web/src/modules/companies/components/create-wizard/index.tsx (orchestrator)
+- apps/web/src/modules/companies/components/create-wizard/index.tsx (step coordinator)
 - apps/web/src/modules/companies/components/create-wizard/step-1-basics.tsx
 - apps/web/src/modules/companies/components/create-wizard/step-2-contacts.tsx
 - apps/web/src/modules/companies/components/create-wizard/step-3-billing.tsx
@@ -195,7 +195,7 @@ The planner reads the entire module top to bottom and produces `CONVERSION_PLAN.
 2. Create hooks/ (5 files)
 3. Create pages/ (3 files) — referencing components that don't exist yet (TS will fail; that's expected mid-commit)
 4. Create components/companies-table/ (4 files + parts/)
-5. Create components/create-wizard/ (orchestrator + 8 steps + shared)
+5. Create components/create-wizard/ (step coordinator + 8 steps + shared)
 6. Update apps/web/src/app/companies/*/page.tsx imports
 7. Delete companies.tsx + companies-detail.tsx
 8. Run typecheck — MUST pass
@@ -216,15 +216,15 @@ The plan is the contract. The converter executes EXACTLY what the plan says, in 
 
 ## Phase 2 — Review gate
 
-The user reads the plan. If high-stakes, dispatch a 3-teammate review:
+The user reads the plan. If high-stakes, first run a **three-lens self-review** (one pass, three explicit lenses — write the findings of each lens before moving on):
 
 ```
-Dispatch 3-teammate plan-completeness review.
-Teammate A — pessimist: hunts for what the plan FORGOT (any missing file? any orphan import?)
-Teammate B — pragmatist: questions whether each split is actually needed
-Teammate C — surgeon: validates the atomic-execute order — would this typecheck mid-commit?
+Lens A — pessimist: what did the plan FORGET? (missing file? orphan import?)
+Lens B — pragmatist: is each split actually needed, or over-engineering?
+Lens C — surgeon: walk the atomic-execute order — would this typecheck mid-commit?
 
-Majority verdict. Plan only proceeds if all three approve.
+Any unresolved finding in any lens blocks approval; send specifics back to the planner.
+```
 ```
 
 User then types "approve" or "revise" with specific feedback for the planner to incorporate.
@@ -283,10 +283,6 @@ git branch -D refactor/<feature>-decompose
 The plan re-opens. Phase 1 re-runs with the verifier's findings as input ("on attempt 1, drift was X — adjust plan to preserve Y behavior"). Phase 4 re-executes.
 
 There's no incremental "fix the drift, keep some changes" path. Half-state is the antipattern this skill exists to prevent.
-
-## Agent teams (optional — plan-completeness review)
-
-For complex modules (1000+ line source, 5+ wizard steps, 3+ drawer/modal/popover extractions), the 3-teammate review in Phase 2 dramatically improves outcomes. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 
 ## Reference files
 

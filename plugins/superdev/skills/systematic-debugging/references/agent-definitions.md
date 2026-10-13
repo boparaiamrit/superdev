@@ -58,7 +58,7 @@ to the files listed in ROOT_CAUSE.md's "Fix scope" section.
 
 Re-run the REPRO.md reproduction. Run typecheck. Run closest test pattern.
 
-Include a one-line LESSON in your output for the self-learning hook.
+Include a one-line LESSON in your output so the main agent can record it (superdev-self-learning).
 ```
 
 ## regression-verifier
@@ -75,28 +75,6 @@ Run:
 4. Cross-cutting checks: view-shape contract, CASL, @Audit
 
 Produce REGRESSION.md with verdict READY TO COMMIT or REJECT.
-If REJECT, the orchestrator re-dispatches fix-applier with the reasons.
+If REJECT, the main agent re-dispatches fix-applier with the reasons.
 ```
-
-## Agent teams (competing hypotheses)
-
-When CANDIDATES.md has 3+ candidates and stakes are high (prod outage, repeat regression):
-
-```
-Dispatch a 3-teammate competing-hypotheses team.
-
-Teammate A: champion candidate 1 from CANDIDATES.md
-Teammate B: champion candidate 2
-Teammate C: champion candidate 3
-
-Each teammate must:
-- Defend their own candidate with new evidence
-- Propose an experiment that would FALSIFY one of the other candidates
-- After the experiment runs, evaluate the others' new evidence
-
-When 2 teammates converge on the same candidate, promote it to ROOT_CAUSE.md.
-When all 3 disagree after one round of cross-experiments, the investigation
-is incomplete — re-dispatch root-cause-investigator with the new evidence.
-
-Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1.
-```
+
