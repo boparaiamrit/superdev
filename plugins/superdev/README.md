@@ -64,12 +64,12 @@ Workspace-scope agnostic — substitute placeholders with your project's values:
 **Claude Code:**
 
 ```bash
-/plugin marketplace add boparaiamrit/superdev
-/plugin install superdev
+claude plugin marketplace add boparaiamrit/superdev --scope project
+claude plugin install superdev@superdev --scope project
 # local development:
 claude --plugin-dir ~/superdev/plugins/superdev
 # or from the bundled zip:
-bash install-superdev.sh
+bash /path/to/superdev/install-superdev.sh   # project-scoped helper (delegates to the commands above)
 ```
 
 **Codex:** use the repo-local marketplace `.agents/plugins/marketplace.json`, then invoke skills directly:
