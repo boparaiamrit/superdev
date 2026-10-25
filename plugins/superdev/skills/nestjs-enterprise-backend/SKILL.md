@@ -131,7 +131,7 @@ industry: { value: 'tech', label: 'Technology' } // dual-field hack; the value I
 - **BullMQ** for queues, workers, and crons
 - **CASL** (`@casl/ability`) for authorization
 - **`nestjs-zod`** — DTOs and OpenAPI from `packages/contracts` schemas
-- **JWT** with refresh-token rotation, `argon2` for password hashing
+- **JWT** with refresh-token rotation, `argon2` for password hashing — the session, refresh, two-factor, staff-permission and masking model is defined by [`security-foundation`](../security-foundation/SKILL.md), which overrides `auth-casl.md` where they differ
 - **Pino** (`nestjs-pino`) for structured logging
 - **Prometheus** via `@willsoto/nestjs-prometheus`
 - **`@nestjs/config`** with Zod-validated env

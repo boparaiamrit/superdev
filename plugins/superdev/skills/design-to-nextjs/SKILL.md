@@ -312,7 +312,7 @@ See `references/scaffolding.md` for the full setup procedure (commands, config f
    - `src/lib/query-client.ts` — QueryClient singleton with sensible defaults
    - `src/app/providers.tsx` — wraps QueryClientProvider + any other providers (theme, toast)
    - `src/app/layout.tsx` — imports providers, applies fonts, sets html lang
-   - `src/lib/api-client.ts` — fetch wrapper with auth headers, error normalization, Zod parsing
+   - `src/lib/api-client.ts` — fetch wrapper with auth headers, error normalization, Zod parsing; single-flight refresh on 401, hard redirect to sign-in when refresh fails, a blocked screen for `403 ACCOUNT_BLOCKED`, `Idempotency-Key` on money-moving mutations (client half of [`security-foundation`](../security-foundation/SKILL.md))
 7. Set up the enterprise folder layout (empty directories with `.gitkeep`):
    ```
    src/

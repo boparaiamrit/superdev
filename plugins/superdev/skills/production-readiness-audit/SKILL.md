@@ -100,7 +100,7 @@ The main agent dispatches; builders/fixers never chain. State lives in `READINES
 
 ## Relationship to verify-done
 
-This loop is the judgment layer; [`verify-done.mjs`](../../scripts/verify-done.mjs) is the machine layer (typecheck/lint/build, dist boot + health, suppression and placeholder sweeps, contracts format). Run verify-done first — scoring a product whose built API does not boot is wasted work — and again after the final round. "Done" requires verify-done exit 0 **and** every module ≥ 9 with cited evidence (or blockers explicitly surfaced to the user). There is no ledger to mark `pass` by hand.
+This loop is the judgment layer; [`verify-done.mjs`](../../scripts/verify-done.mjs) is the machine layer (typecheck/lint/build, dist boot + health, suppression and placeholder sweeps, contracts format, Tauri shell checks, and with `--suites` the committed runtime suites). Run verify-done first — scoring a product whose built API does not boot is wasted work — and again after the final round with `--suites --strict`. After this loop, [`release-qa-gate`](../release-qa-gate/SKILL.md) still runs: it is the final QA pass and records route × role × viewport × theme, contrast states, the device pass and live updates in `QA_COVERAGE.md`; Pass 4 results here count there only for cells recorded on the same commit and seed. "Done" requires verify-done exit 0 **and** every module ≥ 9 with cited evidence (or blockers explicitly surfaced to the user). There is no ledger to mark `pass` by hand.
 
 ## Completion gate
 

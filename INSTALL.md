@@ -63,6 +63,6 @@ Start Codex from that project, open `/plugins`, choose **Superdev Local**, insta
 
 - `install-superdev.sh` — project-scoped Claude CLI helper
 - `superdev.zip` — optional archive of the current plugin source
-- `plugins/superdev/` — 18 skills, 54 agent prompts, and the `verify-done.mjs` script (no hooks in v2)
+- `plugins/superdev/` — 21 skills, 60 agent prompts, and the `verify-done.mjs` script (no hooks in v2)
 - `.agents/plugins/marketplace.json` — Codex repository marketplace
 - `.claude-plugin/marketplace.json` — Claude marketplace catalog

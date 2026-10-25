@@ -2,7 +2,7 @@
 
 # Superdev — Claude Code + Codex Plugin
 
-**18 production-grade skills + 54 agents for full-stack monorepo builds**
+**21 production-grade skills + 60 agents for full-stack monorepo builds**
 
 *The main agent builds directly — contracts first, one verified module at a time. No conductor, no parallel builder waves, no self-graded "done".*
 
@@ -20,9 +20,9 @@
 
 ---
 
-> **v2.0.1** keeps direct sequential builds, canonical contracts, and explicit runtime verification. The conductor, hooks, agent-copy installers, and completion ledgers remain removed. Use [`superdev-build`](plugins/superdev/skills/superdev-build/SKILL.md) for the build workflow and the [`hard rules`](plugins/superdev/skills/superdev-build/references/hard-rules.md) for stack-specific requirements and verification.
+> **v2.1.0** adds Tauri desktop and mobile clients ([`design-to-tauri`](plugins/superdev/skills/design-to-tauri/SKILL.md)), a security layer built in from bootstrap ([`security-foundation`](plugins/superdev/skills/security-foundation/SKILL.md)), and a release QA gate where every coverage cell cites evidence ([`release-qa-gate`](plugins/superdev/skills/release-qa-gate/SKILL.md)). It keeps direct sequential builds, canonical contracts, and explicit runtime verification. The conductor, hooks, agent-copy installers, and completion ledgers remain removed. Use [`superdev-build`](plugins/superdev/skills/superdev-build/SKILL.md) for the build workflow and the [`hard rules`](plugins/superdev/skills/superdev-build/references/hard-rules.md) for stack-specific requirements and verification.
 
-## 🧬 What's inside — 18 skills
+## 🧬 What's inside — 21 skills
 
 | # | Skill | What it does |
 |:---:|:---|:---|
@@ -43,7 +43,10 @@
 | 15 | 🎯 **production-readiness-audit** | Five passes score every module 1–10 (weakest pass wins, tenancy/P0 hard caps); **every score cites its command/browser/DB evidence**; loop fix → re-audit until all ≥ 9. |
 | 16 | 🗡️ **brutal-exhaustive-audit** | Every file, route, flow, data path, edge case — mandatory disk-tracked checklists before any "ship" claim. |
 | 17 | 🧠 **superdev-self-learning** | Deliberate lesson capture to the target project's `.claude/memory/superdev-learned/`; stack-general lessons graduate into `hard-rules.md` instead of staying siloed. |
-| 18 | 🏁 **superdev-done** | Runs `verify-done.mjs`: live Definition-of-Done — per-package typecheck/lint/build, **boots the built API**, contracts-format + swagger-landmine checks, suppression + placeholder sweeps. |
+| 18 | 🏁 **superdev-done** | Runs `verify-done.mjs`: live Definition-of-Done — per-package typecheck/lint/build, **boots the built API**, contracts-format + swagger-landmine checks, Tauri shell checks, suppression + placeholder sweeps, and with `--suites` every committed runtime suite against the running stack. |
+| 19 | 📱 **design-to-tauri** 🆕 v2.1.0 | Tauri 2 desktop + Android + iOS clients on the shared contracts: locked-down shell (CSP, least-privilege capabilities, exact HTTP origins, keystore tokens), mobile token auth with single-flight refresh, SSE live updates and phone alerts, emulator QA with `adb`, store release. |
+| 20 | 🛡️ **security-foundation** 🆕 v2.1.0 | The security layer built at bootstrap, not audited later: sessions checked per request, refresh rotation with theft detection, blocking with a reason, TOTP + recovery codes + passkeys + device list + QR sign-in, separate staff identity with permission keys, masked personal data with audited reveal, per-account balance locks, idempotency keys, reconciliation, transactional live updates and notifications — each proven by a committed suite. |
+| 21 | 🧾 **release-qa-gate** 🆕 v2.1.0 | The "cover everything" pass on a fresh seed: committed suites, route × role × viewport × theme, every form and link, axe + contrast in every interactive state, security behaviours in the browser, money races, live updates across clients, the phone app on a device — `QA_COVERAGE.md` with evidence in every cell. |
 
 > 🔀 **Stack choice** — `superdev-build` Step 2 asks **Laravel or Nest.js**; Laravel then asks **Inertia monolith** (default) vs **decoupled Next.js**. Persisted in `STACK.md`. Nest.js always pairs with Next.js; QA/security/audit skills are identical either way.
 
@@ -51,7 +54,7 @@
 
 ## ⚔️ The hard rules
 
-[`hard-rules.md`](plugins/superdev/skills/superdev-build/references/hard-rules.md) defines twelve reusable requirements. Each states where it applies and how to verify it:
+[`hard-rules.md`](plugins/superdev/skills/superdev-build/references/hard-rules.md) defines eighteen reusable requirements. Each states where it applies and how to verify it:
 
 1. **Boot the built artifact** after each backend module, using the selected stack's production entry point and health checks.
 2. **Use supported validation and documentation integration** — do not scaffold `patchNestJsSwagger()` or private Swagger imports.
@@ -65,6 +68,12 @@
 10. **No raw JSON in operator UI** — structured controls with plain-language labels.
 11. **One canonical public origin** for every public URL, identical across apps.
 12. **Keep provider keys private** — tests use stubs, saved evidence is redacted, and production never silently substitutes demo data.
+13. **Check the session on every request** — revocation, staff disabling and blocking take effect at once, and a blocked person is told why.
+14. **Serialize balance changes per account** — a transaction-scoped lock in every spend, grant and expiry path, and a reconciliation that proves the books.
+15. **Make money-moving requests idempotent** — `Idempotency-Key` replay, discount re-validation at payment, entitlements that end with the plan.
+16. **Publish live updates inside the writing transaction** — delivered only after commit, filtered by permission, replayed on reconnect, ended on revocation.
+17. **Do not trust correlated subqueries in single-table ORM selects** — compute counts with grouped queries and assert them against seeded data.
+18. **Prove native clients on a device** — locked-down Tauri shell, then every module driven on an emulator or phone.
 
 ### Public documentation and saved lessons
 
@@ -103,7 +112,10 @@ Or invoke any single skill directly, no build pipeline involved:
 | Demo-vs-product truth | *"Is this actually wired up or just looks done?"* | `product-completeness-audit` in production mode |
 | Score every module | *"Rate each module 1–10 and complete it fully"* | `production-readiness-audit` loop until all ≥ 9 with cited evidence |
 | Design → Next.js | *"Convert this Claude Design output to Next.js"* | `design-to-nextjs` |
-| Done-check | *"Are we done?"* | `superdev-done` runs `verify-done.mjs` live |
+| Done-check | *"Are we done?"* | `superdev-done` runs `verify-done.mjs` live (add `--suites --strict` for the committed runtime suites and a release claim) |
+| A phone or desktop app | *"Build the Android and iOS app on the same API"* | `design-to-tauri` + emulator QA |
+| Security built in | *"Add 2FA, passkeys, roles and masked phone numbers"* | `security-foundation` with committed proof suites |
+| Test everything before release | *"Have you done QA? Check every page, every role, contrast, dead links, the app"* | `release-qa-gate` → `QA_COVERAGE.md` |
 
 ## 🏗️ How a build works now
 
@@ -136,6 +148,8 @@ superdev-build (main agent executes; subagents optional, one at a time)
 | 5 | **Docker for all infrastructure** — healthchecks on every service (Laravel serverless: managed Postgres/Timescale) |
 | 6 | **Permissions + audit on every mutation** — proven by rows written, not decorators present |
 | 7 | **Dual-mode adapter** — demo fixtures vs production API; mock routes sanitized + demo-gated |
+| 8 | **Security built in** — sessions, two-factor, staff permissions, masking, money safety and live updates laid at bootstrap and proven by committed suites |
+| 9 | **Every client proven where it runs** — browser for web and admin, emulator or phone for Tauri, with cited evidence in `QA_COVERAGE.md` |
 
 ## 📦 Tech stack baked in
 
@@ -144,15 +158,16 @@ superdev-build (main agent executes; subagents optional, one at a time)
 | Frontend | Next.js App Router · Tailwind · TanStack Query/Table · Zustand · Zod · React Hook Form · shadcn/ui — or Laravel + Inertia 3 + React 19 |
 | Backend | Nest.js + PostgreSQL 17/TimescaleDB + Drizzle + Redis/BullMQ + CASL + nestjs-zod — or Laravel 13 + PostgreSQL/TimescaleDB + DB cache/sessions + SQS on Bref |
 | Tooling | pnpm workspaces (default) · Turborepo · Docker Compose · PM-agnostic checks (pnpm/npm/yarn/bun by lockfile) |
-| QA | Playwright |
+| Clients | Next.js web + staff admin · Tauri 2 desktop/Android/iOS |
+| QA | Playwright · axe-core · adb/emulator · committed runtime suites (`test:*`) |
 
 ## 🗂️ Repository structure
 
 ```text
 superdev/
 ├── plugins/superdev/
-│   ├── skills/                  18 skills (superdev-build + recipes + audits)
-│   ├── agents/                  54 agents — single source, plugin auto-loaded
+│   ├── skills/                  21 skills (superdev-build + recipes + audits)
+│   ├── agents/                  60 agents — single source, plugin auto-loaded
 │   ├── scripts/verify-done.mjs  the live Definition-of-Done check (Node, cross-platform)
 │   ├── .claude-plugin/          Claude Code manifest
 │   └── .codex-plugin/           Codex manifest

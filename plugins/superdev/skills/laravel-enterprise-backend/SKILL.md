@@ -74,6 +74,8 @@ Eloquent is the ORM. Schema is defined in Laravel migrations, models declare `ca
 
 ### 4. Fine-grained authorization — Policies + spatie/laravel-permission
 
+> Build the identity and staff layer to [`security-foundation`](../security-foundation/SKILL.md)'s behaviours (session checked per request, rotating refresh with theft detection, blocking with a reason, two-factor/passkeys, staff permission keys rather than role-name checks, masked personal data with audited reveal, balance locks, idempotency); map them onto Sanctum/Fortify, spatie permissions and Policies.
+
 Authorization is not just role checks. `spatie/laravel-permission` provides DB-backed roles and permissions; **Policies/Gates** resolve the actual answer, including the workspace-match condition. Roles are an *input* to the policy, not the resolution itself. Enforcement is via the Laravel 13 `#[Authorize(...)]` controller-method attribute. **Authorize every endpoint, including `GET /me`.** See `references/auth-sanctum-permissions.md`. When the frontend is an **Inertia monolith** (Step 2), identity is **Laravel Fortify session** (not Sanctum tokens) while `spatie/laravel-permission` + Policies + `#[Authorize]` stay the same — see `references/inertia-variant.md`.
 
 > Laravel equivalent of Nest's CASL: spatie/laravel-permission + Policies. Do not bring CASL into a Laravel build.

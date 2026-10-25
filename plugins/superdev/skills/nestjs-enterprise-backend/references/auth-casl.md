@@ -2,6 +2,8 @@
 
 How to implement JWT auth, workspace-scoped tenancy, and CASL-based authorization. Read in Phase 4.
 
+> **Read [`security-foundation`](../../security-foundation/SKILL.md) first — it overrides the identity layer below.** Keep this file's workspace tenancy (`tenantDb()`) and CASL abilities for *resource ownership*, but build the identity layer per `security-foundation/references/identity-and-sessions.md`: the JWT carries a session id and the guard **reads the session row on every request** (no stateless-only JWT), refresh tokens are opaque, hashed and rotated per family with theft detection (not a JWT id in a cache), web clients use HttpOnly cookies (mobile uses Bearer), blocked is checked before revoked. Staff/admin users get a **separate identity and permission keys** (`@RequirePermission('leads.contact')`) per `staff-roles-and-pii.md` — never `user.roles.includes('Admin')` checks. Where this file's code disagrees, `security-foundation` wins.
+
 ## The model
 
 Every authenticated request carries:

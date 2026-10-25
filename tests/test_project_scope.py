@@ -108,14 +108,14 @@ class ProjectScopeStaticTests(unittest.TestCase):
     def test_current_inventory_is_documented_by_source(self) -> None:
         skills = list((PLUGIN_ROOT / "skills").glob("*/SKILL.md"))
         agents = list((PLUGIN_ROOT / "agents").glob("*.md"))
-        self.assertEqual(18, len(skills))
-        self.assertEqual(54, len(agents))
+        self.assertEqual(21, len(skills))
+        self.assertEqual(60, len(agents))
         self.assertIn(
-            "18 production-grade skills + 54 agents",
+            "21 production-grade skills + 60 agents",
             read_text(ROOT / "README.md"),
         )
         self.assertIn(
-            "18 skills + 54 agents",
+            "21 skills + 60 agents",
             read_text(PLUGIN_ROOT / "README.md"),
         )
 

@@ -23,6 +23,7 @@ Do NOT use this skill for:
 - Unit test generation — Jest/Vitest skills handle that
 - Functional regression suites — that's `integration-tester` from the main agent
 - Security audit — that's `security-review-and-fix`
+- The release coverage proof (every route × role × viewport × theme, contrast in every state, dead links, committed suites, the phone app on a device) — that's [`release-qa-gate`](../release-qa-gate/SKILL.md); run this skill alongside it to find what the matrix did not think of
 - Initial build — use the main agent or prototype-to-saas
 
 This skill assumes a working app exists and runs. It explores; it doesn't build.

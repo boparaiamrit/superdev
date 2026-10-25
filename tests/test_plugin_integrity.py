@@ -145,7 +145,8 @@ class HardLearnedRulesTests(unittest.TestCase):
     def test_hard_rules_cover_the_recurring_failures(self) -> None:
         hard = read(SKILLS / "superdev-build" / "references" / "hard-rules.md")
         for needle in ("node apps/api/dist/main.js", "patchNestJsSwagger", "CommonJS",
-                       "audit_log", "base-nova", "contracts"):
+                       "audit_log", "base-nova", "contracts", "pg_advisory_xact_lock",
+                       "Idempotency-Key", "same transaction", "adb", "session row"):
             self.assertIn(needle, hard, f"hard-rules.md must cover: {needle}")
 
 
@@ -153,7 +154,7 @@ class PublicGuidanceTests(unittest.TestCase):
     def test_hard_rules_have_scope_and_verification(self) -> None:
         hard = read(SKILLS / "superdev-build" / "references" / "hard-rules.md")
         rules = re.findall(r"^### (\d+)\. (.*?)(?=^### |^## |\Z)", hard, re.M | re.S)
-        self.assertEqual(list(range(1, 13)), [int(number) for number, _ in rules])
+        self.assertEqual(list(range(1, 19)), [int(number) for number, _ in rules])
         for number, rule in rules:
             with self.subTest(rule=number):
                 self.assertIn("**Scope:**", rule)
@@ -176,6 +177,152 @@ class PublicGuidanceTests(unittest.TestCase):
         domains = re.findall(r"\b(?:[a-z0-9-]+\.)+(?:com|org|net|io)\b", hard, re.I)
         for domain in domains:
             self.assertIn(domain.lower(), {"example.com", "example.org", "example.net"})
+
+
+class ClientsSecurityQaTests(unittest.TestCase):
+    """v2.1: Tauri clients, the build-time security layer, and the release QA gate."""
+
+    NEW_SKILLS = ("design-to-tauri", "security-foundation", "release-qa-gate")
+    NEW_AGENTS = ("mobile-qa-tester", "a11y-contrast-auditor", "role-matrix-tester",
+                  "money-integrity-prober", "realtime-prober", "link-crawler")
+
+    def test_new_skills_and_agents_exist(self) -> None:
+        for name in self.NEW_SKILLS:
+            with self.subTest(skill=name):
+                fm = frontmatter(SKILLS / name / "SKILL.md")
+                self.assertTrue(fm["description"].startswith("Use when"),
+                                f"{name}: description must state when to use it")
+        for name in self.NEW_AGENTS:
+            with self.subTest(agent=name):
+                self.assertTrue((AGENTS / f"{name}.md").exists())
+
+    def test_build_skill_wires_clients_security_and_qa(self) -> None:
+        build = read(SKILLS / "superdev-build" / "SKILL.md")
+        for needle in ("design-to-tauri", "security-foundation", "release-qa-gate", "clients", "--suites"):
+            self.assertIn(needle, build, f"superdev-build must reference {needle}")
+
+    def test_security_foundation_covers_the_controls(self) -> None:
+        refs = SKILLS / "security-foundation" / "references"
+        text = "\n".join(read(p) for p in refs.glob("*.md"))
+        for needle in ("every request", "reuse", "recovery codes", "WebAuthn", "masked",
+                       "escalation", "pg_advisory_xact_lock", "Idempotency-Key", "pg_notify",
+                       "test:security"):
+            self.assertIn(needle, text, f"security-foundation must cover: {needle}")
+
+    def test_release_gate_requires_cited_evidence(self) -> None:
+        gate = read(SKILLS / "release-qa-gate" / "SKILL.md")
+        for needle in ("QA_COVERAGE.md", "NOT RUN", "contrast", "dead", "role", "device", "--strict", "db:fresh"):
+            self.assertIn(needle, gate)
+
+    def test_release_gate_names_an_owner_for_every_dimension(self) -> None:
+        gate = read(SKILLS / "release-qa-gate" / "SKILL.md")
+        for agent in (*self.NEW_AGENTS, "qa-flow-tester", "qa-consistency-checker", "qa-performance-prober"):
+            with self.subTest(agent=agent):
+                self.assertIn(f"`{agent}`", gate)
+                self.assertTrue((AGENTS / f"{agent}.md").exists())
+
+    def test_build_defines_the_fresh_seed_the_gate_uses(self) -> None:
+        build = read(SKILLS / "superdev-build" / "SKILL.md")
+        for needle in ("db:seed", "db:fresh", "--strict"):
+            self.assertIn(needle, build)
+
+    def test_stack_recipes_defer_identity_to_security_foundation(self) -> None:
+        for path in (SKILLS / "nestjs-enterprise-backend" / "references" / "auth-casl.md",
+                     SKILLS / "nestjs-enterprise-backend" / "SKILL.md",
+                     SKILLS / "laravel-enterprise-backend" / "SKILL.md",
+                     SKILLS / "design-to-nextjs" / "SKILL.md"):
+            with self.subTest(path=str(path.relative_to(ROOT))):
+                self.assertIn("security-foundation", read(path))
+
+
+@unittest.skipUnless(shutil.which("node"), "node not on PATH in this environment")
+class VerifyDoneTauriTests(unittest.TestCase):
+    """Behavioural: the shell checks fail an open Tauri config and pass a locked-down one."""
+
+    LOCKED_CONF = {"app": {"security": {"csp": {"default-src": "'self'"}}}}
+    STRIPPED_CARGO = '[dependencies]\ntauri = { version = "2", features = [] }\n\n[profile.release]\nstrip = true\n'
+
+    def run_on(self, conf: dict, capability: dict, cargo: str, *extra: str) -> subprocess.CompletedProcess[str]:
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        app = Path(tmp.name) / "apps" / "mobile"
+        tauri = app / "src-tauri"
+        (tauri / "capabilities").mkdir(parents=True)
+        (app / "package.json").write_text('{"name": "mobile", "scripts": {}}', encoding="utf-8")
+        (tauri / "tauri.conf.json").write_text(json.dumps(conf), encoding="utf-8")
+        (tauri / "capabilities" / "default.json").write_text(json.dumps(capability), encoding="utf-8")
+        (tauri / "Cargo.toml").write_text(cargo, encoding="utf-8")
+        return subprocess.run(["node", str(PLUGIN / "scripts" / "verify-done.mjs"), "--root", tmp.name,
+                               "--skip-build", "--skip-boot", *extra],
+                              capture_output=True, text=True, encoding="utf-8", timeout=120)
+
+    @staticmethod
+    def http(*urls: str) -> dict:
+        return {"identifier": "default",
+                "permissions": [{"identifier": "http:default", "allow": [{"url": u} for u in urls]}]}
+
+    def test_open_shell_fails(self) -> None:
+        res = self.run_on({"app": {"security": {"csp": None}}},
+                          {"permissions": [{"identifier": "http:default", "allow": [{"url": "https://*"}]}]},
+                          '[dependencies]\ntauri = { version = "2", features = ["devtools"] }\n')
+        self.assertEqual(1, res.returncode, res.stdout)
+        for needle in ("CSP", "HTTP capability scope", "devtools"):
+            self.assertIn(needle, res.stdout)
+
+    def test_locked_down_shell_passes(self) -> None:
+        res = self.run_on({"app": {"security": {"csp": {"default-src": "'self'"}}}},
+                          {"permissions": [{"identifier": "http:default", "allow": [{"url": "https://api.example.com/*"}]}]},
+                          '[dependencies]\ntauri = { version = "2", features = [] }\n')
+        self.assertEqual(0, res.returncode, res.stdout)
+        self.assertIn("CSP set", res.stdout)
+
+    def test_host_wildcards_and_remote_cleartext_fail(self) -> None:
+        for url in ("https://*.example.com/*", "http://*:4100/*", "*"):
+            with self.subTest(url=url):
+                res = self.run_on(self.LOCKED_CONF, self.http(url), self.STRIPPED_CARGO)
+                self.assertEqual(1, res.returncode, res.stdout)
+                self.assertIn("[FAIL]", res.stdout)
+        res = self.run_on(self.LOCKED_CONF, self.http("http://api.example.com/*"), self.STRIPPED_CARGO)
+        self.assertEqual(1, res.returncode, res.stdout)
+        self.assertIn("cleartext API origin", res.stdout)
+
+    def test_opener_scope_may_use_https_wildcard(self) -> None:
+        cap = self.http("https://api.example.com/*")
+        cap["permissions"].append({"identifier": "opener:allow-open-url", "allow": [{"url": "https://*"}]})
+        res = self.run_on(self.LOCKED_CONF, cap, self.STRIPPED_CARGO)
+        self.assertEqual(0, res.returncode, res.stdout)
+
+    def test_csp_without_default_src_or_with_any_origin_fails(self) -> None:
+        for csp in ({}, {"script-src": "'self'"}, "default-src 'self'; connect-src 'self' https:"):
+            with self.subTest(csp=csp):
+                res = self.run_on({"app": {"security": {"csp": csp}}}, self.http("https://api.example.com/*"),
+                                  self.STRIPPED_CARGO)
+                self.assertEqual(1, res.returncode, res.stdout)
+                self.assertIn("CSP", res.stdout)
+
+    def test_devtools_in_a_dependency_table_fails(self) -> None:
+        res = self.run_on(self.LOCKED_CONF, self.http("https://api.example.com/*"),
+                          '[dependencies.tauri]\nversion = "2"\nfeatures = ["devtools"]\n')
+        self.assertEqual(1, res.returncode, res.stdout)
+        self.assertIn("devtools", res.stdout)
+
+    def test_debug_origins_in_release_warn_and_fail_strict(self) -> None:
+        cap = self.http("https://api.example.com/*", "http://10.0.2.2:4100/*")
+        res = self.run_on(self.LOCKED_CONF, cap, self.STRIPPED_CARGO)
+        self.assertEqual(0, res.returncode, res.stdout)
+        self.assertIn("[WARN]", res.stdout)
+        self.assertIn("not a release claim", res.stdout)
+        strict = self.run_on(self.LOCKED_CONF, cap, self.STRIPPED_CARGO, "--strict")
+        self.assertEqual(1, strict.returncode, strict.stdout)
+        self.assertIn("NOT DONE (--strict)", strict.stdout)
+
+    def test_debug_origins_outside_the_release_set_are_fine(self) -> None:
+        conf = {"app": {"security": {"csp": {"default-src": "'self'"}, "capabilities": ["release-only"]}}}
+        cap = self.http("http://10.0.2.2:4100/*")  # identifier "default" is not in the release list
+        res = self.run_on(conf, cap, self.STRIPPED_CARGO)
+        self.assertEqual(0, res.returncode, res.stdout)
+        self.assertNotIn("debug origins", res.stdout)
 
 
 if __name__ == "__main__":

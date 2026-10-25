@@ -331,6 +331,41 @@ curl -s -I "$API/auth/callback?state=x&redirect_uri=https://evil.example.com" \
 - Redirects to attacker-controlled URL → **High**
 - Redirects to allowlisted URL only → ✓ clean
 
+### 13. Session revocation is immediate (hard-rules #13)
+
+```bash
+# Sign in twice (two devices), revoke device B from device A, then use B's still-unexpired access token
+curl -s -o /dev/null -w "%{http_code}" -b "$COOKIES_B" "$API/me"        # expect 401 immediately
+# Block the account (staff), then on any request / refresh / sign-in expect 403 ACCOUNT_BLOCKED with the reason
+```
+
+**Findings:** revoked token still works → **High**; blocked user gets 401 "signed out" instead of the reason → **Low**.
+
+### 14. Refresh reuse and the tab race
+
+- Refresh, then replay the old refresh token with a **different User-Agent** → 401 and the family revoked (the new token stops working too) → else **High**.
+- Fire two refreshes with the same cookie concurrently from one client → both 200 → else **Medium** (users signed out by tabs).
+
+### 15. Role matrix and masking (run the `role-matrix-tester` agent)
+
+Every staff endpoint × every role → expected status; every 2xx body searched for seeded phone numbers and emails. Any unmasked contact outside a reveal endpoint → **High**; reveal without an audit row naming the actor → **High**; escalation guard missing → **High**.
+
+### 16. Idempotency and races (run the `money-integrity-prober` agent)
+
+Same `Idempotency-Key` twice concurrently → one effect; N+k parallel spends at an exact balance → exactly N succeed; reconciliation clean afterwards. Double effect → **Critical**; negative balance → **Critical**; key ignored → **High**.
+
+### 17. Live stream authorization (run the `realtime-prober` agent)
+
+Stream without credentials → 401; a role without `credits.view` receives no credit events; revoking the device ends the stream with a reason within seconds. Events leaking across scope/permission → **High**; stream survives revocation → **High**.
+
+### 18. Two-factor and passkey flows
+
+With 2FA on: first factor returns a challenge and **no session cookie**; a code cannot be reused; 6 wrong codes exhaust the challenge; a web challenge cannot be completed at the mobile endpoint. Passkey assertion from the wrong origin is refused. Any failure → **High**.
+
+### 19. Native client (if any)
+
+Install the release-configuration build: cleartext HTTP refused, WebView devtools not attachable, HTTP plugin refuses an origin outside the capability scope. Any failure → **Medium**/**High** per impact.
+
 ## Finding format
 
 Same as static-auditor:

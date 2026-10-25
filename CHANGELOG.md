@@ -2,6 +2,63 @@
 
 All notable changes to Superdev are documented here. Releases are annotated git tags (`vX.Y.Z`) on `main`; from v2.0.0 they are also published as GitHub Releases with the packaged `superdev.zip` attached.
 
+## v2.1.0 — 2026-10-25
+
+Native clients, security built in from bootstrap, and a release QA gate where every coverage cell cites evidence.
+
+### Added
+
+- **`design-to-tauri`** — Tauri 2 desktop, Android and iOS clients in the monorepo on the shared contracts. References cover:
+  - scaffolding and toolchains, including Android insets, camera intents, back-button handling and the iOS-on-macOS boundary;
+  - shell security: CSP, least-privilege capabilities, exact HTTP origins, keystore-held refresh tokens, release flags, deep-link and QR validation, WebView passkey limits;
+  - mobile token auth with single-flight refresh, blocked handling and idempotency keys;
+  - SSE live updates and local notifications, with the background limits stated plainly;
+  - an `adb`-driven device QA playbook (emulator setup, physical phones, WebView contrast checks, stored-secret check, QA-signed release smoke), and store release;
+  - a debug-only capability set for emulator origins, OS-protected refresh-token storage in debug and release, and the server endpoints to add when an API has only cookie sign-in.
+- **`security-foundation`** — the security layer every build implements at bootstrap and in every module:
+  - sessions checked on every request (instant revocation, blocking with a reason);
+  - refresh rotation with family theft detection and a same-browser tab grace;
+  - TOTP with encrypted secrets and replay protection, hashed one-time recovery codes, bound challenges, passkeys, a device list and QR sign-in;
+  - a separate staff identity with permission keys, escalation guards, and masked personal data with audited reveal;
+  - per-account balance locks, idempotency keys, discount re-validation, expiring entitlements and a reconciliation of ledger invariants;
+  - a transactional outbox with authenticated SSE streams, and a notification service with preferences, grouping and web push;
+  - platform hardening, and the committed runtime suites (`test:contract`, `test:security`, `test:admin`, `test:credits`, `test:realtime`) that prove each control;
+  - a starting permission catalog with default roles, precise escalation definitions, fail-closed and rate-limited reveals, and lock ordering for limited items.
+- **`release-qa-gate`** — the final pass on a fresh seed:
+  - committed suites, route × role × viewport × theme, forms, links and dialogs;
+  - axe plus computed contrast in every interactive state;
+  - security behaviours in the browser, money races, live updates across clients, and the device pass.
+  - every step has an owner agent and a matrix section; parallel agents get their own accounts and devices; the commit is recorded so stale cells are re-run;
+  - the output is `QA_COVERAGE.md`, where a cell without evidence is `NOT RUN` and blocks release like `FAIL` until the operator accepts it.
+- **Six agents:** `mobile-qa-tester`, `a11y-contrast-auditor`, `role-matrix-tester`, `money-integrity-prober`, `realtime-prober`, `link-crawler`.
+- **Hard rules #13–#18:**
+  - check the session on every request;
+  - serialize balance changes per account;
+  - make money-moving requests idempotent;
+  - publish live updates inside the writing transaction;
+  - do not trust correlated subqueries in single-table ORM selects;
+  - prove native clients on a device.
+
+### Changed
+
+- **`superdev-build`:**
+  - asks which clients the product needs (web, staff admin, Tauri);
+  - plans a `## Security` section;
+  - lays the security foundation in the bootstrap skeleton;
+  - verifies Tauri modules on a device and extends the committed suites per module;
+  - always ends with `release-qa-gate` and `verify-done.mjs --suites`.
+- **`verify-done.mjs`:**
+  - boots the built API on a free port, so a running dev stack does not collide;
+  - checks every Tauri shell (CSP, wildcard HTTP scopes, remote capabilities, devtools on release);
+  - with `--suites` (and `--api-url`), runs every committed `smoke`/`test:*` script against the running stack;
+  - adds a `WARN` status and `--strict`, which fails on any warning or skipped check, for release claims;
+  - sweeps every client app (mobile and desktop included) for placeholder content.
+- **`security-review-and-fix`:** static checks §21–28 and dynamic probes §13–19 cover the new controls, and Phase 3 dispatches the role-matrix, money and real-time agents.
+- **`superdev-done`**, **`exploratory-qa`**, **`production-readiness-audit`** and **`brutal-exhaustive-audit`** point to the new gate.
+- **`nestjs-enterprise-backend`**, **`laravel-enterprise-backend`** and **`design-to-nextjs`** defer the identity, staff and client-refresh model to `security-foundation`.
+- **`superdev-build`** defines `db:seed` and `db:fresh` at bootstrap.
+- **Integrity tests** cover the new skills, agents, hard rules 1–18, the build wiring, and the Tauri shell checks behaviourally (an open shell fails, a locked-down one passes).
+
 ## v2.0.1 — 2026-10-13
 
 - Public READMEs, release guidance, and bundled skills describe generic requirements without real project names, customer domains, incident anecdotes, or private metrics.

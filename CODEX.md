@@ -5,7 +5,7 @@ This repository ships a Codex plugin manifest alongside the Claude Code plugin (
 ## What Codex loads
 
 - `plugins/superdev/.codex-plugin/plugin.json` registers the plugin with Codex.
-- `plugins/superdev/skills/*/SKILL.md` exposes the 18 Superdev skills.
+- `plugins/superdev/skills/*/SKILL.md` exposes the 21 Superdev skills.
 - `.agents/plugins/marketplace.json` lets this repo act as a local Codex marketplace.
 
 ## What stays Claude-specific

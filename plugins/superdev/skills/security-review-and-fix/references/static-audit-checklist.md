@@ -480,6 +480,81 @@ Only `NEXT_PUBLIC_*` vars are sent to the browser. Non-public vars referenced in
 
 **Severity:** Medium (broken behavior more than security, but signals confused boundaries).
 
+## 21. Session checked on every request (hard-rules #13)
+
+```bash
+# The auth guard must load the session row (by the token's session id) on each request.
+grep -rn "canActivate" apps/api/src --include=*guard*.ts -l | xargs grep -Ln "sessions\|session" 2>/dev/null
+# Blocked must be checked before revoked, so the person learns the reason.
+grep -rn -A12 "canActivate" apps/api/src --include=*guard*.ts | grep -n "revokedAt\|Blocked"
+```
+
+**Findings:** stateless JWT with no session lookup → **High** (revocation and blocking do not work until expiry); revoked checked before blocked → **Low** (blocked users see "signed out").
+
+## 22. Refresh rotation and reuse detection
+
+Look for: refresh token stored hashed; each refresh creates a new row and marks the old one replaced; presenting a replaced/revoked token revokes the whole family; a short same-browser grace for concurrent tab refreshes (web only); cookies cleared on every failed refresh path.
+
+**Findings:** refresh token stored plain → **High**; no family revocation on reuse → **High**; no grace (users signed out by two tabs) → **Medium** (availability); refresh failure leaves cookies → **Low** (redirect loops).
+
+## 23. Two-factor, recovery codes, passkeys
+
+```bash
+grep -rn "twoFactorSecret\|totp_secret\|two_factor_secret" apps/api/src --include=*.ts | grep -v "Enc\|enc\|seal\|encrypt"
+grep -rn "recovery" apps/api/src/db/schema --include=*.ts
+grep -rn "expectedOrigin\|expectedRPID" apps/api/src --include=*.ts
+```
+
+**Findings:** TOTP secret stored unencrypted → **High**; no last-step replay check → **Medium**; recovery codes stored plain or reusable → **High**; disabling 2FA without password + code → **Medium**; WebAuthn expected origin not pinned per app → **High**; challenge not bound to its client (web vs mobile) → **Medium**.
+
+## 24. Personal data masking (staff surfaces)
+
+```bash
+# Admin presenters / services returning phone or email fields directly
+grep -rn "phone\|email" apps/api/src/admin --include=*.ts | grep -v "MASK\|mask\|reveal\|contact(" | grep -i "phone:\|email:"
+# Search by contact field without a permission check
+grep -rn "ilike(.*phone\|ilike(.*email" apps/api/src/admin --include=*.ts
+```
+
+**Findings:** a list/detail response carries the real phone/email → **High**; reveal endpoint without its own permission or without `@Audit` → **High**; contact search open to roles without the reveal permission → **Medium**.
+
+## 25. Role escalation guards
+
+Look in the staff/role service for: granting permissions the actor lacks; assigning a superior role; editing/disabling a superior; disabling self; removing the last owner; deleting a role with members; role names compared in code instead of permission keys.
+
+**Findings:** any guard missing → **High**; `role === '...'` checks → **Medium**.
+
+## 26. Money paths (hard-rules #14, #15)
+
+```bash
+# Balance changes without a per-account lock
+grep -rn "creditsLeft\|balance" apps/api/src --include=*.service.ts | grep -n "update("
+grep -rn "pg_advisory_xact_lock\|lock(tx" apps/api/src --include=*.ts
+# LIMIT 1 FOR UPDATE used to choose what to spend
+grep -rn -B3 "\.for('update')" apps/api/src --include=*.ts | grep "limit(1)"
+# Money routes without idempotency
+grep -rn -B4 "@Post" apps/api/src --include=*.controller.ts | grep -i "pay\|order\|unlock\|adjust\|refund\|resolve"
+```
+
+**Findings:** balance mutation without the account lock → **Critical**; multi-account transaction without lock ordering → **High**; money route without idempotency support → **High**; coupon/discount not re-validated at payment → **Medium**; purchase-derived entitlement never expires → **High**.
+
+## 27. Live updates (hard-rules #16)
+
+Look for: events written inside the same transaction as the change (outbox + notify trigger) vs published to a broker before commit; stream endpoints authenticated and re-validating the session; per-permission/per-scope filtering; payloads free of contact details and secrets; notification jobs that silently return when their row is not visible yet.
+
+**Findings:** events published before commit → **Medium**; stream without session revalidation (revoked users keep receiving) → **High**; contact data in event payloads → **High**; dropped notification jobs → **Medium**.
+
+## 28. Tauri / native client shell (hard-rules #18)
+
+```bash
+grep -n '"csp"' apps/*/src-tauri/tauri.conf.json
+grep -rn '"url"' apps/*/src-tauri/capabilities/*.json
+grep -n 'devtools' apps/*/src-tauri/Cargo.toml
+grep -rn "plugin-store\|Store.load\|LazyStore" apps/mobile/src --include=*.ts | grep -i "token\|refresh"
+```
+
+**Findings:** `csp: null` → **High**; HTTP scope wildcard → **High**; devtools feature on release → **Medium**; refresh token in a plain store file for production → **Medium**; deep-link/QR payload acted on without allowlist validation → **High**; secrets in `VITE_*` → **Critical**.
+
 ## Finding format
 
 Each finding the static-auditor writes:

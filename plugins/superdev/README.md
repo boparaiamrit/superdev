@@ -1,15 +1,15 @@
 # Superdev
 
-A Claude Code + Codex plugin bundling **18 skills + 54 agents** for full-stack monorepo builds: direct sequential building by the main agent, recipe skills for each stack layer, read-only auditor agents, design preservation, atomic frontend refactoring, and live runtime verification.
+A Claude Code + Codex plugin bundling **21 skills + 60 agents** for full-stack monorepo builds: direct sequential building by the main agent, recipe skills for each stack layer, read-only auditor agents, design preservation, atomic frontend refactoring, and live runtime verification.
 
 > **v2.0.1** uses [`superdev-build`](skills/superdev-build/SKILL.md) for direct sequential builds and [`scripts/verify-done.mjs`](scripts/verify-done.mjs) for automated checks. The conductor, hooks, agent-copy installers, and completion ledgers remain removed. Each of the 12 [`hard rules`](skills/superdev-build/references/hard-rules.md) states its scope and required verification.
 
 ## Host support
 
-- **Claude Code:** loads `.claude-plugin/plugin.json`; skills and all 54 agents are auto-discovered from `skills/` and `agents/`. There are no hooks — verification is explicit (`verify-done.mjs`, per-module runtime checks).
-- **Codex:** loads the 18 skills through `.codex-plugin/plugin.json`. Treat `agents/*.md` as role-prompt references/checklists unless the user explicitly asks for delegated work. See [`../../CODEX.md`](../../CODEX.md).
+- **Claude Code:** loads `.claude-plugin/plugin.json`; skills and all 60 agents are auto-discovered from `skills/` and `agents/`. There are no hooks — verification is explicit (`verify-done.mjs`, per-module runtime checks).
+- **Codex:** loads the 21 skills through `.codex-plugin/plugin.json`. Treat `agents/*.md` as role-prompt references/checklists unless the user explicitly asks for delegated work. See [`../../CODEX.md`](../../CODEX.md).
 
-## The 18 skills
+## The 21 skills
 
 | Skill | Purpose |
 |---|---|
@@ -30,19 +30,22 @@ A Claude Code + Codex plugin bundling **18 skills + 54 agents** for full-stack m
 | `production-readiness-audit` | Five passes score every module 1–10 (min wins, hard caps), **each score cited with command/browser/DB evidence**; fix → re-audit until all ≥ 9 |
 | `brutal-exhaustive-audit` | Every file / route / flow / data path / edge case — disk-tracked checklists, final ship gate |
 | `superdev-self-learning` | Deliberate lesson capture into the target project's `.claude/memory/superdev-learned/`; stack-general lessons are promoted into `hard-rules.md` |
-| `superdev-done` | Runs `scripts/verify-done.mjs` — live Definition-of-Done (typecheck/lint/build per package, dist boot + health, contracts format, suppression + placeholder sweeps) |
+| `superdev-done` | Runs `scripts/verify-done.mjs` — live Definition-of-Done (typecheck/lint/build per package, dist boot + health on a free port, contracts format, Tauri shell checks, suppression + placeholder sweeps; `--suites` runs every committed runtime suite) |
+| `design-to-tauri` 🆕 v2.1.0 | Tauri 2 desktop/Android/iOS clients on the shared contracts: locked-down shell, mobile token auth, live updates and phone alerts, emulator QA with `adb`, store release |
+| `security-foundation` 🆕 v2.1.0 | Security built at bootstrap: sessions checked per request, refresh theft detection, blocking with a reason, TOTP/recovery codes/passkeys/devices/QR sign-in, staff permission keys with masked personal data and audited reveal, balance locks, idempotency, reconciliation, transactional live updates and notifications — each proven by a committed suite |
+| `release-qa-gate` 🆕 v2.1.0 | Final QA on a fresh seed: committed suites, route × role × viewport × theme, forms and links, axe + contrast in every state, security behaviours, money races, live updates across clients, the phone app on a device; evidence in every `QA_COVERAGE.md` cell |
 
 > 🔀 **Stack choice** — `superdev-build` Step 2 asks **Laravel or Nest.js**. Laravel then asks the frontend: **Inertia monolith** (default) or **decoupled Next.js**. Nest.js always pairs with Next.js. The choice persists in `STACK.md`.
 
 **Every skill works standalone.** `superdev-build` is only the sequencing for a full greenfield build; asking for "a security audit" runs `security-review-and-fix` alone, with no pipeline overhead.
 
-## The 54 agents
+## The 60 agents
 
 Auto-loaded by the plugin (single source in `agents/`; nothing is copied into target projects). Roles:
 
 - **Planning/extraction (read-mostly):** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `codebase-discoverer`, `schema-reverse-engineer`, `repo-cartographer`
 - **Builders (optional, one module at a time):** `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `laravel-module-builder`, `frontend-module-builder`, `inertia-module-builder`, `backend-extractor`, `frontend-rewirer`, `atomic-module-converter`, `seed-data-architect`, `design-source-mirror`, fixers (`security-fixer`, `fix-applier`)
-- **Auditors/testers (read-only):** `ui-auditor`, `module-structure-auditor`, `portal-correctness-auditor`, `integration-tester`, `tenancy-isolation-tester`, security five (`security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, + `security-fixer`), QA four (`qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`), completeness/brutal walkers and hunters (`placeholder-hunter`, `wiring-auditor`, `route-completeness-checker`, `data-flow-real-vs-mock`, `journey-walker`, `route-walker`, `flow-walker`, `data-flow-tracer`, `edge-case-prober`, `audit-synthesizer`, `design-fidelity-auditor`, `module-readiness-rater`), debugging (`bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `regression-verifier`), migration/conversion (`migration-planner`, `module-conversion-planner`, `module-behavior-snapshotter`, `conversion-verifier`), and `learn-from-frustration`
+- **Auditors/testers (read-only):** `ui-auditor`, `module-structure-auditor`, `portal-correctness-auditor`, `integration-tester`, `tenancy-isolation-tester`, security five (`security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, + `security-fixer`), QA four (`qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`), completeness/brutal walkers and hunters (`placeholder-hunter`, `wiring-auditor`, `route-completeness-checker`, `data-flow-real-vs-mock`, `journey-walker`, `route-walker`, `flow-walker`, `data-flow-tracer`, `edge-case-prober`, `audit-synthesizer`, `design-fidelity-auditor`, `module-readiness-rater`), release QA six (`mobile-qa-tester`, `a11y-contrast-auditor`, `role-matrix-tester`, `money-integrity-prober`, `realtime-prober`, `link-crawler`), debugging (`bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `regression-verifier`), migration/conversion (`migration-planner`, `module-conversion-planner`, `module-behavior-snapshotter`, `conversion-verifier`), and `learn-from-frustration`
 
 The default build path executes builder checklists in the main session; dispatch a builder subagent only for a single bounded module, never backend+frontend against a same-step contract in parallel (hard-rules #4).
 
@@ -52,8 +55,10 @@ The default build path executes builder checklists in the main session; dispatch
 |---|---|---|
 | Typecheck + tests + **boot the dist + curl health** + one real endpoint + one side effect | After every backend module | `superdev-build` Step 5 (hard-rules #1, #5) |
 | Typecheck + browser-open the route in production mode | After every frontend module | Step 5 (hard-rules #9) |
-| Automated gate: per-package typecheck/lint/build, default Nest.js boot, contracts format, Swagger landmine, suppression + placeholder sweeps | Before any "done" claim | `node <superdev-plugin>/scripts/verify-done.mjs` (see `superdev-done`) |
+| Device: install the build on an emulator or phone, drive the module, logcat clean | After every Tauri client module | Step 5 (hard-rules #18, `design-to-tauri`) |
+| Automated gate: per-package typecheck/lint/build, default Nest.js boot, contracts format, Swagger landmine, Tauri shell, suppression + placeholder sweeps; committed runtime suites with `--suites`; no skips or warnings with `--strict` | Before any "done" claim | `node <superdev-plugin>/scripts/verify-done.mjs --suites --strict` (see `superdev-done`) |
 | Security / QA / completeness / readiness | Step 6, by risk | Standalone audit skills above |
+| Release coverage: every route × role × viewport × theme, contrast, links, money, live updates, device | Always, last | `release-qa-gate` → `QA_COVERAGE.md` |
 
 The script does not prove all hard rules or Laravel runtime readiness. Record the remaining stack-specific, browser, database, and security checks separately.
 

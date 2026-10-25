@@ -141,6 +141,12 @@ Major check categories (`references/static-audit-checklist.md` has the grep comm
 - **Mock route in production**: `/app/api/mock/[...path]/route.ts` returns 404 when `NEXT_PUBLIC_API_MODE !== 'demo'`
 - **Webhook signatures**: every inbound webhook controller verifies HMAC
 - **Docker hardening**: services bound to `127.0.0.1` in prod compose, no default passwords on exposed services, images pinned by digest in prod
+- **Sessions and tokens** (§21–23): session row read on every request, blocked checked before revoked, refresh rotation with family reuse detection, TOTP secrets encrypted, recovery codes hashed, WebAuthn origin pinned per app
+- **Staff surfaces** (§24–25): personal data masked in every staff response, reveal gated and audited, escalation guards, permission keys not role names
+- **Money and live updates** (§26–27): per-account balance locks, idempotent money routes, discount re-validation, expiring entitlements, events written in the same transaction, streams re-validating sessions
+- **Native client shell** (§28): Tauri CSP, capability scopes, devtools, token storage, deep-link validation
+
+These are the controls [`security-foundation`](../security-foundation/SKILL.md) builds in; this audit confirms them.
 
 ## Phase 3 — Dynamic audit (requires live stack)
 
@@ -161,6 +167,9 @@ Probes (`references/dynamic-audit-checklist.md` has the full procedure):
 - **Cookie inspection**: refresh cookie is `HttpOnly`, `Secure`, `SameSite=Strict`
 - **Mock route**: in `NEXT_PUBLIC_API_MODE=production` build, request to `/api/mock/foo` returns 404
 - **Webhook bypass**: send unsigned payload to every webhook receiver → 401/403
+- **Revocation and blocking** (§13–14): a revoked session's access token fails at once; blocked users get the reason everywhere; refresh reuse from another browser revokes the family; two-tab refresh races survive
+- **Role matrix, masking, money, live updates** (§15–17): dispatch the `role-matrix-tester`, `money-integrity-prober` and `realtime-prober` agents for these; each writes evidence the findings cite
+- **Two-factor, passkeys, native client** (§18–19)
 
 ## Phase 4 — Dependency audit (parallel-safe)
 

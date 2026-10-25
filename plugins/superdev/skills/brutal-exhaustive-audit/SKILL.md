@@ -20,7 +20,7 @@ If the file isn't on the checklist with a ✓, it wasn't checked. If a route ret
 
 ## When to use
 
-- ✅ As the final whole-product pass before declaring "ready to ship" (superdev-build Step 6)
+- ✅ As the final whole-product *audit* before declaring "ready to ship" (superdev-build Step 6) — [`release-qa-gate`](../release-qa-gate/SKILL.md) still follows it as the last QA pass
 - ✅ After a major refactor or migration
 - ✅ Before a release that touches multiple modules
 - ✅ User explicitly asks for a brutal audit
