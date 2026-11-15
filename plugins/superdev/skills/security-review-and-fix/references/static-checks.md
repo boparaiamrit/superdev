@@ -8,7 +8,7 @@ Read this in step 2, and `## Dependencies` in step 4. `static-auditor` and `depe
 
 | Check | How | If it fails |
 |---|---|---|
-| Every route declares access; the public ones are the plan's | a route without an access attribute does not compile (hard rule 6); the public routes in `navree routes --json` equal the public list in `EXECUTION_PLAN.md` `## Access` | `Major`; `Blocker` when the route reads or writes workspace or personal data |
+| Every route declares access; the public ones are the plan's | a route without an access attribute does not compile (hard rule 6); the public routes of the release binary (`<target>/release/<binary> routes --json`) equal the public list in `EXECUTION_PLAN.md` `## Access` | `Major`; `Blocker` when the route reads or writes workspace or personal data |
 | Workspace data is scoped | each model of a workspace module has `workspace` in `#[model(..)]`; controllers carry `#[guard(InWorkspace::guard())]`; queries go through `WorkspaceRepo`; no unscoped query in a handler or a job (hard rule 10, rules BE-2 to BE-4) | `Blocker` |
 | Database-level scoping | PostgreSQL and TimescaleDB: each workspace table's migration contains `RlsPolicy`. SQLite and MySQL: no raw statement on a workspace table lacks the workspace predicate (hard rule 11) | `Major` |
 | Records, lists and updates are checked | record routes use `#[can(.., from = "id")]`, lists take `Accessible<M, Read>`, updates call `check_fields`; code compares permission keys, never role names (rule BE-5) | `Blocker` for a missing check; `Major` for role names |
@@ -34,7 +34,7 @@ Read this in step 2, and `## Dependencies` in step 4. `static-auditor` and `depe
 | Check | How | If it fails |
 |---|---|---|
 | Sensitive writes are audited | `AuditModule` is registered (hard rule 12); sensitive routes carry `#[audit(action = ..)]`; mass updates and raw statements call `uow.record_change`; `audit:prune` is scheduled | `Major` |
-| No secret in source, git or TOML | `git ls-files .env` prints nothing; search the tree, and the history with `git log --all --oneline -G '<pattern>'`, for secret shapes: `-----BEGIN`, `AKIA` followed by 16 capitals or digits, `ghp_`, `sk_live_`, `sk-ant-`, and JWT shapes (`eyJ..` dot `eyJ..`); no quoted value for a key named `key`, `secret`, `password` or `token` in `config/`; `navree config:show --origin` shows each secret coming from `.env` or the environment (hard rule 9) | `Blocker` for a live secret in git or source; `Major` for a default value in TOML |
+| No secret in source, git or TOML | `git ls-files .env` prints nothing; search the tree, and the history with `git log --all --oneline -G '<pattern>' -- . ':!.claude/skills' ':!.agents/skills'` (the installed Navree skills quote example secrets in their prose and are left out), for secret shapes: `-----BEGIN`, `AKIA` followed by 16 capitals or digits, `ghp_`, `sk_live_`, `sk-ant-`, and JWT shapes (`eyJ..` dot `eyJ..`); no quoted value for a key named `key`, `secret`, `password` or `token` in `config/`; `navree config:show --origin` shows each secret coming from `.env` or the environment (hard rule 9) | `Blocker` for a live secret in git or source; `Major` for a default value in TOML |
 | No secret or personal data in logs and audit metadata | search logging calls and audit metadata for tokens, passwords, e-mail addresses and phone numbers; secrets are wrapped in `Secret<T>` (rule SEC-13) | `Major` |
 | Only intended variables reach the browser | `NEXT_PUBLIC_` variables hold nothing secret | `Blocker` for a secret |
 | Demo data stays out of production | demo seeders refuse production without `--force` and no deploy file passes it; the Navree UI kit's demo account (`harpreet.singh@example.com`, development and tests only) is in no production path: search source and seeders for the address | `Blocker` |
@@ -63,7 +63,7 @@ Read this in step 2, and `## Dependencies` in step 4. `static-auditor` and `depe
 
 | Check | How | If it fails |
 |---|---|---|
-| Deploy files | no default password and no public database port; `.navree/dock/compose.yaml` is for local development and is not deployed; `navree config:check --env production` exits 0, with `database.migrate_on_boot = false`, `session.secure = true`, a `mail.transport` other than `log` and `observe.metrics_token` set; `/metrics` is denied at the proxy (hard rule 16) | `Blocker` for a default password or a public database port; `Major` otherwise |
+| Deploy files | no default password and no public database port; `.navree/dock/compose.yaml` is for local development and is not deployed; `APP_ENV=production navree config:check --env production` exits 0 (on SQLite it cannot: hard rule 16), with `database.migrate_on_boot = false`, `session.secure = true`, a `mail.transport` other than `log` and `observe.metrics_token` set; `/metrics` is denied at the proxy (hard rule 16) | `Blocker` for a default password or a public database port; `Major` otherwise |
 | Tauri shell | the checks of [security.md](../../design-to-tauri/references/security.md); cite the Tauri checks of `verify-done.mjs` (hard rule 25) | as in that file |
 
 ## Searching a Navree app

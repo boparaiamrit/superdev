@@ -30,7 +30,7 @@ Turns the pass reports of a score-mode audit into one scoreboard and one ordered
 
 ## Limits
 
-Assigns scores and never fixes code. Never writes a score or a finding it cannot trace to a pass-report line or a cited artifact. Never averages a cap away. A finding without a location is returned to the pass that raised it. Never writes the operator's acceptance of an open finding.
+Assigns scores and never fixes code. Never writes a score or a finding it cannot trace to a pass-report line or a cited artifact. Never averages a cap away. A finding without a location is returned to the pass that raised it. Never writes an acceptance of an open finding: `ACCEPTANCES.md` is the operator's (rule BLD-6).
 
 ## Return
 

@@ -10,7 +10,7 @@ A route or form is tested on the categories that apply to it, and the report lis
 |---|---|---|---|
 | Empty | a workspace with no rows in the module | an empty state with the next action, never headers alone | lists |
 | One item | exactly one row | the list and the detail page lay out correctly | lists, details |
-| Large data | 1,000 rows or more, from a seeder written for QA that uses the module's factory (`navree make:factory`), or through the app's own routes | one page of rows at a time (Navree UI tables show 25 by default); filters answer without a freeze | lists |
+| Large data | 1,000 rows or more, from a seeder written for QA that uses the module's factory (`navree make:factory`), or through the app's own routes, where the per-IP limit of 600 requests a minute applies: wait for `Retry-After` (rule QA-3), or use a seeder | one page of rows at a time (Navree UI tables show 25 by default); filters answer without a freeze | lists |
 | Slow network | emulate a slow connection through the browser's network conditions; a fixed delay on every request is not a throttle | a visible loading state and no double actions | every page |
 | Server error | answer the page's request with a 500 in the Navree error shape (`code` `internal_error`) | a message and a way to retry, never an endless spinner | every page |
 | Validation errors | submit each form empty and with invalid values | errors beside the fields: 422 from a Navree UI form, 400 `validation_failed` from the API | forms |

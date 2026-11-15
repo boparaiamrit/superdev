@@ -79,7 +79,7 @@ A debug build exposes the WebView over the DevTools protocol. Find the socket wi
 
 ## Render check for Navree UI pages (rule QA-10)
 
-Load `/profile`, the UI kit's own page, and record what a framework script looks like there: the prefix of each `src` (the docs say `/_navree/ui/`) and any inline script. Then, for every Navree UI page of section 2 with Expect `page`, as an allowed role, read the rendered HTML. A `style` attribute, a `<style>` element, or a `<script>` that rule QA-10 does not allow is a `Major` finding citing hard rule 14 (a page with a table may load a script module that `/profile` does not; the rule allows it when its `src` has the same prefix). The matrix cell quotes the counts: `render check: 38 pages, 0 style attributes, 0 style elements, 0 unexpected scripts`.
+The prefix of a framework script's `src` is `/_navree/ui/`; when the app serves a `/profile` page, load it and compare what its scripts look like. For every Navree UI page of section 2 with Expect `page`, as an allowed role, read the rendered HTML. A `style` attribute, a `<style>` element, or a `<script>` that rule QA-10 does not allow is a `Major` finding citing hard rule 14 (a page with a table may load a script module that another page does not; the rule allows it when its `src` has the prefix). The matrix cell quotes the counts: `render check: 38 pages, 0 style attributes, 0 style elements, 0 unexpected scripts`.
 
 ## Live-update latency
 

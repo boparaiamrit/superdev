@@ -46,15 +46,15 @@ Keys, all required, in this order:
 | `openapi` | path of the committed OpenAPI document when `front_end: next` (found at step 1 by running `navree openapi:export` once), else empty |
 | `api_types` | path of the generated `schema.d.ts` when `front_end: next` (the SaaS kit's is `web/lib/api/schema.d.ts`; for `--ui next` without a kit, run `navree openapi:client --input <openapi> --out web/lib/api` once and record the result), else empty |
 
-`## Suites`: the exact commands of the committed runtime suites, in run order, one per `- ` line, added when the suite is created. Every command runs as written from the app root on Linux, macOS and Windows: plain words only: no quotes, no shell syntax, no inline environment assignments; each starts with `cargo test`, and the done check refuses any other line. When the CLI was installed from a clone, add the line `# navree from a local checkout: <path>` under the keys; lines starting with `#`, other than the title, are not keys.
+`## Suites`: the exact commands of the committed runtime suites, in run order, one per `- ` line, added when the suite is created. Every command runs as written from the app root on Linux, macOS and Windows: plain words only: no quotes, no shell syntax, no inline environment assignments; each starts with `cargo test`, and the done check refuses any other line. When the CLI was installed from a clone, add the line `# navree from a local checkout: <path>` under the keys; when superdev is not installed in the app (a host with neither `claude` nor `codex`), add `# superdev is not installed in this app: CLAUDE_PLUGIN_ROOT=<path of plugins/superdev>`; lines starting with `#`, other than the title, are not keys.
 
 ## PRD_DIGEST.md
 
-Written by `prd-analyst` at step 2. It records what the PRD says, with the PRD section for each line, and makes no decisions. A `Source:` line under the title names the file or folder read. Features are `F-n`, entities `E-n`; an entity says whether it is per workspace.
+Written by `prd-analyst` at step 2. It records what the PRD says, with the PRD section for each line, and makes no decisions. A `Source:` line under the title names the file or folder read. Features are `F-n`, entities `E-n`; an entity says whether it is per workspace. When the PRD labels its features or entities, the digest keeps the PRD's labels and the `Source:` line says so; a section is cited by its number or, when the PRD has none, by its heading.
 
 ```markdown
 # PRD Digest
-Source: docs/brief/ledgerly-prd.md
+Source: docs/brief/ledgerly-prd.md (the labels F-1 and F-2 are the PRD's own; sections are cited by number)
 ## Product
 Ledgerly lets a trader keep customers, send invoices in rupees and see who has paid (PRD 1).
 ## Roles
@@ -96,6 +96,8 @@ Written by `design-inventory` at step 2. It records what the design shows and in
 - Sidebar: Home, Customers, Invoices, Settings; user menu at the top right.
 ## Tokens
 - Colours: brand #1F6F5C, surface #FFFFFF, text #1A1A1A, border #E3E3E3. Type: one sans-serif, body 14/20 px. Spacing: 4 px steps. Radius: 4 px on controls, 6 px on cards.
+## Computed displays
+- Amount due (D-1): needs the sum of `amount_paise` of each customer's unpaid invoices, shown as ₹ 1,00,000; "Sent 2 h ago" needs the time of sending, in IST.
 ## States not shown
 - Loading and error states of every list; the empty invoices list.
 ## Questions
@@ -141,11 +143,13 @@ Status: CONFIRMED by Meera Sharma on 2026-11-18
 | Module | Status | Commit | Proof |
 |---|---|---|---|
 | M-1 customers | PASS | 4be21d0 | cargo test: 41 passed; 0 failed; routes match the contract; GET /health/ready 200; audit entry customers.created; /customers at 1440 and 390 px, 0 console errors |
-| M-2 invoices | NOT RUN | | |
+| M-2 invoices | PASS (6.5 NOT RUN, ACC-1) | 9c41e07 | cargo test: 58 passed; 0 failed; routes match the contract; one invoice row and its audit entry observed; browser proof NOT RUN, accepted in ACC-1 |
+| M-3 reports | NOT RUN | | |
 ## Access
 - Global roles: `admin`, `support`. Workspace roles: `owner`, `admin`, `member`, `viewer`.
 - Permission keys: `customers.read`, `customers.reveal_contact`, `invoices.send`.
-- Public routes, copied from `navree routes --json` at step 4 and after each module, each as method and path in backticks (the done check looks for each public route written as `METHOD path` in backticks in this section; prose does not count): `GET /health/live`, `GET /health/ready`, `GET /sign-in` and the other routes of Navree's sign-in pages as listed; no module route.
+- Public routes, copied from `<target>/release/<binary> routes --json` at step 4 and after each module: the release binary, which ships, and not `navree routes --json`, which runs the debug build and also lists Logbook's routes. Each route is method and path in backticks; the done check compares this bullet with the release binary both ways (prose does not count). A Navree app has about thirty public routes of the framework's own: the sign-in pages, health, the toolkit's files, the token and realtime routes. `GET /health/live`, `GET /health/ready`, `GET /sign-in`, `POST /sign-in`, `GET /_navree/ui/{file}`, `POST /api/auth/login`, `GET /metrics`, `GET /api/openapi.json`, `GET /api/docs` and the rest of the binary's list. Decided at deploy, and settled in `DEPLOY.md`: `/metrics`, `/api/openapi.json` and `/api/docs`. No module route is public.
+- First address: `GET /` sends a signed-in person to `/customers` and a guest to `/sign-in` (route `GET !/`, access `.authenticated()`); the done check asks for it on the booted release binary.
 ## Jobs and schedules
 - `invoices.remind`: daily at 09:00 IST, mails a reminder for each invoice due tomorrow.
 ## Integrations
@@ -169,7 +173,7 @@ None.
 | arjun.mehta@example.com | support (staff) | (none) |
 ```
 
-`## Navree UI gaps` has one row per `N-n`, in the columns defined in [design-to-navree-ui](../../design-to-navree-ui/SKILL.md), section "The gap rule"; every gap has a row, composed ones included, and so has each use of a raw building block for one of the three uses hard rule 14 allows; a missing element is never drawn with those building blocks. The `Files` column names every file with such a use, and only rows of this table count as naming it. `## Build order` lists the modules in the order they are built; `Status` is `PASS`, `FAIL` or `NOT RUN`. With `front_end: next`, `## Modules` also holds, below its table, the module plan of [design-to-nextjs](../../design-to-nextjs/SKILL.md) (its step 3): one line per module with its folder and routes, such as `- M-2 invoices: web/modules/invoices; /w/[workspace]/invoices, /w/[workspace]/invoices/[id]`, and one line such as `Shared: web/components (page header, empty state); the tokens layer on @navree/theme`.
+`## Navree UI gaps` has one row per `N-n`, in the columns defined in [design-to-navree-ui](../../design-to-navree-ui/SKILL.md), section "The gap rule"; every gap has a row, composed ones included, and so has each use of a raw building block for one of the three uses hard rule 14 allows; a missing element is never drawn with those building blocks. The `Files` column names every file with such a use, and only rows of this table count as naming it. `## Build order` lists the modules in the order they are built; `Status` is `PASS`, `FAIL` or `NOT RUN`. A module whose browser proof (6.5) cannot run on this host reads `PASS (6.5 NOT RUN, ACC-n)`, with `ACC-n` an entry of `ACCEPTANCES.md`; every other proof is quoted in `Proof` and the unproved one is named there. A parenthesis with no `ACC-n` is not a pass (rule BLD-5). With `front_end: next`, `## Modules` also holds, below its table, the module plan of [design-to-nextjs](../../design-to-nextjs/SKILL.md) (its step 3): one line per module with its folder and routes, such as `- M-2 invoices: web/modules/invoices; /w/[workspace]/invoices, /w/[workspace]/invoices/[id]`, and one line such as `Shared: web/components (page header, empty state); the tokens layer on @navree/theme`.
 
 ## `contracts/<module>.md`
 
@@ -217,7 +221,7 @@ Front end: navree
 
 The sample shows the headings and columns; in a real contract every table has its rows, and a section with nothing in it holds `None.` A Navree UI module's routes are pages and form posts, as above; a Next.js module's are JSON routes, such as `POST /api/v1/invoices/{id}/send` with `#[can(Send, Invoice, from = "id")]`, answering `InvoiceResource`.
 
-Rules for the format: page routes start with `!`; API paths are `/api/v<version>/<prefix>/<path>`; the Access column holds exactly one declaration per route; `Scope` is `global` or `workspace`; amounts are integers in paise with the field name ending `_paise` (shown on screens as ₹ 1,00,000); dates are `NaiveDate` or `DateTime<Utc>`; the `## Screens` section is left out when `front_end: none`. `schema-reverse-engineer` drafts contracts for a prototype with `Status: DRAFT`; only the main agent sets `Status: AGREED` (rule BLD-2).
+Rules for the format: page routes start with `!`; API paths are `/api/v<version>/<prefix>/<path>`; the `Name` column is optional documentation, because a route declared with the route macros shows `"name": null` in `navree routes --json`, so the proof compares method, path and access only; the Access column holds exactly one declaration per route; `Scope` is `global` or `workspace`; amounts are integers in paise with the field name ending `_paise` (shown on screens as ₹ 1,00,000); dates are `NaiveDate` or `DateTime<Utc>`; the `## Screens` section is left out when `front_end: none`. `schema-reverse-engineer` drafts contracts for a prototype with `Status: DRAFT`; only the main agent sets `Status: AGREED` (rule BLD-2).
 
 ## Severity
 
@@ -232,17 +236,49 @@ Every finding has an id, a severity, where (file:line, route or screen), the evi
 
 ## Ids
 
-Finding ids: `G-` gaps (`GAPS.md`), `A-` audit, `Q-` QA, `S-` security, `B-` debugging candidates. Other ids: `F-` PRD features, `E-` PRD entities, `D-` design screens, `M-` modules, `O-` open items, `N-` Navree UI gaps. Numbers start at 1 and are never reused in a file.
+Finding ids: `G-` gaps (`GAPS.md`), `A-` audit, `Q-` QA, `S-` security, `B-` debugging candidates. Other ids: `F-` PRD features, `E-` PRD entities, `D-` design screens, `M-` modules, `O-` open items, `N-` Navree UI gaps, `ACC-` the operator's acceptances (`ACCEPTANCES.md`). Numbers start at 1 and are never reused in a file.
+
+## ACCEPTANCES.md
+
+The operator's own file, at the app root: the only place where something that blocks a release is accepted. The operator writes it, one entry per acceptance, and commits each entry on its own; agents never create or edit it (rule BLD-6).
+
+```markdown
+# Acceptances
+
+## ACC-1
+- Date: 2026-11-24
+- Operator: Meera Sharma
+- Accepts: S-6 of `SECURITY_REPORT.md`
+- Words: "Simran Kaur sees the mobile numbers in full; the shop has no other staff."
+
+## ACC-2
+- Date: 2026-11-24
+- Operator: Meera Sharma
+- Accepts: proof 6.5 of M-2 invoices, and the dark-mode cells of section 2 of `QA_COVERAGE.md`
+- Words: "No browser here. I check the screens myself before the first customer."
+```
+
+An entry is a heading `ACC-n` with its date, the operator's name, what it accepts and the operator's words. What it accepts is named by its id (`S-6`, `A-2`, `Q-3`), by a cell or a section of `QA_COVERAGE.md`, or by a module's proof. Everywhere else a build cites an acceptance by its id and never copies a sentence of it:
+
+- a finding's state is `accepted ACC-n` (a finding is `open`, `fixed` or `accepted ACC-n`);
+- a cell or a row that is `NOT RUN` reads `NOT RUN (ACC-n)`, and its row in the report's `## Not run` section holds the same `ACC-n`;
+- a module's row in `## Build order` reads `PASS (6.5 NOT RUN, ACC-n)`;
+- a check of `DEPLOY.md` that is `NOT RUN` cites the `ACC-n` in its evidence.
+
+`verify-done.mjs --strict` fails an `accepted` state, or a `NOT RUN` counted as accepted, whose `ACC-n` is not an entry of this file, and fails when a commit changes this file together with another file.
 
 ## Status lines
 
-- A check, a matrix cell, a post-deploy check: exactly `PASS`, `FAIL` or `NOT RUN`. `NOT RUN` blocks like `FAIL` until the operator accepts it in writing (name, date, reason); an agent never writes an acceptance. A matrix lists only the cells that apply and states the rule for which cells apply once per section.
-- `verify-done.mjs` prints the same three labels. A check that passes for development but would not pass a release claim prints `PASS` with a detail line starting `warning:`; `--strict` turns every warning and every `NOT RUN` into a failure.
+- A check, a matrix cell, a post-deploy check: exactly `PASS`, `FAIL` or `NOT RUN`; a cell may carry an evidence level in a parenthesis, defined with the matrix it belongs to. `NOT RUN` blocks like `FAIL` until the operator accepts it in `ACCEPTANCES.md`; an agent never writes an acceptance. A matrix lists only the cells that apply and states the rule for which cells apply once per section.
+- `verify-done.mjs` prints the same three labels. A check that passes for development but would not pass a release claim prints `PASS` with a detail line starting `warning:`; `--strict` turns every warning and every `NOT RUN` into a failure ([superdev-done](../../superdev-done/SKILL.md) has the exit codes).
 - Artifact status lines: `Status: DRAFT`; `Status: CONFIRMED by <name> on <YYYY-MM-DD>` (`EXECUTION_PLAN.md`); `Status: AGREED by <name> on <YYYY-MM-DD>` (`contracts/*.md`, `refactor/<module>/PLAN.md`); `Status: APPROVED by <name> on <YYYY-MM-DD>` (`prototype/MIGRATION_PLAN.md`).
 - Verdict words, each used in one place only: `PRODUCT` / `HYBRID` / `DEMO` (the completeness verdict of `product-audit`); `REAL` / `MOCKED` / `HYBRID` (a screen's data source); `WIRED` / `STUB` / `NO-OP` (a control); `CONFIRMED` / `REJECTED` / `INCONCLUSIVE` (a debugging hypothesis); `READY TO COMMIT` / `REJECT` (`REGRESSION.md`); `READY` / `NOT READY` (a module score of 9 or more, or less, in the score mode of `product-audit`).
 
 No other severity, status or verdict words are used.
 
-## Output folders
+## Output folders and what is committed
 
-Every reporting agent writes `<out_dir>/<agent-name>.md` and puts its evidence (screenshots, logs, raw JSON) under `<out_dir>/<agent-name>/`. The caller passes `out_dir`: `audit`, `qa`, `security` or `debug/<slug>`. The evidence folders under `qa/`, `audit/` and `security/` are git-ignored (step 1 adds them to `.gitignore`); the reports at the root of the app are committed.
+Every reporting agent writes `<out_dir>/<agent-name>.md` and puts its evidence (screenshots, logs, raw JSON) under `<out_dir>/<agent-name>/`. The caller passes `out_dir`: `audit`, `qa`, `security` or `debug/<slug>`.
+
+- Committed: the files at the root of the app (`STACK.md`, `PRD_DIGEST.md`, `DESIGN_DIGEST.md`, `GAPS.md`, `EXECUTION_PLAN.md`, `SECURITY_REPORT.md`, `AUDIT_REPORT.md`, `QA_COVERAGE.md`, `DEPLOY.md`, and the operator's `ACCEPTANCES.md`), `contracts/`, each agent's `<out_dir>/<agent-name>.md`, and `qa/verify-done.txt`, the output of the last full done check.
+- Git-ignored: the evidence sub-folders `qa/<agent-name>/`, `audit/<agent-name>/` and `security/<agent-name>/`, and the sub-folders of `qa/` that hold runs and sessions (`qa/runs/`, `qa/.auth/`). Step 1 adds `qa/*/`, `audit/*/` and `security/*/` to `.gitignore`, which ignore sub-folders only: the reports and `qa/verify-done.txt` beside them stay tracked.

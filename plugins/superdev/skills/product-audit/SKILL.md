@@ -15,7 +15,7 @@ This skill decides whether a built Navree app is a product or a demo. It runs in
 | `score` | the operator asks for readiness scores, or says "make it production ready" | a score per module and `READY` or `NOT READY` |
 | `inventory` | the operator asks for it, or after a large refactor | counts and the differences from the plan |
 
-At step 7 the audit is clean when `AUDIT_REPORT.md` holds no open `Blocker` or `Major` finding that the operator has not accepted in writing (rule BLD-6). A single failing test or bug goes to [systematic-debugging](../systematic-debugging/SKILL.md). Browser, role and device coverage is [product-qa](../product-qa/SKILL.md).
+At step 7 the audit is clean when `AUDIT_REPORT.md` holds no open `Blocker` or `Major` finding except one whose state is `accepted ACC-n`, with `ACC-n` an entry of the operator's `ACCEPTANCES.md` (rule BLD-6). A single failing test or bug goes to [systematic-debugging](../systematic-debugging/SKILL.md). Browser, role and device coverage is [product-qa](../product-qa/SKILL.md).
 
 ## Before any mode
 
@@ -51,7 +51,7 @@ At step 7 the audit is clean when `AUDIT_REPORT.md` holds no open `Blocker` or `
 3. `module-readiness-rater` reads the pass reports and writes `AUDIT_REPORT.md` with `## Scores`, per [rubric.md](references/rubric.md).
 4. Each finding of a module under 9 goes to its owner: `navree-module-builder` for backend and contract code, `navree-ui-screen-builder` for Navree UI screens, `nextjs-module-builder` for Next.js screens, `fix-applier` for one finding that names its file. A finding that needs a change in `contracts/<module>.md` goes to the main agent first (rule BLD-2).
 5. Re-run only the passes that found the fixed findings, then rewrite `AUDIT_REPORT.md`; the `Mode:` line carries the round, for example `score (round 2)`.
-6. After the third round, the open findings go to the operator, who accepts them in writing or sets the order (rule BLD-6).
+6. After the third round, the open findings go to the operator, who accepts them in `ACCEPTANCES.md` or sets the order (rule BLD-6).
 
 ## Rules
 

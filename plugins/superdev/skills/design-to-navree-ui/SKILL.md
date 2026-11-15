@@ -35,13 +35,15 @@ Each phase runs at one superdev step, and its result is recorded where the last 
 
 | Phase | Superdev step | What superdev adds | Recorded in |
 |---|---|---|---|
-| 0 Intake | step 2 | `DESIGN_DIGEST.md`, written by `design-inventory`, is the intake; the design files stay in `docs/brief/` | `DESIGN_DIGEST.md` |
-| 1 Inventory | step 3 | every `D-n` screen belongs to one module of the plan | `EXECUTION_PLAN.md` `## Modules` |
-| 2 Tokens | step 3 | a role for every token; one theme (rule NUI-7) | `navree-design-to-ui`'s work in `design/`; the theme, at the first module's step 6.4 |
-| 3 Mapping | step 3 | every region of every screen is a component or a gap | `EXECUTION_PLAN.md` `## Navree UI gaps` |
-| 4 Reconcile | step 3 | its decisions are shown to the operator with the plan | the plan's status line |
+| 0 Intake | step 2 | `DESIGN_DIGEST.md`, written by `design-inventory`, is the intake and replaces the Navree skill's `00-intake`; the design files stay in `docs/brief/` | `DESIGN_DIGEST.md` |
+| 1 Inventory | step 3 | every `D-n` screen belongs to one module of the plan; this replaces the Navree skill's `01-inventory` | `EXECUTION_PLAN.md` `## Modules` |
+| 2 Tokens | step 3 | a role for every token; one theme (rule NUI-7); the Navree skill's `02-tokens` is written | `design/02-tokens`; the theme, at the first module's step 6.4 |
+| 3 Mapping | step 3 | every region of every screen is a component or a gap; the Navree skill's `03-mapping` and its page specs are written | `design/03-mapping`; the gaps in `EXECUTION_PLAN.md` `## Navree UI gaps` |
+| 4 Reconcile | step 3 | its decisions are shown to the operator with the plan; for fewer than ten screens it is one page | `design/04-reconcile`, and the plan's status line |
 | 5 Build | step 6.4 | one module at a time, from its agreed contract (rule BLD-1): the page and form handlers over the module's services, and their route tests | page code, page and route tests |
 | 6 Verify | step 6.5 | its checks, then `## Proof of a screen` | `EXECUTION_PLAN.md` `## Build order` (rule BLD-5) |
+
+Gaps have one home, the plan's `## Navree UI gaps`: the gaps file of `04-reconcile` holds only a pointer to it.
 
 The three owner stop points of `navree-design-to-ui` are answered at superdev's own stops: the
 plan confirmation at step 3 (inventory, tokens, mapping and gaps, shown with the plan) and each
@@ -221,6 +223,17 @@ How a build proves that no gap was worked around:
 - **NUI-13** Every page has a test (`TestView` without the app, `TestApp` over HTTP,
   `send_stream()` for live regions). Proof: `cargo test`; every page route of the contract is
   requested by a test.
+
+## Runtime proof without a browser
+
+Step 6.3 needs no browser. A Navree UI page needs a session cookie, and every post needs the CSRF header, which `curl` alone does not carry. Write one script for the module (an HTTP client with a cookie jar) and run it on the release binary, started on a freshly seeded database:
+
+1. Sign in through the real form (`GET /sign-in`, then post it as a demo account) and keep the cookie. Follow no redirect: the redirect is the answer to assert (`303` to the next page).
+2. Send `X-XSRF-TOKEN` with every post, with the value of the `XSRF-TOKEN` cookie.
+3. Open every page of the module and assert its status and a marker of its content; post every form with a valid body, with each invalid value (`422`) and as the refused role (`403`).
+4. Observe one side effect where the app keeps it (a row, the audit entry), and count the `style` attributes in the HTML each page returns (rule NUI-1).
+
+This is the proof of 6.3. It is not the browser proof (6.5), which stays `NOT RUN` until a browser has opened the screens, or the operator accepts that in `ACCEPTANCES.md` (rule BLD-5).
 
 ## Proof of a screen
 

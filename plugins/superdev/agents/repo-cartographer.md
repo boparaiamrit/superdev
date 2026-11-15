@@ -19,7 +19,7 @@ Maps what is there, from the code and the router, so the auditors know what they
 
 Run each command and take every count from its output, never from memory. Sort every list.
 
-1. Routes: `navree routes --json`. For each route, the method, path, name, access declaration (public, authenticated, roles, permissions, or `#[can]`), throttle, guards, audit action and module. Then the list of public routes, so the caller can compare it with the plan's `## Access`.
+1. Routes: `navree routes --json`. For each route, the method, path, name, access declaration (public, authenticated, roles, permissions, or `#[can]`), throttle, guards, audit action and module. Then the list of public routes from the release binary (`<target>/release/<binary> routes --json`, which ships; the debug build also serves Logbook's routes), so the caller can compare it with the plan's `## Access`.
 2. Models: every `#[model(` line with `path:line`, its table, and whether it carries `workspace` (otherwise it is global). Per workspace table on PostgreSQL or TimescaleDB, whether its migration contains `RlsPolicy`. Columns whose names suggest a secret or personal data (`password`, `token`, `secret`, `key`, `phone`, `email`).
 3. Screens: Navree UI page routes (those with the `!` prefix) with their access; Next.js `web/app/**/page.tsx`, and whether `proxy.ts` protects them; the screens of each Tauri client under `clients/`.
 4. Jobs and schedules: each job `NAME`, and each scheduled task and its time (find the registrations as `navree-queues-and-scheduling` describes).

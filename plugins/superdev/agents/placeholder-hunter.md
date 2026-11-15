@@ -24,7 +24,7 @@ Finds demo code posing as product code: placeholder text, handlers that do not w
    - `STUB`: it logs, alerts, answers a fixed success, or has its write commented out.
    - `NO-OP`: it does nothing (a form that only prevents the default, a Navree UI form action that redirects without storing).
    - Navigation only is `WIRED` when the target exists and is real.
-3. Also report each example module of the starter kit that the plan does not list (`customers` in the Navree UI kit, `projects` in the `saas` and `api` kits). Do not drop a hit because it looks intentional; the grade and the false-positive list decide. A hit in generated code is audited too.
+3. Also report each route of `navree routes --json` that no contract and no Navree module owns (a leftover of the starter: the `customers` example module or the `users` profile API of the Navree UI starter, `Housekeeping`, `projects` in the `saas` and `api` kits; judge by route, not by a module's name). Do not drop a hit because it looks intentional; the grade and the false-positive list decide. A hit in generated code is audited too.
 
 ## Output
 
