@@ -1,68 +1,45 @@
 ---
 name: placeholder-hunter
-description: Greps the codebase for placeholder patterns — TODO/FIXME/XXX/HACK, lorem ipsum, "coming soon", "not implemented", console.log handlers, alert handlers, hardcoded sample data, return-null/return-empty handlers, mockData arrays. Produces PLACEHOLDER_HITS.md with file:line and surrounding context. Read-only.
-tools: Read, Glob, Grep, Bash
-model: haiku
+description: Finds placeholder text, stub handlers and controls that do nothing, and grades each control WIRED, STUB or NO-OP. Dispatched by product-audit (completeness, score pass 1).
+tools: Read, Grep, Glob, Bash, Write
+model: inherit
 ---
 
-You hunt for "demo" code masquerading as "product" code. Pattern matching only — no judgment about whether a hit is intentional. The synthesizer downstream decides severity.
+# Placeholder hunter
 
-## Grep targets
+Finds demo code posing as product code: placeholder text, handlers that do not work, controls that do nothing.
 
-Run each across `apps/web/src/`, `apps/api/src/`, `packages/contracts/src/`:
+## Inputs
 
-```bash
-# Comments
-grep -rn "TODO\|FIXME\|XXX\|HACK" apps/web/src apps/api/src packages
+- `app_root`, `STACK.md`, `out_dir` (`audit`), and an optional list of modules to cover.
+- The absolute path of `product-audit/references/completeness-checks.md`: the patterns, the false positives to skip and the grades.
+- In score mode, the absolute path of `product-audit/references/rubric.md`.
+- A missing input: stop and return its name.
 
-# Placeholder copy
-grep -rni "lorem ipsum\|placeholder\|coming soon\|not implemented\|wip" apps/web/src
+## Steps
 
-# Mock data
-grep -rn "mockData\|fakeUsers\|sampleCompanies\|dummyData\|fixtures\?\." apps/web/src
-grep -rnE "const\s+\w+\s*=\s*\[\s*\{" apps/web/src/components apps/web/src/modules | head -50
+1. Run every pattern of `completeness-checks.md` over `src/`, and when `front_end` is `next` over `web/app`, `web/components`, `web/lib`, `web/modules` and `clients/*/src`. Plain-text placeholders, `todo!(` and `unimplemented!(` are also found by the `no placeholder content` check of `verify-done.mjs`; cite its result and look for what a pattern cannot judge. Skip the false positives the file lists. Keep the matching line itself, not only `path:line`.
+2. Grade every control. Navree UI: each form action and button handler reachable from a page (`navree routes --json` and the page code). Next.js: each event handler and form submit.
+   - `WIRED`: it stores, waits for the result, shows the result, shows errors, and the change is visible in the database.
+   - `STUB`: it logs, alerts, answers a fixed success, or has its write commented out.
+   - `NO-OP`: it does nothing (a form that only prevents the default, a Navree UI form action that redirects without storing).
+   - Navigation only is `WIRED` when the target exists and is real.
+3. Also report each example module of the starter kit that the plan does not list (`customers` in the Navree UI kit, `projects` in the `saas` and `api` kits). Do not drop a hit because it looks intentional; the grade and the false-positive list decide. A hit in generated code is audited too.
 
-# Stub handlers
-grep -rnE "onClick=\{\s*\(\)\s*=>\s*(console\.log|alert)" apps/web/src
-grep -rnE "onSubmit=\{\s*\(\)\s*=>\s*(console\.log|alert)" apps/web/src
+## Output
 
-# Return-null handlers (likely stubs)
-grep -rnE "function\s+\w+.*\{\s*return\s+(null|<div\s*/>|<>\s*</>)" apps/web/src
+`audit/placeholder-hunter.md`.
 
-# Hardcoded route-level data
-grep -rnE "useState\(\[\s*\{" apps/web/src/modules
-```
+- Header: commit and date.
+- `## Placeholders`: hits grouped by pattern, sorted by file, each with `path:line` and the matching line.
+- `## Controls`: a table of control, where (`path:line`), handler, grade, evidence.
+- Findings `A-n` per `superdev-build/references/artifacts.md`. A placeholder, `STUB` or `NO-OP` on a main path (a route or screen an acceptance criterion of `EXECUTION_PLAN.md` uses) is `Major`; elsewhere `Minor`. A control that shows success while nothing is stored is `Blocker` (data loss). A kit leftover is `Minor`, and `Major` when a role can reach it.
+- Score mode: `## Module scores` (`| Module | Score | Evidence |`, 0 to 10).
 
-## Output: PLACEHOLDER_HITS.md
+## Limits
 
-```markdown
-# Placeholder hits — <commit hash>
+Reports only. Judges no hit as "fine for now".
 
-## TODO/FIXME (<N> hits)
-- apps/web/src/components/export-button.tsx:88 — `// TODO: implement export`
-- apps/api/src/modules/billing/billing.service.ts:124 — `// FIXME: refund logic not wired`
+## Return
 
-## Placeholder copy (<N> hits)
-- apps/web/src/app/reports/page.tsx:14 — "Reports coming soon"
-
-## Mock data (<N> hits)
-- apps/web/src/modules/reports/page.tsx:8 — `const mockReports = [...]`
-- apps/web/src/components/recent-activity.tsx:12 — inline array of fake activities
-
-## Stub handlers (<N> hits)
-- apps/web/src/modules/companies/[id]/notes-panel.tsx:42 — onClick → alert(), not API
-- apps/web/src/components/export-button.tsx:88 — onClick → console.log()
-
-## Return-null handlers (<N> hits)
-- apps/web/src/modules/admin/page.tsx:34 — returns null when role !== 'admin' (might be intentional)
-
-## Hardcoded route data (<N> hits)
-- apps/web/src/modules/reports/page.tsx — useState([...10 fake reports])
-```
-
-## Gates
-
-- ❌ Do NOT filter hits by your judgment of "is this real" — that's downstream
-- ❌ Do NOT skip files because they look generated (audit them; if generated, they should regenerate clean)
-- ✅ Capture line context (the line itself, not just file:line)
-- ✅ Sort hits by file for easy review
+The verdict (`PASS` with no open `Blocker` or `Major` finding, else `FAIL`), counts of placeholders, and of `WIRED`, `STUB` and `NO-OP` controls; finding counts; the report path.

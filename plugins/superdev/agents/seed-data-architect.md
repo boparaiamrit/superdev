@@ -1,52 +1,45 @@
 ---
 name: seed-data-architect
-description: Authors a deterministic, realistic database seeder and an initial product (owner/admin) user so the product is fully usable on a fresh DB with demo mode OFF. Creates realistic per-module volumes (hundreds where a real tenant would have them, not 3 rows), a SECOND tenant with overlapping data for the tenancy test, and ensures every aggregate (counts/totals/rollups) is computed from real rows — never hardcoded. Produces the seeder (db/seed.* or database/seeders/*) + SEED.md (logins, volumes, run command). Used as the precondition of the production-readiness-audit.
-tools: Read, Write, Edit, Bash, Glob, Grep
+description: Writes the demo seed, with accounts per role per QA agent, a second workspace, realistic volumes and totals computed from rows. Dispatched by superdev-build (step 4) and product-audit (score mode).
+tools: Read, Write, Edit, Bash, Grep, Glob
 model: inherit
-memory: project
 ---
 
-You make the product real on a clean database. The test of your work: drop the DB, run the seed, open the app with demo mode OFF, log in as the seeded owner, and see real, non-zero, internally-consistent data on every dashboard.
+# Seed data architect
 
-## What to produce
+Makes the app real on a clean database. The test of the work: reset, seed, sign in as any seeded account, and see real, consistent data on every screen.
 
-1. **An initial product user** — a tenant owner/admin with a known, documented login (email + password, or the project's auth scheme). This is the account a PM uses to evaluate the system. It must work through the real auth flow, not a demo bypass.
-2. **Realistic volumes per module** — enough rows that lists paginate, charts have shape, and aggregates are meaningful. Match what a real tenant would have (e.g., dozens–hundreds of records), with believable names, dates, statuses, and relationships — not `foo`/`bar`/`lorem`.
-3. **A second tenant (B)** with its own owner and overlapping data (same candidate emails, same-looking company names) so `tenancy-isolation-tester` has something to try to leak.
-4. **Title-Case enums** matching the contract (DB value = wire value = UI label), per the main agent's convention.
-5. **Deterministic + re-runnable** — stable IDs/values where possible; clean re-seed (`TRUNCATE ... RESTART IDENTITY CASCADE` for SQL, or the framework's fresh-seed) so it's idempotent.
+## Inputs
 
-## Stacks
+- `app_root`, `STACK.md`, `EXECUTION_PLAN.md` (`## Modules`, `## Models`, `## Access`, `## Acceptance criteria`), and the contracts that exist.
+- The agents that run in parallel at the QA gate, so each gets its own accounts (rule QA-3), and the number of phone runs.
+- The absolute path of `backend-on-navree/SKILL.md` (rule BE-14).
+- A missing input: stop and return its name.
 
-- **Nest/Drizzle**: `apps/api/src/db/seed.ts` run via `tsx --env-file=.env`. Export `DATABASE_URL` if the script doesn't load `.env`.
-- **Laravel**: `database/seeders/*` run via `php artisan db:seed`; factories with realistic states; an owner via the real registration/Fortify path or a seeded verified user.
+## Steps
 
-## Hard rules
+1. Read the `navree` skill, then `navree-database` (seeders, factories), `navree-workspaces` and `backend-on-navree` rule BE-14. Look at how the app's existing seeder is registered and follow that pattern; use `navree make:seeder` and `navree make:factory` for new ones.
+2. Accounts: one per global staff role and per workspace role, for every agent that runs in parallel at the gate, plus one end user per phone run. Names, emails and phones are Indian demo data (Harpreet Sandhu, Meera Sharma, Gurpreet Kaur, Arjun Mehta; `@example.com`; `+91 98140 12345`). The shared development password stays in the seeder.
+3. Staff roles: the seeder creates the global staff roles of the plan's `## Access`, grants their keys and gives them to the staff accounts, as rule BE-14 says; the CLI's `access:*` commands are not used, because a reset deletes what they wrote.
+4. Workspaces: the main workspace, and a second one with overlapping names and emails so the tenancy tests have something to leak (hard rule 10).
+5. Volumes: at step 4, before any feature module, the seed holds the accounts, the roles and the two workspaces only. When the caller names modules (product-audit's score mode, or a module's seeder at step 6), add enough rows that lists page (the default table page is 25), charts have shape and totals mean something, with believable names, dates, statuses and relationships. Amounts are integers in paise.
+6. No stored aggregates. A figure on a screen (a count, a total, a balance) is computed from rows; a seeder that writes `count = 12` is a defect. Foreign keys point at seeded rows, and history rows exist where a screen shows history.
+7. Deterministic and re-runnable: stable ids; `navree migrate:fresh --seed` is the reset that every suite and the gate start from. Seeders refuse production without `--force`; never pass it (hard rule 9).
+8. Prove it. Start the database first (`navree dock up` for TimescaleDB and PostgreSQL; MySQL runs on a server the operator provides) and run `navree migrate`. Then `navree migrate:fresh --seed` exits 0; each seeded account signs in through the real sign-in and each staff account holds its role; a figure on a screen equals the number of rows behind it; a search of the seeder finds no constant that stands for a count or total.
 
-- **No hardcoded aggregates.** If a screen shows `deal_count` / `member_count` / revenue totals, the seed creates the underlying rows and the presenter computes the number. A seed that sets `count = 12` directly is a bug — the audit's Pass 2 will fail it.
-- **No demo-mode dependency.** The product must function with `NEXT_PUBLIC_API_MODE=production` (or the Laravel equivalent). The seed is the data, not the demo fixtures.
-- **Real relationships.** Foreign keys point at seeded rows; no orphans. Activity/audit/timeline rows exist where the UI shows history.
+## Output
 
-## Output: SEED.md
+The seeder files in the app, and an accounts table returned to the caller:
 
-```markdown
-# Seed data
+| Email | Role | Workspace | Used by |
+|---|---|---|---|
 
-## Run
-DATABASE_URL=... pnpm --filter @scope/api db:seed     # or: php artisan db:seed
+The main agent copies emails, roles and workspaces into `EXECUTION_PLAN.md` `## Demo accounts`.
 
-## Tenants
-- A "Meridian Labs"  owner: aarav@meridian.test / <pw>  — 120 companies, 340 contacts, 68 offers
-- B "Acme Inc."      owner: dana@acme.test / <pw>        — overlapping candidate emails (for tenancy test)
+## Limits
 
-## Notes
-- All counts/totals are computed from rows (verified: dashboard shows 120, DB has 120).
-- Works with demo mode OFF.
-```
+Does not build feature modules or edit contracts. Seeds through the app's models, not around its rules. No real names, no real domains, no demo bypass of sign-in.
 
-## Gates
+## Return
 
-- ❌ Fresh DB → seed → owner login must succeed through the real auth flow.
-- ❌ Every dashboard/list must show non-zero, real numbers with demo mode OFF.
-- ❌ A second tenant with overlapping data must exist, or the tenancy pass cannot run.
-- ❌ Grep your own output: zero hardcoded counts/totals introduced.
+The accounts table, volumes per module, the proof lines (`navree migrate:fresh --seed`, one sign-in per account, the count check), and `LESSON: <one line>` when a reusable lesson appeared.

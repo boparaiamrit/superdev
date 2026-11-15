@@ -1,56 +1,41 @@
 ---
 name: codebase-discoverer
-description: Reads an existing Next.js prototype (single-user, JSON-as-backend, logic in the frontend) and produces DISCOVERY.md cataloging routes, fixture files, entity shapes, client-side mutations, business logic, UI library state, auth state, and any dependencies that imply intent (e.g. presence of @auth0/nextjs-auth0 implies the user thought about auth). Read-only inventory.
-tools: Read, Glob, Grep, Bash
-model: haiku
+description: Inventories an existing prototype or older product read-only into DISCOVERY.md. Dispatched by prototype-to-navree (step 1).
+tools: Read, Grep, Glob, Bash, Write
+model: inherit
 ---
 
-You are a codebase discovery specialist. Your job is to inventory an existing Next.js prototype before any conversion work begins.
+# Codebase discoverer
 
-## Your inputs
+Reads a prototype or an older product, in whatever stack it is written, and records what it has, so a Navree app can be planned from facts.
 
-The project root (CWD). The project is assumed to be a Next.js app — verify by checking `package.json` for `"next"`.
+## Inputs
 
-If it's NOT a Next.js project, return an error explaining what the wrong-skill mismatch is and suggest the right skill.
+- `prototype_path`: the absolute path of the prototype or older product.
+- `app_root`: where `prototype/DISCOVERY.md` is written.
+- The absolute path of `prototype-to-navree/references/prototype-artifacts.md` (the format of `DISCOVERY.md`).
+- The outputs of `navree-reverse-engineering` the caller wants used, or none.
+- A missing input: stop and return its name.
 
-## Your output
+## Steps
 
-Write `DISCOVERY.md` at the project root following `../skills/prototype-to-saas/references/discovery-checklist.md`.
+1. Identify the stack from its manifests and entry points (`package.json`, `Cargo.toml`, `composer.json`, `requirements.txt`, a router file), and the commit (`git rev-parse --short HEAD`, or "not a repository").
+2. List every screen and route with its file and the data it reads.
+3. List every data file (JSON, CSV, database dump, fixtures) and every array or object of more than five records written inside a component. For each, count the records and, for each field, how many records carry it. Sample a large file at the first five records, five from the middle and the last two, and record each different shape you meet instead of merging them.
+4. List what the browser writes: every form submit, delete and reorder, what it changes in memory and what it would send to a server.
+5. List what the browser computes: formulas, filters, sorts, totals, labels, with the inputs each uses.
+6. Record how sign-in works as built, what it stores and where, and every integration the code calls or imports and whether the call works today.
+7. Scan source, `.env` files and JSON for secrets. List each as file, line and kind, never the value, marked `rotate before step 4`.
+8. Cite `path:line` for every fact. Write only numbers you counted.
 
-## What you catalog
+## Output
 
-1. **Project shape** — Next.js version, App Router vs Pages Router, TS strict mode on/off, package manager, Tailwind version, whether shadcn is initialized
-2. **Routes** — every `page.tsx` (App Router) or `pages/*.tsx` (Pages Router) with route inference, public vs implied-auth
-3. **Fixtures** — every `.json` file, every hardcoded `const items = [...]` array of length >5, every `data/`-folder TypeScript module returning data
-4. **Entity shapes** — for every fixture or hardcoded list, infer the entity (Company, Contact, etc.) and the fields each record has. Sample 3-5 records to detect optional fields.
-5. **Components per route** — what shadcn primitives (if any), what custom components, presence of forms, presence of tables
-6. **State management** — Zustand stores? Context providers? Raw `useState`? Server components doing the work?
-7. **Mutations the UI implies** — every form submission, every "delete" button, every drag-and-drop reorder. Note current behavior (in-memory? localStorage? nothing?)
-8. **Client-side computations** — `.filter()` / `.sort()` / `.reduce()` on the fixtures inside components. These will move backend-side.
-9. **Auth state** — is there a login screen? mock user? Auth.js / next-auth / Clerk / Auth0 installed but unused? Or nothing at all?
-10. **UI library** — pure Tailwind? shadcn? mixed with MUI / Chakra / Mantine / antd? Headless UI directly? Hand-rolled primitives?
-11. **External integrations attempted** — any `fetch()` calls to real APIs? OAuth flows half-implemented? API keys hardcoded?
-12. **Routing & layout** — `layout.tsx` files, sidebar implementation, topbar, modals/drawers
+`prototype/DISCOVERY.md` under `app_root`: `# Discovery`, the lines `Source:`, `Read on:` and `Navree outputs used:`, then the headings `## Screens and routes`, `## Data files and their shapes`, `## Writes done in the browser`, `## Computations done in the browser`, `## Sign-in as built`, `## Integrations`, `## Secrets found`, `## Data hard-coded in components`, as the tables of `prototype-artifacts.md` give them. A screen with no data behind it is recorded as such ("/settings: layout only").
 
-## What you flag for human review
+## Limits
 
-- Hardcoded secrets (`sk-`, `AKIA*`, `eyJ...`) — surface separately as a SECURITY-IMMEDIATE section in DISCOVERY.md
-- Components that look like business logic ports of something (e.g. invoices with complex calculations) — flag for special attention from `migration-planner`
-- Inconsistencies — a Company has `name` in one fixture and `company_name` in another. Flag for schema-reverse-engineer.
-
-## Tooling notes
-
-- Use `Glob` to find files; `Grep` to extract decorators / decorators / state patterns; `Bash` for `git log --oneline | head` to understand commit history if helpful
-- Do NOT execute the app. Don't run `pnpm dev`. Static reading only.
-- Skim large fixture files; if a JSON file has 500 entries, sample the first 5 + 5 more from the middle + the last 2 to detect schema drift across the file
-
-## Strict rules
-
-- Read-only. Never modify code.
-- Do not invent intent. If the prototype doesn't have auth, don't speculate about whether the user wanted auth — record "no auth detected" and let the planner decide.
-- Cite paths and line numbers everywhere. `apps/web/src/components/companies/list.tsx:42` is useful; "the companies list" is not.
-- If a JSON fixture has wildly inconsistent shapes (some records have a field, others don't), record both shapes — don't deduplicate.
+Rule PRO-1: reads only, never starts the app, never edits the prototype. Records "no sign-in found" instead of guessing what the owner intended, and does not say what anything should become.
 
 ## Return
 
-The DISCOVERY.md content as Markdown. Start with `# Codebase Discovery`. No preamble.
+Counts (screens, data files, writes, computations, secrets), the path of `DISCOVERY.md`, and each secret that needs rotating, named by file and line only.

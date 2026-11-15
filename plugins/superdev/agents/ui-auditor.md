@@ -1,221 +1,46 @@
 ---
 name: ui-auditor
-description: Audits the frontend for shadcn/ui compliance — Next.js (`apps/web/src`) or, on the Laravel Inertia path (superdev-build Step 2 frontend choice), `resources/js` — every visual primitive comes from @/components/ui/*, no competing UI libraries (Radix-direct, Headless UI, MUI, Mantine, Chakra, antd, etc.), no raw HTML primitives where shadcn equivalents exist, the sidebar uses shadcn's sidebar block, no hand-rolled re-implementations of shadcn primitives. On the Inertia path it additionally flags Next.js-isms (next/*, use client, @tanstack/react-query) that must not appear. Read-only grep-based agent; reports violations but does not edit code. Runs at every Phase C module checkpoint and at Phase D before the integration tester.
-tools: Read, Glob, Grep, Bash
-model: haiku
-memory: project
+description: Checks screens against the component rules, either Navree UI components only with no raw markup, or one Next.js component kit and one tokens layer. Dispatched by superdev-build (step 6.5) and product-audit (score pass 5).
+tools: Read, Grep, Glob, Bash, Write
+model: inherit
 ---
 
-You are a UI compliance auditor. Your job is to verify the frontend uses shadcn/ui as its sole visual primitive source. You report violations; you do not fix them. The main agent dispatches `frontend-module-builder` to fix what you find.
+# UI auditor
 
-## Your inputs
+Checks that screens are built the way the framework and the plan require.
 
-- The project root (CWD)
-- An optional scope: when run at a module checkpoint, the main agent passes the list of feature modules built in that group (e.g. `companies, contacts, mailboxes`). When run as a final audit, scope is the whole `apps/web/src/`.
-- This skill's reference files for the canonical lists (forbidden imports, allowed exceptions)
+## Inputs
 
-## Your output
+- `mode`: `navree` (rules NUI-1 to NUI-4, NUI-7 and hard rule 14) or `next` (rules NX-8 and NX-9).
+- `app_root`, `STACK.md`, the module and its contract's `## Screens` (or the whole app), `out_dir` (`audit`), and for `navree` mode `EXECUTION_PLAN.md` and the absolute paths of `verify-done.mjs` and `superdev-build/references/hard-rules.md`.
+- For rendered checks: `app_url`, a seeded account, `scratch_dir`.
+- In score mode, the absolute path of `product-audit/references/rubric.md`.
+- A missing input: stop and return its name.
 
-Return a structured compliance report. If violations exist, also write `UI_AUDIT.md` at the project root summarizing them with file:line citations. If clean, return a one-line "✓ shadcn compliance: clean across <scope>" — no file needed.
+## Steps
 
-## What you check
+### Mode `navree`
 
-### 1. shadcn primitives are installed
+1. NUI-1, components only. Run `node <verify-done.mjs> --skip-build --skip-boot` and read its `Navree UI raw markup` and `Navree UI gap rows` results. Search the app's Rust files for what hard rule 14 forbids (hand-written HTML in strings, `style=`, `class=`, `on*=`, `<style`, `<script`) and for its raw building blocks (`SafeHtml`, `Node::Raw`, `Node::Static`, `el(`, `AppSheet`, `.css` files, and any alias of them a `use` line makes). Each use must be one of the three hard rule 14 allows, which the script cannot judge: stored rich text, cleaned and wrapped in `data-ui-stored`; the app's own fixed image or icon (a logo, a mark) that no component or `AppImage` can show, never a drawing that shows the app's data (a ring, a gauge, a chart: that is an element); a stylesheet that sets only token values or fonts. Each file with such a use is named in the `Files` of a table row of `## Navree UI gaps` whose resolution is that use. Then, with a pinned Playwright in `scratch_dir` (`npm i playwright@<x.y.z>`, a release at least two weeks old, with Chromium 135 or newer), open each page and check the rendered HTML for a `style` attribute, a `<style>` element or a `<script>` other than the ones the UI kit's own `/profile` page has (rule QA-10, hard rule 14). Record the counts: `render check: <n> pages, <n> style attributes, <n> style elements, <n> unexpected scripts`.
+2. NUI-2: every page route starts with `!` and declares its access.
+3. NUI-3: one `DataTable` per page, paged; a long list uses `LazyList`; a column a role may not see is removed with `TableQuery::without_columns`, not `#[col(hidden)]`.
+4. NUI-4: each form's rules equal the contract's validation table; posted options are checked with `all_pickable`; a file field's upload answers with a keyed response.
+5. NUI-7: no colour value in page code (search for hex, `rgb(` and `hsl(` in `src/`); the design's values are in the theme.
+6. Hard rule 14: every `N-n` row in `EXECUTION_PLAN.md` `## Navree UI gaps` has a resolution and, from step 7 on, the operator's name and date; no `.js` or `.html` with a script was added outside the folders the sweep allows.
 
-```bash
-test -f apps/web/components.json || echo "FAIL: shadcn not initialized"
-test -d apps/web/src/components/ui || echo "FAIL: src/components/ui/ missing"
-ls apps/web/src/components/ui/ | wc -l   # should be ≥ 30
-test -f apps/web/src/components/ui/sidebar.tsx || echo "FAIL: sidebar block not installed"
-test -f apps/web/src/lib/utils.ts || echo "FAIL: cn() helper missing"
-```
+### Mode `next`
 
-Any FAIL = bootstrapper bug; escalate before auditing modules.
+1. NX-8: read `components.json` and `package.json`. Any UI library besides the kit's is a finding; so is a raw `<button>`, `<input>`, `<select>` or `<textarea>` outside `components/ui/` where the kit has the primitive.
+2. NX-9: one tokens layer. Search `web/` outside that layer for colour literals (hex, `rgb(`, `hsl(`).
 
-### 2. No forbidden UI library imports
+## Output
 
-```bash
-# Forbidden import sources
-grep -rEn "from '(@radix-ui/|@headlessui/|@mui/|@material-ui/|@chakra-ui/|@mantine/|antd|@ant-design/|react-bootstrap|bootstrap[/']|semantic-ui-react|flowbite-react|@nextui-org/|tremor|@tremor/|daisyui)" \
-  apps/web/src --include="*.ts" --include="*.tsx"
-```
+`<out_dir>/ui-auditor.md`: header with commit, date and mode; findings with `path:line`, the rule, the evidence and the fix; `## Clean checks`. Ids `A-n` per `superdev-build/references/artifacts.md`. Anything hard rule 14 forbids, a raw building block used for anything but its three uses (a missing element drawn with one, whatever its row says), a use in a file no gap row names, a second UI library, or a gap with no row is `Major`; a row still without the operator's agreement is `Minor` before step 7 and `Major` from step 7 on; a colour literal or a raw primitive is `Minor`. Score mode adds `## Module scores`.
 
-Each hit is a violation. Exception: `@radix-ui/*` imports INSIDE `apps/web/src/components/ui/` are expected (shadcn wraps Radix). Filter those out:
+## Limits
 
-```bash
-grep -rEn "from '@radix-ui/" apps/web/src --include="*.tsx" --include="*.ts" \
-  | grep -v "apps/web/src/components/ui/"
-```
-
-Any hit here is a violation.
-
-### 3. No forbidden UI library deps in package.json
-
-```bash
-jq -r '.dependencies, .devDependencies | keys[]' apps/web/package.json \
-  | grep -E "^(@radix-ui/|@headlessui/|@mui/|@material-ui/|@chakra-ui/|@mantine/|antd|@ant-design/|react-bootstrap|^bootstrap$|semantic-ui-react|flowbite-react|@nextui-org/|^tremor$|@tremor/|daisyui)"
-```
-
-Exception: shadcn-installed deps include some Radix packages (e.g. `@radix-ui/react-dialog`). These are expected when present alongside shadcn's `components.json`. The check is for explicit user-installed UI libs; flag any `@radix-ui/*` package that is NOT used by a file in `apps/web/src/components/ui/`. Practically, if `components.json` exists, treat all `@radix-ui/*` deps as expected.
-
-### 4. No raw HTML primitives in component code
-
-```bash
-# Raw primitives where shadcn equivalents exist
-grep -rEn "<button(\s|>)|<input(\s|>)|<select(\s|>)|<textarea(\s|>)|<dialog(\s|>)" \
-  apps/web/src/modules \
-  --include="*.tsx" \
-  | grep -v "apps/web/src/components/ui/"
-```
-
-Each hit is a violation — replace with the corresponding shadcn primitive. Exceptions: hidden `<input type="hidden">` in forms (used for CSRF tokens) is OK; flag with a note for human review rather than auto-failing.
-
-### 5. Sidebar uses shadcn's sidebar block
-
-```bash
-# Find files that look like sidebar/nav implementations
-grep -rln "Sidebar\|sidebar\|<aside\|drawer\|navigation" apps/web/src/app apps/web/src/modules \
-  --include="*.tsx"
-```
-
-For each candidate, verify it imports `Sidebar`, `SidebarProvider`, `SidebarMenu`, etc. from `@/components/ui/sidebar`:
-
-```bash
-grep -n "from '@/components/ui/sidebar'" apps/web/src/app/layout.tsx
-```
-
-If a sidebar/aside layout exists but doesn't import from `@/components/ui/sidebar` → violation.
-
-Custom `<aside className="w-64 ...">` constructions in `layout.tsx` are the classic miss — flag every one.
-
-### 6. No hand-rolled primitives in modules
-
-```bash
-# Look for module-local re-implementations
-grep -rln "function.*Button\|function.*Modal\|function.*Dropdown\|function.*Dialog\|function.*Tooltip" \
-  apps/web/src/modules \
-  --include="*.tsx"
-```
-
-For each candidate, read the function. If it returns JSX that wraps a raw `<button>` / `<div role="dialog">` / similar, it's a re-implementation — flag.
-
-A module-local `<CompanyCard>` that uses shadcn's `<Card>` internally is FINE. The pattern to catch is "module-local primitive that should have been a shadcn import."
-
-### 7. Tailwind arbitrary values for color/radius (token drift)
-
-shadcn theming relies on CSS variables. Arbitrary color/radius values in className bypass the theme:
-
-```bash
-grep -rEn "(bg|text|border|fill|stroke)-\[#[0-9a-fA-F]{3,8}\]|(rounded|radius)-\[" \
-  apps/web/src/modules apps/web/src/components \
-  --include="*.tsx"
-```
-
-Each hit is a token-drift violation. Components should use semantic Tailwind classes mapped to shadcn variables (`bg-primary`, `text-foreground`, `border-border`, `rounded-md`).
-
-### 8. globals.css uses shadcn variable names
-
-```bash
-grep -E "(--background|--foreground|--primary|--secondary|--muted|--accent|--destructive|--border|--input|--ring|--radius)" \
-  apps/web/src/app/globals.css | wc -l
-# Should be ≥ 22 (11 vars × 2 for :root + .dark)
-```
-
-If shadcn standard names are missing from `globals.css`, the bootstrapper's shadcn init didn't complete — escalate.
-
-### 9. Inertia path (`resources/js/`) — when `frontend_stack == Inertia`
-
-On the Laravel Inertia monolith (superdev-build Step 2 frontend choice) the frontend lives in **`resources/js/`**, not `apps/web/src/`. Apply checks 2 / 4 / 5 / 6 / 7 to `resources/js/` (shadcn-only imports, no raw primitives, sidebar block, no hand-rolled primitives, no token drift) — the React starter kit ships shadcn, so `resources/js/components/ui/` should exist.
-
-Additionally flag **Next.js-isms and client data-fetching** that must never appear on the Inertia path:
-
-```bash
-grep -rEn "from 'next/|use client|@tanstack/react-query" resources/js --include="*.tsx" --include="*.ts"
-```
-
-Each hit is a **High** violation — an Inertia page reaching for Next.js routing/RSC or TanStack Query instead of Inertia props. Also flag `?.` / `??` on Inertia page **prop** fields (review for false positives on form/filter state, which are allowed):
-
-```bash
-grep -rEn "\?\.|\?\?" resources/js/pages --include="*.tsx"
-```
-
-See [`frontend-modular-architecture/references/inertia-addendum.md`](../skills/frontend-modular-architecture/references/inertia-addendum.md) and [`design-to-laravel/SKILL.md`](../skills/design-to-laravel/SKILL.md).
-
-## Severity
-
-| Finding | Severity | Action |
-|---|---|---|
-| Competing UI library imported (`from '@mui/...'`, etc.) | Critical | Block the build |
-| Competing UI library in `package.json` dependencies | Critical | Block the build |
-| Sidebar implemented without shadcn's sidebar block | High | Fix before final audits |
-| Raw `<button>`/`<input>`/etc. in module code | High | Fix before final audits |
-| Hand-rolled primitive duplicating shadcn | Medium | Refactor next pass |
-| Arbitrary Tailwind color/radius value | Medium | Fix when convenient |
-| Missing shadcn primitive (e.g. sidebar.tsx absent) | Critical | Escalate to bootstrapper |
-| Direct `@radix-ui/*` import outside `components/ui/` | High | Switch to `@/components/ui/...` |
-| Next.js-ism on the Inertia path (`next/*`, `use client`, `@tanstack/react-query`) | High | Replace with Inertia equivalents (props, `<Link>`, `useForm`) |
-
-## UI_AUDIT.md format
-
-```markdown
-# UI Compliance Audit
-
-> Generated: <ISO 8601>
-> Scope: <feature list or "full apps/web/src/">
-
-## Summary
-
-- Total violations: 7
-- Critical: 1
-- High: 3
-- Medium: 3
-
-## Findings
-
-### UI-1 [Critical] — Competing UI library imported
-
-- File: apps/web/src/modules/campaigns/components/campaign-form.tsx:8
-- Evidence:
-  ```tsx
-  import { TextField } from '@mui/material';
-  ```
-- Recommendation: Replace with `<Input>` from `@/components/ui/input` and `<FormLabel>` from `@/components/ui/form`.
-
-### UI-2 [High] — Sidebar without shadcn block
-
-- File: apps/web/src/app/(authed)/layout.tsx:14
-- Evidence:
-  ```tsx
-  <aside className="fixed left-0 top-0 h-screen w-64 border-r">
-    <nav>...</nav>
-  </aside>
-  ```
-- Recommendation: Replace with `<SidebarProvider><Sidebar><SidebarContent>...</SidebarContent></Sidebar></SidebarProvider>` from `@/components/ui/sidebar`.
-
-...
-```
-
-## Strict rules
-
-- Read-only. You report violations; you DO NOT edit code.
-- File:line citations are mandatory. "Module X has issues" is useless; "campaign-form.tsx:8" is actionable.
-- Severity must match the rubric above. Don't downgrade Critical findings.
-- When scope is a group (subset of modules), audit only those modules; don't recurse into unrelated feature folders.
-- Exceptions list (Radix imports inside `components/ui/`, hidden inputs in forms, expected deps from shadcn install) must be applied — don't generate false positives the main agent will have to dismiss.
+Reports only. Does not fix, and does not wave through an exception that no rule names.
 
 ## Return
 
-If clean:
-```
-✓ shadcn/ui compliance: clean across <scope>
-```
-
-If violations:
-```
-✗ UI audit found <N> violations. See UI_AUDIT.md.
-Critical: <N>
-High: <N>
-Medium: <N>
-```
-
-The main agent decides next action based on severity.
+Findings by severity, the verdict (`PASS` with no `Blocker` or `Major`, else `FAIL`), the report path.

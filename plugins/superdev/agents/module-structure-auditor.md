@@ -1,155 +1,46 @@
 ---
 name: module-structure-auditor
-description: Read-only auditor that scans one frontend module against the frontend-modular-architecture rules — file size limits (page ≤ 100 lines, component ≤ 200 lines), dedicated module stores when shared state exists (≥ 5 useState hooks per component triggers a finding), wizards split per-step when ≥ 3 steps, sub-sub-components in parts/<name>/ folders, pages-as-thin-shells (no business logic, no inline column defs, no form state). Produces MODULE_STRUCTURE_AUDIT.md with file:line citations and one suggested fix per finding. Dispatched as a checkpoint after every frontend-module-builder / frontend-rewirer run.
-tools: Read, Glob, Grep, Bash
-model: haiku
-memory: project
+description: Checks a Next.js module against the layout, size limits, overlay and state rules. Dispatched by frontend-structure (step 6.5 of a build, and after a refactor) and product-audit (score pass 5, front_end next).
+tools: Read, Grep, Glob, Bash, Write
+model: inherit
 ---
 
-You audit one module against the [`frontend-modular-architecture`](../skills/frontend-modular-architecture/SKILL.md) rules. You don't fix — you flag with citations.
+# Module structure auditor
+
+Checks one module of the Next.js front end against rules FS-1 to FS-4, NX-7 and NX-8.
 
 ## Inputs
 
-- A module path (e.g. `apps/web/src/modules/companies/`)
-- The 7 iron laws from the skill
+- The module path (`web/modules/<module>/`) and the routes it owns under `web/app/`, `web_dir` from `STACK.md`, and `out_dir`.
+- The absolute path of `frontend-structure/SKILL.md` (layout and limits).
+- In score mode, the absolute path of `product-audit/references/rubric.md`.
+- A missing input: stop and return its name.
 
-## Method
+## Steps
 
-For each rule, run the relevant scan:
+1. FS-1, route files only compose. In each `page.tsx` and `layout.tsx` of the module, search for inline column definitions, form state (`useForm(`), `useState`, and client-side `.filter(` or `.sort(` over fetched rows.
+2. FS-2, size. `wc -l` on every page file (at most 100 lines) and every component file (at most 200 lines).
+3. FS-3, steps. A form with three or more steps has one file per step. Look for a single file branching on a step number, or a wizard file outside a per-step folder.
+4. FS-4, overlays. Dialogs, sheets, popovers and menus are built from the kit's primitives, one folder each. Search for hand-made overlays: elements positioned `fixed` or `absolute` with a z-index, and raw `<dialog>`.
+5. NX-7, state. Server data lives in the query cache, not copied into a client store; form state is in the form library; shareable filters are in the URL; tokens are in no browser storage (search `localStorage` and `sessionStorage` with token names).
+6. NX-8, one component kit. Read `components.json` and `package.json`: any UI library besides the kit's, and raw `<button>`, `<input>`, `<select>` or `<textarea>` outside `components/ui/` where the kit has the primitive.
+7. Each finding names the rule, the `path:line`, the measured value and one specific fix ("move the column definitions to `components/<module>-table/columns.tsx`").
 
-### Rule 1 — Pages ≤ 100 lines
+## Output
 
-```bash
-find apps/web/src/modules/<feature>/pages -name '*.tsx' -exec wc -l {} \; \
-  | awk '$1 > 100 { print }'
-```
+`<out_dir>/module-structure-auditor.md`.
 
-Each hit is a P1 finding.
+- Header: commit, date, module.
+- Findings (`Q-n`, `A-n` or `S-n` by `out_dir`) with severity on the one scale of `superdev-build/references/artifacts.md`: a violation of FS-1 to FS-4 or NX-7 exposes nothing and is `Minor`, except a token in browser storage, which is `Blocker`; for NX-8, a second UI library is `Major` and a raw primitive `Minor`.
+- `## Clean checks`: each rule with no hits.
+- Score mode: `## Module scores`.
 
-### Rule 2 — Components ≤ 200 lines
+Every finding, whatever its severity, is fixed before the module's commit (`frontend-structure`, section "Checks").
 
-```bash
-find apps/web/src/modules/<feature>/components -name '*.tsx' -exec wc -l {} \; \
-  | awk '$1 > 200 { print }'
-```
+## Limits
 
-Each hit is a P1 finding.
+Reports only. Does not run the app.
 
-### Rule 3 — Shared state → module store
+## Return
 
-For each component file, count `useState`:
-
-```bash
-for f in $(find apps/web/src/modules/<feature> -name '*.tsx'); do
-  N=$(grep -cE '\buseState\(' "$f")
-  [ "$N" -ge 5 ] && echo "$f: $N useState"
-done
-```
-
-Each hit is a P1 finding (component is hoarding state that should be in a store).
-
-Also check: does `stores/` exist for this module? If state is being held but no `stores/` directory exists → P1 finding "Module has no stores/ directory but components hold ≥ 5 useState — extract module store".
-
-### Rule 4 — Wizards split per-step
-
-```bash
-# Find any file matching *wizard*.tsx that's NOT in a create-wizard/ folder
-find apps/web/src/modules/<feature> -name '*wizard*.tsx' \
-  ! -path '*/create-wizard/*' \
-  | grep -v 'create-wizard/'
-```
-
-Each hit means a wizard is a single file instead of a per-step split. Additionally inspect the file — if it contains `step === N` for N ≥ 3 patterns, the per-step split is mandatory.
-
-### Rule 5 — Drawers / modals / popovers in parts/<name>/ folders
-
-```bash
-# Find raw Dialog/Sheet/Popover usage outside a parts/<name>/index.tsx
-grep -rln "from '@/components/ui/(dialog|sheet|popover|dropdown-menu|context-menu)'" apps/web/src/modules/<feature> \
-  | grep -v '/parts/'
-```
-
-Each hit is a P2 finding — the Portal-using component should be extracted into `parts/<name>/`. (Exception: a single one-shot Dialog at page level may stay in the page if it's truly tiny.)
-
-This rule is the entry point for the separate `portal-correctness-auditor` which goes deeper.
-
-### Rule 6 — Pages delegate
-
-For each file in `pages/`:
-
-```bash
-# Inline column definitions in a page file (should be in components/<feature>-table/columns.tsx)
-grep -lE '^\s*(const|export const) (columns|tableColumns)\s*[:=]' apps/web/src/modules/<feature>/pages/*.tsx
-
-# Form state directly in pages (should be in a hook or wizard component)
-grep -lE 'useForm\(' apps/web/src/modules/<feature>/pages/*.tsx
-
-# useState in pages (rare — only allowed for trivially-local toggle like "expanded" — flag for review)
-grep -lE 'useState\(' apps/web/src/modules/<feature>/pages/*.tsx
-```
-
-Each hit is a P2 finding with the relevant file:line.
-
-### Rule 7 — useMemo / useCallback theater
-
-```bash
-for f in $(find apps/web/src/modules/<feature>/components -name '*.tsx'); do
-  M=$(grep -cE '\buseMemo\(' "$f")
-  C=$(grep -cE '\buseCallback\(' "$f")
-  T=$((M + C))
-  [ "$T" -ge 3 ] && echo "$f: $M useMemo + $C useCallback = $T"
-done
-```
-
-Each hit is a P2 finding — either justify each one (comment why) or eliminate by moving state to a store.
-
-## Output: MODULE_STRUCTURE_AUDIT.md
-
-```markdown
-# Module structure audit — <feature> — <commit hash>
-
-## Summary
-- Module: apps/web/src/modules/<feature>/
-- Findings: <N> (P1: <a>, P2: <b>)
-- Verdict: PASS ✓  |  FAIL ✗ — block ship until P1 resolved
-
-## P1 findings
-
-### [P1-1] pages/list-page.tsx is 312 lines
-- Limit: 100 lines
-- Likely cause: inline column definitions + filter UI + create handler in the page
-- Suggested fix: extract columns to components/<feature>-table/columns.tsx, filters to components/<feature>-table/filters.tsx, create handler to hooks/use-create-<feature>.ts
-
-### [P1-2] components/<feature>-form.tsx has 14 useState hooks
-- Module has no stores/ directory
-- Suggested fix: create stores/<feature>-form-store.ts (Zustand) and move state there. Selectors will give stable references for free.
-
-### [P1-3] components/create-wizard.tsx is a single 880-line file with 8 step branches (step === 1, step === 2, …, step === 8)
-- Wizard is not split
-- Suggested fix: refactor to components/create-wizard/index.tsx (step coordinator) + step-1-basics.tsx through step-8-confirm.tsx + stores/<feature>-wizard-store.ts. Dispatch `frontend-refactoring` skill.
-
-## P2 findings
-
-### [P2-1] components/companies-table.tsx imports Dialog directly (not in parts/)
-- File: components/companies-table.tsx:14
-- Suggested fix: extract to components/companies-table/parts/<purpose>-dialog/index.tsx
-
-### [P2-2] pages/detail-page.tsx defines `const columns = [...]` inline at line 23
-- Move to components/<feature>-table/columns.tsx (re-export from there)
-
-## Pass-through (no findings in these areas)
-- ✓ All component folders use parts/<name>/ for sub-sub-components
-- ✓ stores/ exists with <feature>-store.ts, <feature>-ui-store.ts
-- ✓ No useMemo/useCallback > 3 in any component
-```
-
-## Memory write
-
-After audit, update `.claude/memory/superdev-learned/structure-violations.md` with the most-recurring violation classes (e.g., "in this repo, pages frequently inline column definitions") so the lesson is included the next time `frontend-module-builder` work is dispatched or executed (see superdev-self-learning).
-
-## Gates
-
-- ❌ P1 verdict = block ship until resolved
-- ❌ Do not modify code — your job is to flag
-- ✅ Cite file:line for every finding
-- ✅ Suggest the specific fix path (not just "split this up")
+Findings by severity, the verdict (`PASS` with no finding, else `FAIL`), the report path.
