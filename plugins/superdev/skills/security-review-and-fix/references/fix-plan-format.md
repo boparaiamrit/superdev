@@ -1,264 +1,63 @@
-# Fix Plan Format (Phase 5 + 6)
+# Fix plan format
 
-The template for `SECURITY_FIX_PLAN.md` and the triage workflow that produces it.
+Read this in step 5. `SECURITY_REPORT.md` is the one file that records the review, the triage and the fixes. The main agent writes it with the operator. A report never contains a secret: name the file, the line and at most the first four characters.
 
-## The triage workflow (Phase 5)
+## Triage order
 
-The main agent (not a subagent) walks the human user through `SECURITY_FINDINGS.md` and produces decisions.
+1. Each `Blocker`, one at a time: the operator chooses to fix it or to accept it, and gives a reason if they accept.
+2. Each `Major`: fixed by default; the operator may accept it with a reason.
+3. `Minor` findings: shown as a count per file. The operator picks which to fix now; the rest stay `open` with an owner.
 
-Order:
+Within a severity, exposure comes first: a fault on a public route before one behind sign-in, and that before one on a staff-only screen. A fix that others depend on (a shared guard, a configuration value) comes before them. Severity is not priority.
 
-1. **All Critical findings** — present each one, get explicit fix-or-accept. Accepts must record justification.
-2. **All High findings** — present each, default fix, defer-with-reason allowed.
-3. **Medium summary** — show counts, group by file. User selects which to fix this pass; rest go to deferred.
-4. **Low + Info** — recorded for future hygiene; user can opt to fix any of them now.
+The owner of a finding is `fix-applier` when the fix is a code change in named files. Three kinds of fix are the operator's: rotating a leaked secret at its issuer, a major version upgrade, and infrastructure (DNS, firewall, proxy). Removing a secret from git history rewrites the history and needs the operator's agreement.
 
-For each finding being fixed, the main agent decides:
+A finding becomes `fixed` only when the check that found it passes again. It becomes `accepted` only with the operator's words, their name and the date, copied exactly (rule BLD-6).
 
-- **Which agent applies it** — almost always `security-fixer`. Exceptions:
-  - Secret rotation: USER (security-fixer can scrub the repo, but rotation at the issuer is manual)
-  - Dep major upgrade: USER (breaking changes need human review)
-  - Infra topology: USER or DevOps (DNS, WAF, LB rules)
-- **Which files it can touch** — listed explicitly; the security-fixer is forbidden from straying
-- **Acceptance criteria** — how to verify the fix landed
-- **Dependent fixes** — some fixes must happen in a specific order (e.g., fix the env-schema validator before fixing the JWT secret)
-
-## SECURITY_FIX_PLAN.md template
+## SECURITY_REPORT.md
 
 ```markdown
-# Security Fix Plan
+# Security Report
 
-> Generated: <ISO 8601>
-> Sources: SECURITY_INVENTORY.md, SECURITY_FINDINGS.md
-> Triage by: <user>
+Commit: 3f2a9c1
+Date: 2026-11-26
 
-## Summary
+## Surface
 
-- **Total findings:** 47
-- **Critical:** 3 → all to be fixed
-- **High:** 11 → 9 to be fixed, 2 deferred
-- **Medium:** 21 → 8 to be fixed, 13 deferred
-- **Low:** 9 → all deferred (next hygiene pass)
-- **Info:** 3 → recorded only
+38 routes (4 public), 12 models (9 in a workspace), 3 jobs, 1 schedule; clients web and admin (from security/repo-cartographer.md).
 
-**Build-blocking:** all Critical fixes must land before deployment.
+## Findings
 
-## Fix order
+| ID | Severity | Where | Evidence | Fix | Owner | State |
+|---|---|---|---|---|---|---|
+| S-1 | Blocker | src/modules/customers/controller.rs:31 | a token of Sharma Textiles, Pune read a customer of Sandhu Traders, Ludhiana through `GET /api/v1/customers/{id}`: 200 (security/dynamic-auditor/customer-read.txt) | use `from = "id"` in the `#[can]` rule and query through `WorkspaceRepo` | fix-applier | open |
+| S-2 | Major | config/env/production.toml | `navree config:check --env production` exits 1: `session.secure` is false | set `session.secure = true` | fix-applier | fixed |
+| S-3 | Blocker | .env | a live payment key (starts `sk_l`) was committed in a1b2c3d | rotate the key at the provider, then remove it from the tree | Meera Sharma | open |
 
-Group fixes by file and by dependency. Within a group, fixes are sequential; across groups, parallel-dispatchable.
+## Fix plan
 
-### Group 1 — Foundational (do FIRST)
+| Order | Finding | Who | Check after the fix |
+|---|---|---|---|
+| 1 | S-3 | Meera Sharma | the old key is refused by the provider; `git ls-files .env` prints nothing |
+| 2 | S-1 | fix-applier | the probe "Another workspace's record" gives 404; `cargo test --test isolation` passes |
+| 3 | S-2 | fix-applier | `navree config:check --env production` exits 0 |
 
-These touch shared config; subsequent fixes assume they're in place.
+### Only the operator can do
 
-#### F-1 — fix S-S-3: JWT secret length validation
+S-3: rotate the key at the payment provider, then tell the main agent so that the check can run.
 
-- **Severity:** High (originally)
-- **Files:** `apps/api/src/infrastructure/config/env.schema.ts`
-- **Recommendation:** Change `JWT_ACCESS_SECRET: z.string()` to `z.string().min(32)`. Same for `JWT_REFRESH_SECRET`.
-- **Acceptance:**
-  - `grep -n "min(32)" env.schema.ts` finds both secrets
-  - App boot fails with a clear error if either env var is shorter than 32 chars
-- **Agent:** `security-fixer`
-- **Dependencies:** none
-- **Estimated touch:** 2 lines
+### Accepted by the operator
 
-### Group 2 — AuthZ gaps (do AFTER Group 1)
+None.
 
-#### F-2 — fix S-S-7: Missing @CheckAbility on POST /companies
+## Clean checks
 
-- **Severity:** Critical
-- **Files:** `apps/api/src/modules/companies/companies.controller.ts`
-- **Recommendation:** Add `@CheckAbility({ action: 'create', subject: 'Company' })` above the `create` handler at line 28.
-- **Acceptance:**
-  - The decorator is present
-  - `pnpm --filter @<scope>/api test -- --testPathPattern=companies` passes
-  - The Phase 3 probe for `POST /companies as Viewer` returns 403 (was 201)
-- **Agent:** `security-fixer`
-- **Dependencies:** none
-- **Estimated touch:** 1 line
+- Every route declares access; the 4 public routes equal the plan's list (`navree routes --json`, 38 routes).
+- Every body and query is wrapped in `Valid<..>`.
 
-#### F-3 — fix S-S-8: Missing @CheckAbility on DELETE /companies/:id
+## Probes not run
 
-- (similar structure)
-
-### Group 3 — Tenancy fixes (do AFTER Group 2)
-
-#### F-4 — fix S-S-12: Companies repository bypasses tenantDb
-
-- **Severity:** Critical
-- **Files:** `apps/api/src/modules/companies/companies.repository.ts`
-- **Recommendation:** Replace `db.select().from(companies).where(eq(companies.id, id))` with `db.select().from(companies).where(t.scope('companies', eq(companies.id, id)))` where `t = tenantDb(db, workspaceId)`. Verify caller passes `workspaceId`.
-- **Acceptance:**
-  - grep for `db\\.select.*from\\(companies\\)` in this file returns no hits without `t.scope`
-  - Phase 3 probe: workspace A's admin cannot fetch workspace B's company → returns 404
-- **Agent:** `security-fixer`
-- **Dependencies:** none
-- **Estimated touch:** ~5 lines
-
-### Group 4 — Frontend XSS hardening (parallel-safe with backend)
-
-#### F-5 — fix S-S-21: dangerouslySetInnerHTML in CampaignPreview
-
-- **Severity:** High
-- **Files:** `apps/web/src/modules/campaigns/components/campaign-preview.tsx`
-- **Recommendation:** Wrap rendered HTML in DOMPurify. Install `isomorphic-dompurify`, import and call `DOMPurify.sanitize(html)` before passing to `dangerouslySetInnerHTML`.
-- **Acceptance:**
-  - DOMPurify import present
-  - The render uses `dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}`
-  - Visual smoke test in demo mode shows campaign preview still renders
-- **Agent:** `security-fixer`
-- **Dependencies:** none
-- **Estimated touch:** 3 lines + 1 dep install
-
-### Group 5 — Dep upgrades (parallel-safe)
-
-#### F-6 — fix S-P-2: CVE in `xlsx` package
-
-- **Severity:** High
-- **Files:** `apps/api/package.json`
-- **Recommendation:** Upgrade `xlsx` from 0.18.5 to 0.20.0 (patched). Run `pnpm --filter @<scope>/api update xlsx`.
-- **Acceptance:**
-  - `pnpm audit --prod --audit-level high` shows zero `xlsx` advisories
-  - `pnpm --filter @<scope>/api test` passes
-- **Agent:** `security-fixer`
-- **Dependencies:** none
-- **Estimated touch:** lockfile + 1 line in package.json
-
-## Manual fixes (USER must apply)
-
-Items the security-fixer cannot or should not handle alone.
-
-### M-1 — Rotate leaked Anthropic API key
-
-- **Severity:** Critical
-- **Origin:** S-S-1
-- **What the agent did:** Replaced `sk-ant-...` in `apps/api/src/modules/ai/clients/anthropic.client.ts` with `config.get('ANTHROPIC_API_KEY')`. Removed the hardcoded value from git history via `git filter-repo` (or BFG). Added the var to `.env.example` with placeholder.
-- **What you must do:**
-  1. Log into Anthropic Console → API Keys
-  2. Revoke the key starting `sk-ant-X1234...` (last 4 chars: `Y789`)
-  3. Generate a new key
-  4. Add to `apps/api/.env` (NOT committed)
-  5. Distribute to other developers via the team password manager
-- **Acceptance:**
-  - The leaked key, when used, returns 401 from Anthropic
-  - The new key is in `.env` (gitignored) on every dev machine and the prod secret manager
-  - `git log --all -S 'sk-ant-X1234'` returns no commits
-
-### M-2 — Upgrade @nestjs/core 10 → 11
-
-- **Severity:** Medium
-- **Origin:** S-P-7 (dep is current major but missing performance + security improvements in v11)
-- **Why manual:** v11 has breaking changes in module loading. Needs human review of migration notes.
-- **Recommended approach:**
-  1. Read https://docs.nestjs.com/migration-guide
-  2. Run on a feature branch
-  3. Fix breaking imports
-  4. Run full test suite
-  5. Profile a smoke run
-
-## Deferred
-
-Findings the user explicitly chose NOT to fix this pass. Each must have a reason.
-
-### D-1 — S-S-32 [Medium] — Missing CSP header
-
-- **Reason:** App is not yet behind a known domain; CSP will be configured in deployment (Cloudflare).
-- **Re-check by:** Pre-launch checklist
-- **Risk if not fixed:** Some XSS impact reduction lost
-
-### D-2 — S-P-15 [Low] — Outdated `lodash` (4.17.21 → 4.17.22)
-
-- **Reason:** No CVE; patch contains only typo fix in docs.
-- **Re-check by:** Next quarterly hygiene pass
-
-### D-3 — S-S-44 [Low] — Docker image `redis:7-alpine` not pinned by digest
-
-- **Reason:** Dev compose only. Will pin in prod compose when prod compose is added.
-- **Re-check by:** Pre-launch
-
-## Re-audit plan
-
-After fixes are applied:
-
-1. **Re-run Phase 2 (static)** to confirm fixed findings no longer match
-2. **Re-run Phase 3 (dynamic)** on the relevant probes for behavioral fixes
-3. **Re-run Phase 4 (deps)** to confirm `pnpm audit --prod --audit-level high` is clean
-4. **Update this plan** with re-audit results — each fix moves to a "RESOLVED" section with date and SHA
+- Row-level security role: NOT RUN, the database role could not be queried from this host.
 ```
 
-## Triage prompts for the main agent
-
-When the main agent walks the user through findings, use this script structure:
-
-### For each Critical:
-
-```
-FINDING S-S-12 [CRITICAL]: Companies repository bypasses tenantDb at companies.repository.ts:47.
-
-This is a cross-workspace data leak. Workspace A's admin can read workspace B's companies.
-
-  Evidence:
-    db.select().from(companies).where(eq(companies.id, id))   ← missing workspace filter
-
-  Recommendation: wrap in tenantDb(db, workspaceId).scope('companies', ...)
-  Estimated fix: 5 lines, agent can handle.
-
-  Fix or accept? [F/a]
-```
-
-Default = fix. Accept requires a typed justification (the user must say WHY).
-
-### For each High:
-
-```
-FINDING S-S-21 [HIGH]: dangerouslySetInnerHTML in CampaignPreview without sanitization.
-
-  Evidence: <code block>
-  Recommendation: <fix>
-
-  Fix now / defer / explain? [F/d/e]
-```
-
-### For Medium (batch):
-
-```
-12 MEDIUM findings:
-  - 7 missing @Audit on mutations  (compliance gap)
-  - 3 verbose error in prod        (info leakage)
-  - 2 missing rate limit           (DOS risk)
-
-  Fix all / fix some / defer all / show one-by-one? [a/s/d/o]
-```
-
-### For Low + Info:
-
-```
-8 LOW and 3 INFO findings recorded. Default: deferred to next hygiene pass.
-
-  Override and fix some now? [y/N]
-```
-
-## Re-running after fixes
-
-After Phase 6 applies fixes, the main agent:
-
-1. Marks each fixed item with status RESOLVED + date + commit SHA in SECURITY_FIX_PLAN.md
-2. Re-runs Phase 2 (static-auditor)
-3. Re-runs the relevant probes from Phase 3 (dynamic-auditor)
-4. Re-runs Phase 4 (dependency-auditor)
-5. Generates a delta report: "Before / After / Still Open"
-6. If new findings appeared (unlikely but possible from the fixes themselves), they go through triage as a new batch
-
-## What constitutes "done"
-
-The security review is done when:
-
-- Every Critical finding has STATUS=RESOLVED in SECURITY_FIX_PLAN.md OR a documented accept with justification
-- Every High finding has STATUS=RESOLVED or STATUS=DEFERRED with explicit reason
-- Mediums are explicitly triaged (RESOLVED, DEFERRED, or DECIDED-NOT-FIX)
-- Lows and Infos are at minimum acknowledged (RECORDED)
-- The re-audit confirms previously-flagged patterns no longer match
-- Manual fixes (M-N) have user confirmation that they were applied (e.g., the user reports "rotated the key")
-
-The skill DOES NOT close itself. The main agent presents the final state to the user and waits for explicit "ship it" or "keep iterating."
+`## Findings` states are `open`, `fixed` or `accepted`. After the last fix, re-run the static and dynamic steps for what changed and list the result under `## Clean checks`.

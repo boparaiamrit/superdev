@@ -1,70 +1,70 @@
-# Money, credits and ledgers
+# Money and ledgers
 
-Applies to anything with a balance: credits, wallets, stock, seats, quotas.
+Rules for any stored balance that requests or jobs change: message credits, wallets, stock, seats, quotas. They serve rule SEC-11 of [security-foundation](../SKILL.md) and build on hard rules 22 (one lock per account) and 23 (idempotent requests). The example: Ledgerly sells message credits for invoice reminders sent by SMS, in packs of 1,000 for ₹ 1,499 (stored as 1,49,900 paise, rule BE-9); each reminder spends one credit.
 
-## Model: lots + append-only ledger
+## Lots and an append-only ledger
 
-```
-credit_lots     id, account_id, pool, activity, description, credits_added, credits_left, expires_on, order_id?, report_id?
-credit_ledger   id, account_id, activity, pool, delta (+/-), lot_id, unlock_id?, order_id?, description,
-                balance_after (per pool), admin_user_id? (manual adjustments), created_at
-```
+Two workspace tables (hard rule 10):
 
-- Balance = sum of `credits_left` on unexpired lots. Spend from the soonest-expiring lot first (tie rule stated, e.g. gift before plan).
-- Every movement writes one ledger row per lot touched. Rows are never updated or deleted.
-- Manual adjustments are their own activities (`Admin Credit`, `Admin Debit`) and record the staff member; credits need an expiry date; debits never take more than the account has.
+| Table | Columns |
+|---|---|
+| `credit_lots` | `id`, `workspace_id`, `source` (`purchase`, `grant`, `adjustment`), `order_id` (purchases), `credits_added`, `credits_left`, `expires_on`, `created_at` |
+| `credit_ledger` | `id`, `workspace_id`, `lot_id`, `activity` (`purchase`, `grant`, `spend`, `expiry`, `refund`, `adjustment`), `delta` (positive or negative), `balance_after`, `actor_id`, `reason`, `created_at` |
 
-## Serialize every balance change per account
+- The balance is the sum of `credits_left` over lots that have not expired.
+- A spend takes from the lot that expires soonest; on a tie, from the older lot.
+- Every movement writes one ledger row per lot it touches, in the same unit of work as the change to the lot. Ledger rows are never updated or deleted: the module has no route or job that does either.
+- A manual adjustment is its own activity: it needs `credits.adjust` and a recent sign-in (SEC-6), names the staff member in `actor_id` and a reason; added credits get an expiry date; a debit never takes more than the balance.
+- The expiry job zeroes expired lots and writes their ledger rows; a mass update skips the audit log, so it records its changes with `uow.record_change` (hard rule 7).
 
-Take a transaction-scoped lock on the account **first**, in every path that changes a balance — spend, grant, debit, expiry, refund:
+Without lots (a khata of credit and repayments, a wallet that does not expire), the ledger rows are the balance: each row carries `balance_after`, and the lock of hard rule 22 still applies.
 
-```ts
-async lock(tx: Tx, accountId: string) {
-  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('wallet'), hashtext(${accountId}))`);
-}
-```
+## Locking
 
-Why not `SELECT … ORDER BY expires_on LIMIT 1 FOR UPDATE` alone: when a parallel transaction empties that lot while you wait, Postgres re-checks the row, finds it no longer matches, and returns **no row** — your spend fails with "no balance" although another lot has credits. The advisory lock serializes the whole decision. It is re-entrant inside one transaction, so the grant/spend/debit helpers can each take it.
+Every path that changes a balance (spend, grant, purchase, adjustment, expiry, refund) takes the account's lock first (hard rule 22). A unit of work that touches several accounts locks them in sorted order of id. A spend that also takes from a shared item with its own limit (the last seats of a training batch in Pune) locks the item row first and the account second, in that order on every path (check `navree-database` for a row lock), and changes the item's counter in the same unit of work as the charge.
 
-When one transaction touches several accounts (a referral reward credits the referrer while the buyer's plan activates), take the locks in a **fixed order** (sort the ids) to avoid deadlocks.
+## Idempotency store
 
-When a spend also changes a shared item with its own limit (a lead that at most N buyers may unlock, the last seats of an event), lock the **item row first** (`SELECT … FOR UPDATE` by id, then check its counter against the limit), **then** the account lock — and use that same order in every path that touches both. Increment the item's counter in the same transaction as the charge.
+For JSON routes, Navree has no store for incoming `Idempotency-Key` headers; the app builds one (hard rule 23). A Navree UI form uses the same table with its one-time token as `key`: a repeat post finds the row and changes nothing, answering with the result of the first write.
 
-## Idempotency
-
-Clients send `Idempotency-Key: <uuid per user action>` on money-moving and record-creating requests (unlock, create order, pay, record payment, cancel, adjust credits, create/import records, resolve with refund). The server:
-
-1. claims `idem:<principal>:<method>:<route>:<params>:<key>` in Redis with `SET NX EX 86400` → runs the handler → stores `{ hash(body+query), status, body }`;
-2. on a repeat: same hash → replay the stored response with `Idempotent-Replayed: true`; still running → 409 `IDEMPOTENCY_IN_PROGRESS`; different body → 422 `IDEMPOTENCY_KEY_REUSED`;
-3. on handler error → delete the claim so a corrected retry can run.
-
-Register the interceptor outermost so a replay is not audited twice. Natural idempotency (status checks under `FOR UPDATE`, unique indexes) stays as a second layer.
-
-The stored response may contain personal data (an unlock returns the contact it revealed). Keep the idempotency store private (not a Redis shared with other apps), TTL ≤ 24 h, never logged — or, for such routes, store the resulting record id and re-read it on replay instead of the body.
+1. A table `idempotency_keys` with `actor_id`, `route`, `key`, `request_hash`, `state` (`running` or `done`), `status`, `body`, `created_at`, and a unique index on (`actor_id`, `route`, `key`).
+2. Claim before the work: insert the row with `state = running` in a transaction of its own, committed before the handler's unit of work does anything (check `navree-database` for opening one). A conflict on the unique index means the key is known: `running` answers 409 `idempotency_in_progress`; `done` with the same hash replays the stored status and body with `Idempotent-Replayed: true`; a different hash answers 409 `idempotency_key_reused`.
+3. Inside the request's unit of work, set the row to `done` with the status and body, so the effect and the stored answer commit together.
+4. When the request fails (status 400 or more, its unit of work rolled back), delete the claim in a transaction of its own so a corrected retry can run; a `running` row older than the request timeout counts as released.
+5. A scheduled task deletes rows older than 24 hours. The stored body can hold personal data: the table is never logged, and for such routes the row keeps the record id and the replay reads the record again instead.
 
 ## Payments
 
-- The gateway confirmation is server-signed and amount-checked; activation runs once under a row lock on the order (`Pending` → `Paid`), and a second callback is a no-op.
-- **Re-validate discounts at payment time.** A pending order keeps the price it was quoted; before money is taken, check the coupon again (expired, switched off, used up by others since). If invalid, cancel the order and tell the buyer — never charge an invalid discount.
-- Offline payments recorded by staff go through the **same** activation function as gateway payments.
-- **Entitlements derived from a purchase expire with it.** A flag set by buying a tier (priority access, a badge) is cleared by a scheduled job when the plan ends and no other qualifying plan is active — without clobbering flags staff set by hand for others.
+With `navree-billing` (the opt-in feature `billing`; the kits turn it on):
 
-## Reconciliation — prove the books
+- A payment is confirmed by the provider's verified webhook, never by the browser's return; the amount is checked against the order.
+- Activation runs once: under a lock on the order row, `pending` becomes `paid` and the pack's lot is granted in the same unit of work; a second callback finds `paid` and changes nothing.
+- A payment that staff record by hand goes through the same activation function.
+- A discount is checked again at payment: a coupon that expired or ran out since the order was placed cancels the order and tells the buyer; an invalid discount is never charged.
+- Entitlements bought with a purchase end with it: a scheduled task removes them when the plan ends and no other plan grants them, without touching what staff set by hand.
 
-A service that runs a set of SQL invariants and returns failing rows, used nightly (alert staff if anything Critical fails) and on demand from the admin. Typical rules:
+## Reconciliation
 
-- each lot: `credits_added` minus every debit row equals `credits_left`; exactly one positive row per lot;
-- no lot below zero or above what it was granted;
-- every spend has exactly one charge row of −1 from the pool it records, and no charge exists without its spend;
-- counters (e.g. "unlocks on a lead") equal the rows they count and never exceed their limit;
-- every paid order activated exactly once with the promised quantity; no unpaid order granted anything;
-- rewards and refunds paid exactly once and only for a qualifying source;
-- every manual adjustment names a staff member;
-- coupon counters are not behind the paid orders using them;
-- expired lots were zeroed by the expiry job.
+A console command (`navree make:command credits reconcile`), scheduled nightly at 02:00 IST and runnable on demand, lists every row that breaks a check:
 
-The demo seed must satisfy every rule — link seeded rewards to seeded orders and seed counters consistently, or the check is noise from day one.
+- for each lot, the sum of its ledger deltas equals `credits_left`, which is never below 0 or above `credits_added`;
+- for each workspace, the sum of unexpired `credits_left` equals the last `balance_after`;
+- every paid order granted its pack exactly once, and no unpaid order granted anything;
+- every refund and reward was paid exactly once, and only for a source that qualifies;
+- no coupon counter is behind the paid orders that use the coupon;
+- every adjustment names a staff member and a reason;
+- every expired lot was zeroed by the expiry job;
+- every item counter equals the rows it counts and stays within its limit.
 
-## Proof (committed tests)
+A failing check notifies the staff role that holds `credits.adjust`. The demo seed satisfies every check (rule BE-14): seeded lots have their orders and ledger rows.
 
-Exact balance N with N+k parallel spends → exactly N succeed, k get "no balance", balance 0, never negative. Spends across several lots in parallel → all succeed. The same item clicked five times in parallel → one charge. Several accounts racing for the last units → exactly the available number succeed, losers uncharged. Same idempotency key twice at once → one effect; later retry replays; different body refused. A coupon used up between ordering and paying → second payment refused, order cancelled. Reconciliation returns ok afterwards.
+## Proof
+
+`tests/money.rs`, with the parallel tests on the real database ([security-suites.md](security-suites.md)), and again through the running app by `money-integrity-prober` at the QA gate:
+
+- an exact balance N and N+k parallel spends: N succeed, k get 409 `insufficient_credits`, the balance ends at 0 and never goes below (hard rule 22);
+- parallel spends across several lots all succeed;
+- one reminder sent five times in parallel with one key: one charge; the cases of hard rule 23;
+- a coupon used up between order and payment: the payment is refused and the order cancelled;
+- a second payment callback changes nothing;
+- the reconciliation reports nothing after the suite.
