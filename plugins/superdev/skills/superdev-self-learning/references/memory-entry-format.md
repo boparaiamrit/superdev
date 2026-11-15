@@ -1,46 +1,32 @@
-# Memory entry format
+# Lesson format
 
-Every entry under `.claude/memory/superdev-learned/` follows this exact format.
-
-## Template
+Every lesson in `.claude/memory/superdev-learned/` is one file in this format, named `<name>.md`.
 
 ```markdown
 ---
-name: <kebab-case-slug ≤ 50 chars>
-description: <single line, ≤ 100 chars — what to do or not do, stated as a rule>
+name: <kebab-case, at most 50 characters>
+description: <one line, at most 100 characters, stated as a rule>
 metadata:
   type: feedback
   source: superdev-self-learning
-  triggered_by: <user-correction | git-revert | regression-rejected | drift-failed | audit-pattern | explicit-remember>
-  date: <YYYY-MM-DD>
-  applies_to_agents:
-    - <agent-name>
-    - <agent-name>
+  triggered_by: user-correction | git-revert | verifier-rejected | runtime-check | audit-pattern | explicit-remember
+  date: YYYY-MM-DD
+  applies_to_agents: [agent-name, agent-name]
 ---
 
-<The rule as a 1–2 sentence directive. Use imperative voice ("Do X" / "Never Y").>
+The rule, one or two sentences.
 
-**Why:** <Cite the specific event. Include commit hashes, file:line, agent names. Future readers must understand WHEN the lesson was learned and WHY the failure happened.>
+**Why:** what failed, with redacted local evidence (file:line, command, result line).
 
-**How to apply:** <When the rule kicks in. Which agent's prompt should include it. The exact phrase the main agent should thread into the agent prompt.>
-
-**Related:** [[other-learned-topic-slug]]   ← optional, link to related lessons
+**How to apply:** when it applies and the check that proves it.
 ```
 
-## Public promotion
+Fields:
 
-Private evidence belongs only in the originating project's memory, with credentials and customer data redacted. Public READMEs, release notes, and plugin guidance contain no real project names, customer domains, local paths, incident dates, private metrics, or commit anecdotes.
+- `name` equals the file name without `.md`.
+- `description` is what the main agent reads in `INDEX.md` to decide whether the lesson applies; write it as the rule itself.
+- `triggered_by` is one of the values above; `date` is the day the lesson was written, in IST.
+- `applies_to_agents` lists the superdev agents whose prompts must carry the lesson; `[]` when it is for the main agent only.
+- **Why:** and **How to apply:** carry evidence, never credentials, tokens, personal data or customer payloads (rule LRN-2). A new failure of the same rule is added to **Why:** of the existing file (rule LRN-1).
 
-For a transferable lesson, publish only:
-
-- the failure mechanism;
-- the applicable stack or conditions;
-- the corrective action; and
-- a reproducible verification check.
-
-## Rules
-
-- **One rule per file.** Two unrelated lessons → two files.
-- **The `description` is the most important field** — the main agent filters by it. Make it accurate and specific.
-- **`applies_to_agents` is critical** — without it, the main agent doesn't know which dispatches must include the lesson.
-- **Update, don't duplicate.** If a similar entry exists, add the new event as more evidence in the existing `**Why:**` section.
+`INDEX.md` has one line per lesson, in the order they were written: `- `, the lesson's `name` as a Markdown link to its file, then `: ` and its `description`. For the lesson `migrate-before-boot.md`, the line links the text `migrate-before-boot` to `migrate-before-boot.md` and ends with `: Run navree migrate before booting the release binary at step 6.3.`

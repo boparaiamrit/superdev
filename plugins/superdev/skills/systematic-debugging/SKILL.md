@@ -1,165 +1,58 @@
 ---
 name: systematic-debugging
-description: Use for ANY technical issue — test failures, runtime bugs, unexpected behavior, performance regressions, build failures, integration breakages, "it works on my machine" mysteries. Especially when under time pressure, when "just one quick fix" seems obvious, when previous fixes didn't work, or when the same bug keeps coming back. Dispatches a 5-agent investigation pipeline (reproduce → root-cause → hypothesis-test → fix → regression-verify), explicitly testing competing hypotheses when the root cause is ambiguous. Refuses to apply fixes until a verified root cause exists.
+description: Use when anything fails (a test, a build, a runtime error, a regression, a flaky test, a works-locally-but-not-in-CI problem). Reproduces it, finds a falsifiable cause, tests competing hypotheses, applies one scoped fix and checks for regressions; no fix without a verified cause on disk.
 ---
 
-# Systematic Debugging
+# Systematic debugging
 
-A 5-phase brutal-debug pipeline that **refuses to fix symptoms**. Every fix must be justified by a verified root cause produced by a dedicated investigator agent — not by Claude's gut feel.
+This skill is the order of work for any failure: reproduce it, find a cause that an experiment could prove wrong, apply one scoped fix, and check what else moved. Each phase leaves a file under `debug/<slug>/`, where `<slug>` is a short kebab-case name for the failure. Pass every agent absolute paths, the failure description and `out_dir: debug/<slug>` (rule BLD-4). A bug found at any step of a build comes here, and the step that found it continues after the fix. When the same kind of bug is likely to return, the `LESSON:` line from the fix goes to [superdev-self-learning](../superdev-self-learning/SKILL.md).
 
-## The Iron Law
+## Phases
 
-```
-NO FIX IS APPLIED WITHOUT A VERIFIED ROOT CAUSE ARTIFACT ON DISK.
-```
+1. **Reproduce.** `bug-reproducer` writes `debug/<slug>/REPRO.md`: the smallest reproduction that fails, on the current commit, with the expected and observed output quoted.
+2. **Cause.** `root-cause-investigator` reads `REPRO.md`, the failing path, `git log -p --since=14.days` and the logs. It writes `ROOT_CAUSE.md` with a `VERIFIED: true` line, the defect class, an experiment that could prove the cause wrong (with its output) and a `## Fix scope` section. When two or more causes remain, it writes `CANDIDATES.md` instead.
+3. **Hypotheses.** For `CANDIDATES.md`, dispatch one `hypothesis-tester` per candidate, in parallel. Each designs an experiment to prove its candidate wrong and writes `HYPOTHESIS_<n>.md` with `VERDICT: CONFIRMED`, `REJECTED` or `INCONCLUSIVE`. Exactly one `CONFIRMED` is promoted by the main agent to `ROOT_CAUSE.md`, with its experiment and output. With none or several, return to phase 2 with the new evidence.
+4. **Fix.** `fix-applier` takes `ROOT_CAUSE.md`, applies one fix inside its `## Fix scope`, re-runs the reproduction, runs the closest tests and adds a regression test.
+5. **Regression.** `regression-verifier` writes `REGRESSION.md` with `READY TO COMMIT` or `REJECT`. After a `REJECT`, return to phase 2 with its evidence.
 
-Phase 3 produces `ROOT_CAUSE.md`. Phase 4 (`fix-applier`) refuses to run if that file is missing or marked `UNVERIFIED`. There is no shortcut.
+## Gates
 
-## When to use this skill
+- Before phase 2: `REPRO.md` exists and its reproduction fails on the current commit as rule DBG-2 requires.
+- Before phase 4: `ROOT_CAUSE.md` has `VERIFIED: true`, a defect class, a file and line, a log line or a commit, and the output of the experiment that could have proved it wrong.
+- Before phase 5: the reproduction passes, the closest `cargo test` passes (and `pnpm run typecheck` when `front_end: next`), and the diff touches only files named in `## Fix scope`.
+- Done: `REGRESSION.md` says `READY TO COMMIT` and quotes the result line of the full test run.
 
-- Any test failure (unit, integration, E2E)
-- Any production bug — outage, crash, data corruption, perf cliff
-- "It worked yesterday" / "It works locally but not in CI"
-- Same bug came back after a previous fix
-- A previous fix touched unrelated code (red flag — symptom fix)
-- Build failures that "started randomly"
-- Integration drift — frontend renders wrong because backend changed shape
+## Where to look in a Navree app
 
-## When NOT to use it
-
-- You haven't seen a real failure yet — use `brutal-exhaustive-audit` to find issues first
-- You're refactoring with no bug to chase — use the framework refactor workflow
-- The "bug" is actually a feature request — that's planning, not debugging
-
-## Inputs
-
-| Input | Source |
+| Symptom | Look at |
 |---|---|
-| Failure description | User message |
-| Failing command / route / test | User message — exact reproduction |
-| Recent changes (suspected) | `git log -20`, your own analysis |
-| Logs / stack traces | User-pasted, or fetched from `apps/api/logs/`, container logs, browser console |
+| A request fails and the code does not say why | the `X-Request-Id` of the response and the log lines with that id; the `/_logbook` timeline in a debug build; Lighthouse at `/_lighthouse` in production (`navree-logbook`, `navree-lighthouse`) |
+| Navigator is connected to the coding agent (`claude mcp add navree -- navree mcp`) | its `last_error`, `read_logs` and read-only `query_database` tools (`navree-navigator`) |
+| Log levels do not change | `RUST_LOG` is not read; set the levels in configuration (`navree-config`) |
+| A 403 | `navree access:explain <user> <action> <Subject> [id]` and the rules in `src/abilities.rs`; a 403 `forbidden_fields` means a field outside the rule (`navree-access-control`) |
+| A 404 or 405 | `navree routes --json` for the path, the method and the `!` prefix of page routes; another workspace's record answers 404 |
+| A 401 on a route that should work | an invalid bearer token is a 401 on every route, public ones included: drop the stale token |
+| A write that vanished | the handler answered 400 or more, so its unit of work rolled back: read the status (`navree-database`) |
+| An audit entry is missing | a mass update or raw SQL skips model events and the audit log; record it with `uow.record_change` |
+| A job ran twice, or never | jobs run at least once, outside any unit of work, and are queued only if the request commits; a memory queue is per process, so a separate `queue:work` sees nothing; `queue:failed` lists the failures (`navree-queues-and-scheduling`) |
+| A scheduled task skipped a day | the scheduler skips missed minutes and does not catch up |
+| A live update never arrived | a worker broadcasts through `dyn Broadcaster` with the same `APP_KEY`; `Realtime::broadcast` from a worker reaches nobody (hard rule 24) |
+| A test passes on SQLite and fails on PostgreSQL | tests run on SQLite unless `NAVREE_TEST_POSTGRES_URL` or `NAVREE_TEST_MYSQL_URL` is set and the test uses `#[navree::test(database = "postgres")]`; a test whose server is not configured is skipped with a notice, so look for the notice (`navree-testing`) |
+| A test passes locally and fails in CI | a test booted with `ConfigSources::defaults()` reads the developer's `.env`; on Windows call `app.shutdown().await` |
+| A configuration value is not what was set | `navree config:show --origin`: later sources win, `.env` beats `config/app.toml`, and only `APP_*` variables are read |
+| The app fails at start with a module graph error | `navree check`, which needs configuration and a migrated database (hard rule 13) |
 
-## The 5 phases
+## Rules
 
-```
-┌──────────────┐   ┌──────────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐
-│   PHASE 1    │──▶│     PHASE 2      │──▶│   PHASE 3    │──▶│   PHASE 4    │──▶│     PHASE 5      │
-│  REPRODUCE   │   │  ROOT-CAUSE      │   │  HYPOTHESIS  │   │     FIX      │   │   REGRESSION     │
-│              │   │  INVESTIGATE     │   │  TEST        │   │              │   │   VERIFY         │
-│ bug-         │   │  root-cause-     │   │ hypothesis-  │   │ fix-applier  │   │ regression-      │
-│ reproducer   │   │  investigator    │   │ tester       │   │              │   │ verifier         │
-│              │   │                  │   │ (per cand.)  │   │ ONE fix only │   │                  │
-└──────────────┘   └──────────────────┘   └──────────────┘   └──────────────┘   └──────────────────┘
-       │                    │                    │                   │                     │
-       ▼                    ▼                    ▼                   ▼                     ▼
-  REPRO.md          ROOT_CAUSE.md         HYPOTHESES.md          (code edits)        REGRESSION.md
-                    (or                   (one verified
-                     CANDIDATES.md)        as ROOT)
-```
-
-### Phase 1 — Reproduce (`bug-reproducer`)
-
-Produces `REPRO.md` with the **smallest reliable reproduction**: exact command / curl call / Playwright snippet / failing test that demonstrates the bug deterministically.
-
-If the bug is intermittent, repro must succeed at least **3/5** runs before moving on. Flaky-but-not-reproducible bugs go into a sidebar log; we do not fix them by guessing.
-
-> ❌ **Gate:** without `REPRO.md`, no other phase runs.
-
-### Phase 2 — Root-cause investigate (`root-cause-investigator`)
-
-Reads `REPRO.md`, the failing code path, related git history (`git log -p --since=14.days`), logs, and recent deployments. Produces either:
-
-- **`ROOT_CAUSE.md`** — when one cause is confidently identified, with evidence (stack trace + the specific lines, log entries, git commits)
-- **`CANDIDATES.md`** — when 2+ plausible causes exist; triggers Phase 3
-
-**Memory write:** `memory: project` — the investigator writes its conclusion to project memory so the same investigation isn't redone in a future session.
-
-### Phase 3 — Hypothesis test (`hypothesis-tester`, dispatched per candidate)
-
-For each candidate in `CANDIDATES.md`, dispatch one `hypothesis-tester` in parallel. Each one:
-- Designs a **targeted experiment** that would confirm or reject *only* its candidate
-- Runs the experiment (toggling code, running a minimal binary search, adding instrumentation)
-- Returns `HYPOTHESIS_<n>.md` with `VERDICT: confirmed | rejected | inconclusive`
-
-When exactly one returns `confirmed`, promote it to `ROOT_CAUSE.md` and proceed. If multiple confirm or none, the investigation is incomplete — re-dispatch `root-cause-investigator` with the new evidence.
-
-### Phase 4 — Fix (`fix-applier`)
-
-Reads `ROOT_CAUSE.md`. **Refuses to run** if the file is missing or contains `VERIFIED: false`.
-
-Applies **one fix only** (no opportunistic cleanup, no refactor, no "while I'm here"). Then:
-- Re-runs the exact reproduction from `REPRO.md` — must now pass
-- Runs the package manager's typecheck (via `<pm>`, auto-detected by hook)
-- Runs the closest test pattern (`<pm> test -- <feature>`)
-
-### Phase 5 — Regression verify (`regression-verifier`)
-
-The actual reproduction passing is not enough. Runs:
-- Full test suite for the affected workspace
-- Playwright smoke test for any route the fix touched (uses the same MCP server as `exploratory-qa`)
-- A diff-aware check: every file in `git diff` is examined for behavior changes you didn't intend
-
-Produces `REGRESSION.md`. If anything beyond the targeted bug shifted, re-open Phase 2 with the new evidence.
-
-## Dispatch invocations
-
-> Use these in the main session to drive the pipeline. Each one runs the named agent fresh — no context leakage.
-
-### Phase 1 — reproduce
-
-```
-Use the bug-reproducer agent. Failure: <paste user's failure description>.
-Exact reproduction command/route: <paste>.
-Recent changes the user suspects: <paste git log line or "none">.
-Produce REPRO.md per the systematic-debugging skill.
-```
-
-### Phase 2 — investigate
-
-```
-Use the root-cause-investigator agent.
-Inputs: REPRO.md (in the working dir), plus 'git log -p --since=14.days'.
-Produce ROOT_CAUSE.md with VERIFIED: true|false, OR CANDIDATES.md if you have 2+
-plausible causes. Write your conclusion to project memory.
-```
-
-### Phase 3 — test hypotheses in parallel
-
-```
-Dispatch <N> hypothesis-tester agents in parallel — one per candidate in
-CANDIDATES.md. Each must return HYPOTHESIS_<n>.md with VERDICT: confirmed |
-rejected | inconclusive plus the experiment that produced it.
-```
-
-### Phase 4 — fix
-
-```
-Use the fix-applier agent. ROOT_CAUSE.md MUST exist with VERIFIED: true.
-Apply ONE fix. Re-run the REPRO.md reproduction. Confirm it passes.
-```
-
-### Phase 5 — verify no regressions
-
-```
-Use the regression-verifier agent. Run full test suite for the affected
-workspace, Playwright smoke for any touched route, and diff-aware behavior
-review. Produce REGRESSION.md.
-```
-
-## Anti-patterns this skill exists to prevent
-
-| 🚫 Anti-pattern | ❓ Why it's wrong | ✅ What this skill does instead |
-|---|---|---|
-| "Let me try a fix and see if it helps" | You're testing fixes against your gut, not evidence | Fix-applier refuses to run without `ROOT_CAUSE.md` |
-| Cleaning up "while I'm in there" | Multiple changes in one commit hide which one fixed what | One fix per `fix-applier` invocation |
-| Calling it fixed because the test passes | Tests cover the cases you thought of, not the ones you didn't | Phase 5 regression-verifier checks every touched file for unintended behavior shift |
-| Re-debugging the same bug 2 weeks later | The original investigation wasn't persisted | `root-cause-investigator` writes to project memory |
-| Adding `try/catch` to make the error go away | Catching the symptom isn't fixing the cause | Investigator's verdict must name a specific defect — "missing index", "race condition", not "exception handling" |
+- **DBG-1** No fix without `ROOT_CAUSE.md` showing `VERIFIED: true`.
+- **DBG-2** The reproduction is the smallest that fails, on the current commit, with the expected and observed output verbatim and the data it needs. An intermittent failure reproduces in at least 3 of 5 runs.
+- **DBG-3** A root cause names a defect class (race, missing index, type coercion, off-by-one, wrong scope) and cites a file and line, a log line or a commit, with an experiment that could prove it wrong.
+- **DBG-4** Instrumentation reads first. Anything that changes behaviour sits behind a flag and is removed before the fix.
+- **DBG-5** One fix within the files the root cause names, with a regression test. No cleanup alongside, no swallowed error, no raised timeout, no test edited to match broken output, no suppression.
+- **DBG-6** The regression check runs the full `cargo test` (and the web tests when `front_end: next`), opens each touched route, and explains every changed line.
 
 ## Reference files
 
-- [`references/phase-checklist.md`](references/phase-checklist.md) — gate criteria per phase
-- [`references/repro-recipes.md`](references/repro-recipes.md) — patterns for minimal reproductions (HTTP, Playwright, CLI, async race)
-- [`references/instrumentation-tactics.md`](references/instrumentation-tactics.md) — how to add diagnostics without changing behavior
-- [`references/agent-definitions.md`](references/agent-definitions.md) — copy-paste dispatch prompts per agent
+| File | Read when |
+|---|---|
+| [references/repro-and-instrumentation.md](references/repro-and-instrumentation.md) | Writing `REPRO.md`, and adding diagnostics in phases 2 and 3 |

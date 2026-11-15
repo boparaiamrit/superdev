@@ -1,200 +1,478 @@
 #!/usr/bin/env node
-// verify-done.mjs — live Definition-of-Done check for a SuperDev-built monorepo.
+// verify-done.mjs 3.0.0 — the live done check of a superdev build of a Navree app.
 //
-// Replaces the old bash done-gate + hand-marked completion ledger: nothing
-// is read from a self-graded ledger; every check runs NOW, against the real
-// tree and the real built artifact. Cross-platform (Windows/macOS/Linux), no
-// dependencies. Run from the target monorepo root:
-//
-//   node <superdev-plugin>/scripts/verify-done.mjs [--root DIR] [--skip-build]
-//        [--skip-boot] [--health-url URL] [--suites] [--api-url URL] [--strict]
-//
-// --suites runs every committed `smoke` and `test:*` package script against the
-// RUNNING stack (start it and reset the demo data first); --api-url is the base
-// it must answer on (default http://127.0.0.1:${PORT or 3001}).
-// --strict turns every SKIP and WARN into a failure; release claims use it.
-//
-// Exit 0 = done (as far as machines can tell). Exit 1 = not done; the report
-// names the exact failing checks. Fix at root cause — suppressions fail here.
+// Every check runs now, against the real tree and the real release binary; nothing is read
+// from a file that grades itself. Plain Node 18 or newer, no dependencies, the same on Windows,
+// Linux and macOS. Run it from the app root (or pass --root); --help lists the flags and
+// every check. Exit 0: done as far as machines can tell. Exit 1: not done, the report names
+// the failing checks. Exit 2: a usage error. Fix at the root cause: suppressions fail here.
 
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:net";
-import { join } from "node:path";
+import { join, posix, relative, resolve, sep } from "node:path";
 
-const args = process.argv.slice(2);
-const opt = (name) => {
-  const i = args.indexOf(name);
-  return i >= 0 ? args[i + 1] : undefined;
-};
-const ROOT = opt("--root") ?? process.cwd();
-const SKIP_BUILD = args.includes("--skip-build");
-const SKIP_BOOT = args.includes("--skip-boot");
-const HEALTH_URL = opt("--health-url");
-const RUN_SUITES = args.includes("--suites");
-const API_URL = opt("--api-url");
-const STRICT = args.includes("--strict");
+const VERSION = "3.0.0";
+const MINUTE = 60_000;
+const TIMEOUT = { cargo: 30 * MINUTE, navree: 10 * MINUTE, web: 10 * MINUTE, suite: 15 * MINUTE };
+const MAX_BUFFER = 64 * 1024 * 1024;
+const BOOT_WAIT_MS = 60_000;
+const DEFAULT_API_URL = "http://127.0.0.1:8080";
 
-const results = []; // {status: 'PASS'|'FAIL'|'WARN'|'SKIP', label, detail?}
+const FLAGS = [
+  ["--root DIR", "app root (default: the current directory)"],
+  ["--skip-build", "do not run cargo build --release or the web build script (those checks print NOT RUN)"],
+  ["--skip-boot", "do not boot the release binary (NOT RUN)"],
+  ["--health-url URL", "for --suites: poll this URL instead of <api-url>/health/ready (the boot check always probes the binary it started)"],
+  ["--suites", "run the committed suites listed in STACK.md under ## Suites (each line must start with cargo test)"],
+  ["--api-url URL", `base URL of the running app for --suites (default ${DEFAULT_API_URL})`],
+  ["--base REF", "base commit for the suppression and raw-markup sweeps (default: base_commit in STACK.md)"],
+  ["--strict", "every warning and every NOT RUN fails; release claims use it"],
+  ["--help", "print this text and exit 0"],
+];
+const VALUE_FLAGS = new Set(["--root", "--health-url", "--api-url", "--base"]);
+const BOOL_FLAGS = new Set(["--skip-build", "--skip-boot", "--suites", "--strict"]);
+
+// The one list of checks in the plugin, in run order: label (when it runs): what it runs.
+const CHECKS = [
+  "STACK.md (always): present, every key there (new_command may be empty: the app existed before the build), front_end, kit and database inside their sets, test_database_url set for any database but sqlite",
+  "navree CLI (STACK.md valid): navree --version prints navree <navree_version>",
+  "navree skills installed (STACK.md valid): .claude/skills/navree/SKILL.md and .agents/skills/navree/SKILL.md exist",
+  "cargo fmt (STACK.md valid): cargo fmt --all -- --check",
+  "cargo clippy (STACK.md valid): cargo clippy --workspace --all-targets -- -D warnings",
+  "cargo test (STACK.md valid): cargo test --workspace",
+  "navree check (STACK.md valid): navree check, which needs config and a migrated database",
+  "navree config:check (STACK.md valid): navree config:check",
+  "public routes (STACK.md valid): navree routes --json; every public route is named as `METHOD path` in backticks in EXECUTION_PLAN.md ## Access (NOT RUN without the plan)",
+  "release build (STACK.md valid): cargo build --release; NOT RUN with --skip-build",
+  "boot (release binary + health) (STACK.md valid): target/release/<binary> serve on a free port of its own; /health/live says up, /health/ready answers 200",
+  "web typecheck, web lint, web test, web build (front_end: next): the package scripts of web_dir; a missing lint, test or build script and build with --skip-build are NOT RUN",
+  "API contract drift (front_end: next): navree openapi:export and openapi:client REWRITE the document and the types in the working tree, then git diff --exit-code HEAD on both",
+  "Navree UI raw markup (front_end: navree): no script or style element and no style, class or on* attribute in a tag (quoted or not) in the src/*.rs lines added since the base, mail and tests folders excluded (all of src/ without a base); no loose script file added since the base",
+  "Navree UI gap rows (front_end: navree): every Rust file of the app (outside target/, plugins/, .claude/, .agents/ and tests/ folders, mail folders and other crates included) in which a line added since the base uses SafeHtml, Node::Raw, Node::Static, el or AppSheet, and every .css file added or changed since the base, is named in the Files of a table row of EXECUTION_PLAN.md ## Navree UI gaps; prose does not name a file (NOT RUN without a base)",
+  "<dir> CSP, HTTP capability scope, devtools and the other Tauri labels (a Tauri config within 4 levels): the Tauri shell checks",
+  "no new suppressions since <base> (a git repository and a base): lines added since the base, committed or not, with allow, expect, cfg_attr(allow), eslint-disable, oxlint-disable, ts-ignore or as any in .ts and .tsx code, and lints turned off in Cargo.toml [lints], .cargo/config.toml rustflags, a clippy.toml allow-* or *-threshold key, an ESLint or oxlint rule set to off or 0, \"strict\": false in tsconfig; plugins/, design/source/ and docs/brief/ are left out, and so is #![allow(dead_code)] as the first attribute of tests/support/mod.rs",
+  "no placeholder content (always, over the folders that exist): placeholder text and todo!() in src/*.rs, web/ and clients/*/src, tests excluded; any file in a mocks or fixtures folder of the front end",
+  "suites: app running, suite: <command> (--suites): GET /health/ready (or --health-url), then each command under ## Suites; a line must start with cargo test and holds no shell syntax",
+];
+
+const helpText = () => [
+  `superdev verify-done ${VERSION}`,
+  "",
+  "Usage: node verify-done.mjs [flags]",
+  "Runs every check now against the real tree and the real release binary of a Navree app, prints [PASS],",
+  "[FAIL] or [NOT RUN] for each, and exits 0 (done), 1 (not done) or 2 (usage error).",
+  "",
+  "Flags:",
+  ...FLAGS.map(([flag, text]) => `  ${flag.padEnd(18)}${text}`),
+  "",
+  "Checks, in the order they run:",
+  ...CHECKS.map((c, i) => `  ${String(i + 1).padStart(2)}. ${c}`),
+  "",
+  "A check that passes for development but would not pass a release claim prints PASS with a detail line",
+  "starting warning:; --strict turns every warning and every NOT RUN into a failure. An unknown flag, or a",
+  "flag missing its value, prints the usage to stderr and exits 2.",
+  "",
+].join("\n");
+
+const USAGE = `Usage: node verify-done.mjs ${FLAGS.map(([f]) => `[${f}]`).join(" ")}`;
+
+function parseArgs(argv) {
+  const opts = {};
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--help") return { help: true };
+    if (BOOL_FLAGS.has(arg)) {
+      opts[arg] = true;
+    } else if (VALUE_FLAGS.has(arg)) {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("--")) return { error: `${arg} needs a value` };
+      opts[arg] = value;
+    } else {
+      return { error: `${arg.startsWith("-") ? "unknown flag" : "unexpected argument"}: ${arg}` };
+    }
+  }
+  return { opts };
+}
+
+// ------------------------------------------------------------------ run state and helpers
+let ROOT = process.cwd();
+let SKIP_BUILD = false;
+let SKIP_BOOT = false;
+let HEALTH_URL;
+let STRICT = false;
+
+const results = []; // {status: "PASS" | "FAIL" | "NOT RUN", label, detail?}
 const record = (status, label, detail) => results.push({ status, label, detail });
+const pass = (label, detail) => record("PASS", label, detail);
+const fail = (label, detail) => record("FAIL", label, detail);
+const notRun = (label, detail) => record("NOT RUN", label, detail);
+// A pass that would not survive a release claim: --strict counts it as a failure.
+const passWithWarning = (label, warning, detail) =>
+  record("PASS", label, [`warning: ${warning}`, detail].filter(Boolean).join("\n"));
+const isWarning = (r) => r.status === "PASS" && /^warning:/.test(r.detail ?? "");
+
+const progress = (what) => process.stderr.write(`  running: ${what}\n`);
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+const tail = (text, n = 12) => text.trim().split(/\r?\n/).slice(-n).join("\n");
+const toRel = (path) => relative(ROOT, path).split(sep).join("/") || ".";
+const posixPath = (p) => p.split("\\").join("/");
+const capped = (hits) => (hits.length > 10 ? [...hits.slice(0, 10), `... and ${hits.length - 10} more`] : hits).join("\n");
+
+function readText(path) {
+  try { return readFileSync(path, "utf8").replace(/^\uFEFF/, ""); } catch { return null; }
+}
 
 function readJson(path) {
-  try { return JSON.parse(readFileSync(path, "utf8")); } catch { return null; }
+  try { return JSON.parse(readText(path)); } catch { return null; }
 }
 
-function detectPm(root) {
-  if (existsSync(join(root, "pnpm-lock.yaml"))) return "pnpm";
-  if (existsSync(join(root, "yarn.lock"))) return "yarn";
-  if (existsSync(join(root, "bun.lockb")) || existsSync(join(root, "bun.lock"))) return "bun";
-  return "npm";
+function isDir(path) {
+  try { return statSync(path).isDirectory(); } catch { return false; }
 }
 
-function runScript(pm, dir, script, timeout = 600_000) {
-  const cmd = pm === "npm" ? `npm run ${script}` : `${pm} run ${script}`;
-  const res = spawnSync(cmd, { cwd: dir, shell: true, encoding: "utf8", timeout, maxBuffer: 64 * 1024 * 1024 });
-  const out = `${res.stdout ?? ""}\n${res.stderr ?? ""}`.trim();
-  return { ok: res.status === 0, tail: out.split("\n").slice(-8).join("\n") };
-}
-
-function* walk(dir, exts, skipDirs = new Set(["node_modules", ".next", "dist", ".turbo", ".git"])) {
+function* walk(dir, suffixes) {
+  const skip = new Set(["node_modules", ".next", "dist", "target", ".git"]);
   let entries;
-  try { entries = readdirSync(dir); } catch { return; }
-  for (const name of entries) {
-    const p = join(dir, name);
-    let st;
-    try { st = statSync(p); } catch { continue; }
-    if (st.isDirectory()) {
-      if (!skipDirs.has(name)) yield* walk(p, exts, skipDirs);
-    } else if (exts.some((e) => name.endsWith(e))) {
-      yield p;
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const entry of entries) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!skip.has(entry.name)) yield* walk(path, suffixes);
+    } else if (suffixes.some((s) => entry.name.endsWith(s))) {
+      yield path;
     }
   }
 }
 
-function grepFiles(files, regex, exclude = /(\.(test|spec)\.|__tests__|\/mocks?\/|\.stories\.)/) {
+// Lines of the given files that match the pattern, as "path:line: text".
+function scanFiles(files, regex, { skipComments = false } = {}) {
   const hits = [];
-  for (const f of files) {
-    if (exclude.test(f.replaceAll("\\", "/"))) continue;
-    let text;
-    try { text = readFileSync(f, "utf8"); } catch { continue; }
-    text.split("\n").forEach((line, i) => {
-      if (regex.test(line)) hits.push(`${f.slice(ROOT.length + 1)}:${i + 1}: ${line.trim().slice(0, 120)}`);
+  for (const file of files) {
+    (readText(file) ?? "").split(/\r?\n/).forEach((line, i) => {
+      if (skipComments && line.trimStart().startsWith("//")) return;
+      if (regex.test(line)) hits.push(`${toRel(file)}:${i + 1}: ${line.trim().slice(0, 120)}`);
     });
   }
   return hits;
 }
 
-// ---------------------------------------------------------------- packages
-const pm = detectPm(ROOT);
-const packageDirs = [];
-for (const base of ["apps", "packages"]) {
-  const baseDir = join(ROOT, base);
-  if (!existsSync(baseDir)) continue;
-  for (const name of readdirSync(baseDir)) {
-    const dir = join(baseDir, name);
-    if (existsSync(join(dir, "package.json"))) packageDirs.push(dir);
-  }
-}
-if (packageDirs.length === 0 && existsSync(join(ROOT, "package.json"))) packageDirs.push(ROOT);
-
-console.log(`superdev verify-done — root: ${ROOT} (${pm})`);
-console.log("=".repeat(60));
-
-for (const dir of packageDirs) {
-  const rel = dir.slice(ROOT.length + 1) || ".";
-  const pkg = readJson(join(dir, "package.json")) ?? {};
-  const scripts = pkg.scripts ?? {};
-  for (const step of ["typecheck", "lint", "build"]) {
-    if (!scripts[step] || (step === "build" && SKIP_BUILD)) {
-      if (scripts[step]) record("SKIP", `${rel} ${step}`, "skipped by flag");
-      continue;
-    }
-    const r = runScript(pm, dir, step);
-    record(r.ok ? "PASS" : "FAIL", `${rel} ${step}`, r.ok ? undefined : r.tail);
-  }
+// Runs a program without a shell (cargo, navree) or, with shell true, a command line through it (package-manager
+// scripts and suite lines; Windows needs the shell for .cmd shims).
+function run(cmd, args, { cwd = ROOT, timeout, env, shell = false } = {}) {
+  progress([cmd, ...args].join(" "));
+  const options = { cwd, env: env ?? process.env, encoding: "utf8", timeout, maxBuffer: MAX_BUFFER, windowsHide: true };
+  const res = shell ? spawnSync(cmd, { ...options, shell: true }) : spawnSync(cmd, args, options);
+  const missing = res.error?.code === "ENOENT";
+  const timedOut = res.error?.code === "ETIMEDOUT";
+  const note = missing ? "was not found on PATH" : timedOut ? `timed out after ${Math.round(timeout / MINUTE)} minutes` : res.error?.message;
+  return { ok: res.status === 0 && !res.error, status: res.status, stdout: res.stdout ?? "", out: `${res.stdout ?? ""}\n${res.stderr ?? ""}`.trim(), missing, note };
 }
 
-// ------------------------------------------------------------ contracts CJS
-const contractsPkg = readJson(join(ROOT, "packages", "contracts", "package.json"));
-const apiPkg = readJson(join(ROOT, "apps", "api", "package.json"));
-if (contractsPkg && apiPkg) {
-  const contractsEsm = contractsPkg.type === "module";
-  const apiEsm = apiPkg.type === "module";
-  if (contractsEsm && !apiEsm) {
-    record("FAIL", "contracts module format",
-      'packages/contracts is ESM-only ("type":"module") but apps/api is CommonJS — boot will throw ERR_PACKAGE_PATH_NOT_EXPORTED. Build contracts as CommonJS (hard-rules #3).');
-  } else {
-    record("PASS", "contracts module format");
-  }
+// What a failed command left: the last 12 lines of its output, or why it could not run.
+const failureDetail = (cmd, r) =>
+  r.note ? `${cmd} ${r.note}${r.missing ? "" : `\n${tail(r.out)}`}`.trim() : r.out ? tail(r.out) : `${cmd} exited with status ${r.status} and printed nothing`;
+
+function programCheck(label, cmd, args, timeout, { onPass, extraFailure } = {}) {
+  const r = run(cmd, args, { timeout });
+  if (r.ok) pass(label, onPass?.(r));
+  else fail(label, [failureDetail(cmd, r), r.missing ? "" : extraFailure].filter(Boolean).join("\n"));
 }
 
-// ---------------------------------------------------------- swagger landmine
-const apiSrc = join(ROOT, "apps", "api", "src");
-if (existsSync(apiSrc)) {
-  const hits = grepFiles([...walk(apiSrc, [".ts"])], /patchNestJsSwagger\s*\(/);
-  if (hits.length) {
-    record("FAIL", "patchNestJsSwagger (hard-rules #2)",
-      `Crashes boot with @nestjs/swagger 11:\n${hits.slice(0, 5).join("\n")}`);
-  } else {
-    record("PASS", "no patchNestJsSwagger");
-  }
+function git(args) {
+  const res = spawnSync("git", ["-C", ROOT, "-c", "core.quotePath=false", "-c", "color.ui=never", ...args], {
+    encoding: "utf8", maxBuffer: MAX_BUFFER, windowsHide: true,
+  });
+  return { ok: res.status === 0, out: res.stdout ?? "" };
 }
 
-// ------------------------------------------------------------------- boot
-async function bootCheck() {
-  if (SKIP_BOOT) { record("SKIP", "api boot", "skipped by flag"); return; }
-  const dist = join(ROOT, "apps", "api", "dist", "main.js");
-  if (!existsSync(dist)) { record("SKIP", "api boot", "apps/api/dist/main.js not found (no build output)"); return; }
-  // A free port, so a dev stack already running on the usual port (needed for --suites) does not collide.
-  const bootPort = await freePort();
-  const child = spawn(process.execPath, [dist], { cwd: join(ROOT, "apps", "api"), env: { ...process.env, PORT: String(bootPort) } });
-  let log = "";
-  child.stdout.on("data", (d) => { log += d.toString(); });
-  child.stderr.on("data", (d) => { log += d.toString(); });
-  const exited = new Promise((r) => child.on("exit", (code) => r(code)));
-  const deadline = Date.now() + 25_000;
-  let verdict = null;
-  while (Date.now() < deadline && !verdict) {
-    const code = await Promise.race([exited, new Promise((r) => setTimeout(() => r("pending"), 1000))]);
-    if (code !== "pending") {
-      verdict = { ok: false, detail: `process exited (${code}) during boot:\n${log.split("\n").slice(-10).join("\n")}` };
-      break;
-    }
-    const portMatch = log.match(/(?:localhost|127\.0\.0\.1|port)\D{0,12}?(\d{4,5})/i);
-    const ports = [...new Set([String(bootPort), portMatch?.[1], process.env.PORT, "3001", "3000", "4203", "8080"].filter(Boolean))];
-    const urls = HEALTH_URL ? [HEALTH_URL] : ports.flatMap((p) =>
-      [`http://127.0.0.1:${p}/health/ready`, `http://127.0.0.1:${p}/health`, `http://127.0.0.1:${p}/v1/health`]);
-    for (const u of urls) {
-      try {
-        const res = await fetch(u, { signal: AbortSignal.timeout(2000) });
-        if (res.status < 500) { verdict = { ok: true, detail: `${u} → HTTP ${res.status}` }; break; }
-      } catch { /* keep polling */ }
-    }
-    if (!verdict && /successfully started|listening/i.test(log)) {
-      // Process reports up but health did not answer yet; give the loop more
-      // time rather than passing on a log line alone.
-      continue;
+const isGitRepo = () => git(["rev-parse", "--git-dir"]).ok;
+const isCommit = (ref) => git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]).ok;
+const untrackedFiles = () => git(["ls-files", "--others", "--exclude-standard", "-z"]).out.split("\0").filter(Boolean).map(posixPath);
+// Files added or changed since the base (committed or not; `filter` is a git --diff-filter) and every untracked file.
+const changedFiles = (base, filter) => [...new Set([
+  ...git(["diff", "--name-only", `--diff-filter=${filter}`, "--relative", "-z", base, "--"]).out.split("\0").filter(Boolean).map(posixPath),
+  ...untrackedFiles(),
+])];
+
+// Added lines of a zero-context diff as {file, line, text}.
+function parseAddedLines(diff) {
+  const out = [];
+  let file = null;
+  let line = 0;
+  let inHunk = false;
+  for (const raw of diff.split("\n")) {
+    if (raw.startsWith("diff --git ")) {
+      inHunk = false;
+      file = null;
+    } else if (!inHunk && raw.startsWith("+++ ")) {
+      file = raw.slice(4).trimEnd() === "/dev/null" ? null : raw.slice(4).trimEnd().replace(/^b\//, "");
+    } else if (raw.startsWith("@@")) {
+      const m = raw.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (m) { line = Number(m[1]); inHunk = true; }
+    } else if (inHunk && file && raw.startsWith("+")) {
+      out.push({ file, line: line++, text: raw.slice(1).replace(/\r$/, "") });
+    } else if (inHunk && raw.startsWith(" ")) {
+      line++;
     }
   }
-  if (!verdict) {
-    verdict = { ok: false, detail: `no health response within 25s. Boot log tail:\n${log.split("\n").slice(-10).join("\n")}` };
-  }
-  try { child.kill(); } catch { /* already gone */ }
-  record(verdict.ok ? "PASS" : "FAIL", "api boot (dist + health, hard-rules #1)", verdict.detail);
+  return out;
 }
 
-function freePort() {
-  return new Promise((resolve) => {
-    const srv = createServer();
-    srv.listen(0, "127.0.0.1", () => {
-      const { port } = srv.address();
-      srv.close(() => resolve(port));
-    });
-    srv.on("error", () => resolve(0));
+let addedCache = null;
+// Every line the build added since the base, in the files `wants` accepts: the added lines of the diff (committed or
+// not) and every line of an untracked file.
+function addedSince(base, wants) {
+  if (addedCache?.base !== base) {
+    addedCache = { base, lines: parseAddedLines(git(["diff", "--no-ext-diff", "-U0", "--relative", "--src-prefix=a/", "--dst-prefix=b/", base, "--"]).out) };
+  }
+  return [...addedCache.lines.filter((e) => wants(e.file)), ...untrackedFiles().filter(wants).flatMap(linesOf)];
+}
+
+const linesOf = (rel) => (readText(join(ROOT, rel)) ?? "").split(/\r?\n/).map((text, i) => ({ file: rel, line: i + 1, text }));
+const asHit = (e) => `${e.file}:${e.line}: ${e.text.trim().slice(0, 120)}`;
+// Whether `text` names the file or path `s` (not as the start or end of a longer path).
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const names = (text, s) => new RegExp(`(?<![\\w./-])${escapeRe(s)}(?![\\w/-]|\\.\\w)`).test(text);
+// The text of one `## ` section of a Markdown file.
+const sectionOf = (text, heading) => (text.match(new RegExp(`^##\\s+${heading}\\s*$([\\s\\S]*?)(?=^##\\s|(?![\\s\\S]))`, "m")) ?? [])[1] ?? "";
+
+// ------------------------------------------------------------------ STACK.md
+const STACK_KEYS = [
+  "navree_version", "new_command", "front_end", "kit", "database", "binary", "clients",
+  "base_commit", "test_database_url", "web_dir", "openapi", "api_types",
+];
+const STACK_SETS = {
+  front_end: ["navree", "next", "none"],
+  kit: ["none", "saas", "api"],
+  database: ["timescaledb", "postgres", "mysql", "sqlite"],
+};
+const STACK_CLIENTS = ["web", "admin", "tauri-android", "tauri-ios", "tauri-desktop"];
+
+function readStack() {
+  const text = readText(join(ROOT, "STACK.md"));
+  if (text === null) return { present: false, keys: {}, suites: [], problems: [] };
+  const keys = {};
+  const suites = [];
+  let section = "head";
+  for (const line of text.split(/\r?\n/).map((l) => l.trimEnd())) {
+    if (/^##\s+Suites\b/.test(line)) section = "suites";
+    else if (/^##\s/.test(line)) section = "other";
+    else if (section === "head" && /^[a-z_]+:/.test(line)) keys[line.slice(0, line.indexOf(":"))] = line.slice(line.indexOf(":") + 1).trim();
+    else if (section === "suites" && line.startsWith("- ") && line.slice(2).trim()) suites.push(line.slice(2).trim());
+  }
+  const problems = [];
+  const missing = STACK_KEYS.filter((k) => !(k in keys));
+  if (missing.length) problems.push(`missing key(s): ${missing.join(", ")}`);
+  const empty = ["navree_version", "front_end", "kit", "database", "binary"].filter((k) => k in keys && !keys[k]);
+  if (empty.length) problems.push(`empty value(s): ${empty.join(", ")}`);
+  for (const [key, allowed] of Object.entries(STACK_SETS)) {
+    if (keys[key] && !allowed.includes(keys[key])) problems.push(`${key}: "${keys[key]}" is not one of ${allowed.join(", ")}`);
+  }
+  const badClients = (keys.clients ?? "").split(",").map((c) => c.trim()).filter((c) => c && !STACK_CLIENTS.includes(c));
+  if (badClients.length) problems.push(`clients: "${badClients.join(", ")}" is not in ${STACK_CLIENTS.join(", ")}`);
+  const unset = keys.front_end === "next" ? ["web_dir", "openapi", "api_types"].filter((k) => k in keys && !keys[k]) : [];
+  if (unset.length) problems.push(`front_end: next needs a value for ${unset.join(", ")}`);
+  if (["timescaledb", "postgres", "mysql"].includes(keys.database) && "test_database_url" in keys && !keys.test_database_url) {
+    problems.push(`test_database_url is empty: it is required for database ${keys.database} (only sqlite may leave it empty), or the real-database tests would pass without running`);
+  }
+  return { present: true, keys, suites, problems };
+}
+
+// ------------------------------------------------------------------ navree and cargo
+function skillsInstalled() {
+  const absent = [".claude/skills/navree/SKILL.md", ".agents/skills/navree/SKILL.md"].filter((p) => !existsSync(join(ROOT, p)));
+  if (absent.length) fail("navree skills installed", `missing: ${absent.join(", ")}\nRun navree skills:install in the app root (hard rule 1).`);
+  else pass("navree skills installed");
+}
+
+function navreeCli(stack) {
+  const expected = `navree ${stack.keys.navree_version}`;
+  const r = run("navree", ["--version"], { timeout: TIMEOUT.navree });
+  const found = r.out.split(/\r?\n/)[0].trim();
+  if (r.ok && found === expected) pass("navree CLI", found);
+  else if (r.missing) fail("navree CLI", "navree was not found on PATH; install it with: cargo install navree-cli");
+  else fail("navree CLI", `expected: ${expected}\nfound:    ${r.ok ? found : failureDetail("navree", r)}`);
+}
+
+function cargoTest() {
+  programCheck("cargo test", "cargo", ["test", "--workspace"], TIMEOUT.cargo, {
+    onPass: (r) => {
+      const lines = r.out.split(/\r?\n/).filter((l) => l.startsWith("test result:"));
+      return [...lines.slice(0, 8), ...(lines.length > 8 ? [`... and ${lines.length - 8} more test result lines`] : [])].join("\n") || undefined;
+    },
   });
 }
 
-// ------------------------------------------------------- tauri shell (hard-rules #18)
+// ------------------------------------------------------------------ boot
+const freePort = () => new Promise((done) => {
+  const srv = createServer().once("error", () => done(0));
+  srv.listen(0, "127.0.0.1", () => { const { port } = srv.address(); srv.close(() => done(port)); });
+});
+
+async function probe(url, timeout = 2000) {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeout) });
+    return { status: res.status, body: await res.text(), text: `HTTP ${res.status}` };
+  } catch (error) {
+    return { status: 0, body: "", text: `no answer (${error?.cause?.code ?? error?.name ?? error})` };
+  }
+}
+
+async function bootCheck(stack) {
+  const label = "boot (release binary + health)";
+  if (SKIP_BOOT) return notRun(label, "skipped by flag");
+  const exe = join(ROOT, "target", "release", stack.keys.binary + (process.platform === "win32" ? ".exe" : ""));
+  if (!existsSync(exe)) {
+    if (SKIP_BUILD) return notRun(label, `skipped: --skip-build was given and ${toRel(exe)} does not exist`);
+    return fail(label, `${toRel(exe)} not found after the release build; check the binary key in STACK.md`);
+  }
+  const port = await freePort();
+  const liveUrl = `http://127.0.0.1:${port}/health/live`;
+  const readyUrl = `http://127.0.0.1:${port}/health/ready`;
+  progress(`${toRel(exe)} serve (127.0.0.1:${port})`);
+  const child = spawn(exe, ["serve"], {
+    cwd: ROOT, env: { ...process.env, APP_HTTP__ADDR: `127.0.0.1:${port}` }, stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
+  });
+  let log = "";
+  let ended = null; // why the process is gone, once it is
+  child.stdout.on("data", (d) => { log += d; });
+  child.stderr.on("data", (d) => { log += d; });
+  const gone = new Promise((done) => {
+    child.once("exit", (code, signal) => { ended = `exited (${code ?? signal}) before the app answered`; done(); });
+    child.once("error", (error) => { ended = `could not be started: ${error.message}`; done(); });
+  });
+  const isUp = (p) => p.status === 200 && p.body.replace(/\s/g, "").includes('"status":"up"');
+  let live = { text: "not asked" };
+  let ready = { text: "not asked" };
+  let verdict = null;
+  const deadline = Date.now() + BOOT_WAIT_MS;
+  while (!verdict) {
+    if (ended) {
+      verdict = { ok: false, detail: `${toRel(exe)} ${ended}:\n${tail(log)}` };
+    } else {
+      if (!isUp(live)) live = await probe(liveUrl);
+      if (isUp(live)) ready = await probe(readyUrl);
+      if (ready.status === 200) verdict = { ok: true, detail: `${liveUrl} says up; ${readyUrl} answered 200` };
+      else if (Date.now() >= deadline) {
+        verdict = { ok: false, detail: `no healthy answer within ${BOOT_WAIT_MS / 1000} s (${liveUrl}: ${live.text}; ${readyUrl}: ${ready.text}). Last log lines:\n${tail(log)}` };
+      }
+    }
+    if (!verdict) await sleep(1000);
+  }
+  if (!ended) {
+    child.kill();
+    await Promise.race([gone, sleep(3000)]);
+  }
+  child.stdout.destroy();
+  child.stderr.destroy();
+  record(verdict.ok ? "PASS" : "FAIL", label, verdict.detail);
+}
+
+// ------------------------------------------------------------------ Next.js front end
+function webChecks(stack) {
+  const dir = join(ROOT, stack.keys.web_dir);
+  const pkgPath = toRel(join(dir, "package.json"));
+  const pkg = readJson(join(dir, "package.json"));
+  const manager = [dir, ROOT].flatMap((d) => [
+    ["pnpm-lock.yaml", "pnpm"], ["yarn.lock", "yarn"], ["bun.lock", "bun"], ["bun.lockb", "bun"], ["package-lock.json", "npm"],
+  ].filter(([file]) => existsSync(join(d, file))).map(([, name]) => name))[0] ?? "pnpm";
+  for (const name of ["typecheck", "lint", "test", "build"]) {
+    const label = `web ${name}`;
+    if (!pkg?.scripts?.[name]) {
+      const why = pkg ? `${pkgPath} defines no "${name}" script` : `${pkgPath} not found; web_dir in STACK.md must be the folder of the Next.js app`;
+      if (name === "typecheck") fail(label, `${why}; add one (for example "tsc --noEmit").`);
+      else notRun(label, `${why}; add one, or a release claim cannot run it.`);
+    } else if (name === "build" && SKIP_BUILD) {
+      notRun(label, "skipped by flag");
+    } else {
+      const r = run(`${manager} run ${name}`, [], { cwd: dir, timeout: TIMEOUT.web, shell: true });
+      if (r.ok) pass(label); else fail(label, failureDetail(manager, r));
+    }
+  }
+}
+
+function contractDrift(stack) {
+  const label = "API contract drift";
+  if (!isGitRepo()) return notRun(label, "not a git repository");
+  if (!git(["rev-parse", "--verify", "--quiet", "HEAD"]).ok) return notRun(label, "the repository has no commit yet");
+  const openapi = posixPath(stack.keys.openapi);
+  const apiTypes = posixPath(stack.keys.api_types);
+  for (const args of [["openapi:export"], ["openapi:client", "--input", openapi, "--out", posix.dirname(apiTypes)]]) {
+    const r = run("navree", args, { timeout: TIMEOUT.navree });
+    if (!r.ok) return fail(label, `navree ${args[0]} failed:\n${failureDetail("navree", r)}`);
+  }
+  const absent = [openapi, apiTypes].filter((p) => !existsSync(join(ROOT, p)));
+  if (absent.length) {
+    return fail(label, `the commands did not write: ${absent.join(", ")}\nnavree openapi:export is documented to write openapi.json at the app root; check navree-openapi for where the document and the types go, and correct STACK.md.`);
+  }
+  const untracked = [openapi, apiTypes].filter((p) => !git(["ls-files", "--error-unmatch", "--", p]).ok);
+  if (untracked.length) return fail(label, `not tracked by git: ${untracked.join(", ")}\nCommit the regenerated files (hard rule 17).`);
+  if (git(["diff", "--exit-code", "HEAD", "--", openapi, apiTypes]).ok) return pass(label);
+  fail(label, `${git(["diff", "--stat", "HEAD", "--", openapi, apiTypes]).out.trim()}\nregenerated files differ from the committed ones: review and commit them (hard rule 17).`);
+}
+
+// ------------------------------------------------------------------ Navree UI raw markup
+// A script or style element, a style, class or on* attribute inside a tag (quoted or not), or one written as a string of its own.
+const RAW_MARKUP = /<script\b|<\/script>|<style\b|<[a-z][a-z0-9-]*\b[^<>]*\s(?:style|class|on[a-z]+)\s*=|\s(?:style|class|on[a-z]+)=\\?["']/i;
+// Navree UI's raw building blocks by name, so that a use alias, an import or a constant tag is read as well.
+const GAP_BLOCK = /\bSafeHtml\b|Node::(?:Raw|Static)\b|\bel\b|\bAppSheet\b/;
+const SCRIPT_FOLDERS = ["web", "clients", "design", "docs", "plugins", "qa", "audit", "security", "tests", "target", "node_modules", ".claude", ".agents"];
+const SHEET_FOLDERS = SCRIPT_FOLDERS.filter((f) => f !== "tests");
+const HTML_FOLDERS = ["design", "docs", "qa", "web", "clients", "target"];
+const isUiSource = (rel) => rel.startsWith("src/") && rel.endsWith(".rs") && !/\/(tests|mail)\//.test(`/${rel}`);
+// Every Rust file of the app, in any crate and in mail folders: a raw string reaches a page only through a building block.
+const isAppRust = (rel) => rel.endsWith(".rs") && !/^(target|plugins|tests|\.claude|\.agents)\//.test(rel) && !/\/tests\//.test(`/${rel}`);
+const isCode = (e) => !e.text.trimStart().startsWith("//");
+
+// The lines of the Navree UI sources to judge: those added since the base, or all of src/ without a base.
+const uiSourceLines = (base) => (base
+  ? addedSince(base, isUiSource)
+  : [...walk(join(ROOT, "src"), [".rs"])].map(toRel).filter(isUiSource).flatMap(linesOf)).filter(isCode);
+
+function rawMarkupSweep(base) {
+  const label = "Navree UI raw markup";
+  const swept = Boolean(base) && isGitRepo() && isCommit(base);
+  const hits = uiSourceLines(swept ? base : null).filter((e) => RAW_MARKUP.test(e.text)).map(asHit);
+  if (swept) {
+    for (const rel of changedFiles(base, "A")) {
+      const folders = rel.split("/").slice(0, -1);
+      if (/\.m?js$/.test(rel) && !SCRIPT_FOLDERS.includes(folders[0]) && !folders.includes("node_modules")) {
+        hits.push(`${rel}:1: a script file outside web/, clients/, design/, docs/, plugins/, qa/, audit/, security/ and tests/`);
+      } else if (rel.endsWith(".html") && !HTML_FOLDERS.includes(folders[0]) && !folders.includes("mail")) {
+        hits.push(...scanFiles([join(ROOT, rel)], /<script/i).slice(0, 1));
+      }
+    }
+  }
+  if (hits.length) return fail(label, `${capped(hits)}\nA Navree UI screen is built from Navree UI components, never raw markup or a loose script (hard rule 14).`);
+  if (swept) return pass(label);
+  passWithWarning(label, "no base, so all of src/ was read and the added-file part of the sweep (loose scripts, HTML with a script) did not run: set base_commit in STACK.md or pass --base");
+}
+
+// The building blocks hard rule 14 accounts for, and the app stylesheets, each in a file that a gap row names.
+function gapRowSweep(base) {
+  const label = "Navree UI gap rows";
+  if (!base || !isGitRepo() || !isCommit(base)) return notRun(label, "needs a git repository and a base: set base_commit in STACK.md or pass --base");
+  const sheets = changedFiles(base, "AMR")
+    .filter((rel) => rel.endsWith(".css") && !SHEET_FOLDERS.includes(rel.split("/")[0]) && !rel.split("/").includes("node_modules"))
+    .map((file) => ({ file, line: 1, text: "an app stylesheet" }));
+  const used = [...addedSince(base, isAppRust).filter(isCode).filter((e) => GAP_BLOCK.test(e.text)), ...sheets];
+  const plan = readText(join(ROOT, "EXECUTION_PLAN.md"));
+  // Only a table row of the gap section names a file: prose, a list item or a heading does not.
+  const rows = sectionOf(plan ?? "", "Navree UI gaps").split("\n").filter((l) => /^\|\s*N-\d+\s*\|/.test(l)).join("\n");
+  const unnamed = used.filter((e) => !names(rows, e.file));
+  if (!unnamed.length) return pass(label);
+  fail(label, [
+    capped(unnamed.map(asHit)),
+    ...(plan === null ? ["EXECUTION_PLAN.md was not found."] : []),
+    "not named in the Files column of any row of the gap table (## Navree UI gaps in EXECUTION_PLAN.md, hard rule 14).",
+    "SafeHtml, Node::Raw, Node::Static, el and AppSheet may be used for three things only: stored rich text Navree has cleaned, the app's own fixed image or icon (a logo or a mark, never a drawing that shows the app's data), or a stylesheet of token values or fonts. Add a table row for each file above, with that use as its resolution, the file in its Files column and the operator's name and date.",
+    "A line that matches only by its name (a variable called el, an unused import of SafeHtml) is fixed by renaming or removing it. The script cannot tell the uses apart; ui-auditor checks them.",
+  ].join("\n"));
+}
+
+// ------------------------------------------------------------------ Tauri shell (hard rule 25)
+const TAURI_DOC = "design-to-tauri/references/security.md, hard rule 25";
 // Emulator, loopback and private-LAN hosts: fine for debug, a warning in a capability release builds enable.
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.0\.2\.2|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/i;
 
@@ -224,34 +502,34 @@ function cspDirectives(csp) {
 
 function tauriChecks() {
   for (const dir of tauriDirs()) {
-    const rel = dir.slice(ROOT.length + 1) || ".";
+    const rel = toRel(dir);
     if (!existsSync(join(dir, "tauri.conf.json"))) {
-      record("SKIP", `${rel} Tauri shell`, "tauri.conf.json5 / Tauri.toml are not parsed — check CSP, capabilities and devtools by hand (design-to-tauri/references/security.md).");
+      notRun(`${rel} Tauri shell`, `tauri.conf.json5 and Tauri.toml are not parsed: check the CSP, the capabilities and devtools by hand (${TAURI_DOC}).`);
       continue;
     }
     const conf = readJson(join(dir, "tauri.conf.json"));
-    if (!conf) { record("FAIL", `${rel} tauri.conf.json`, "not valid JSON"); continue; }
+    if (!conf) { fail(`${rel} tauri.conf.json`, "not valid JSON"); continue; }
     const security = conf.app?.security ?? conf.tauri?.security ?? {};
 
     const csp = cspDirectives(security.csp);
     const sources = (k) => (csp[k] ?? "").split(/\s+/).filter(Boolean);
     const anyOrigin = (s) => ["*", "http:", "https:", "ws:", "wss:"].includes(s) || /^([a-z]+:\/\/)?\*(:[\d*]+)?\/?$/i.test(s);
     if (!Object.keys(csp).length) {
-      record("FAIL", `${rel} CSP`, "app.security.csp is null or empty — set a Content Security Policy (design-to-tauri/references/security.md).");
+      fail(`${rel} CSP`, `app.security.csp is null or empty: set a Content Security Policy (${TAURI_DOC}).`);
     } else if (!csp["default-src"]) {
-      record("FAIL", `${rel} CSP`, "CSP has no default-src, so anything it does not list loads from anywhere.");
+      fail(`${rel} CSP`, "CSP has no default-src, so anything it does not list loads from anywhere.");
     } else if (Object.values(csp).some((v) => /unsafe-eval/.test(v))) {
-      record("FAIL", `${rel} CSP`, "CSP allows 'unsafe-eval'.");
+      fail(`${rel} CSP`, "CSP allows 'unsafe-eval'.");
     } else if (["default-src", "script-src", "connect-src"].some((k) => sources(k).some(anyOrigin))) {
-      record("FAIL", `${rel} CSP`, "CSP allows any origin (*, https:, http:) in default-src, script-src or connect-src.");
+      fail(`${rel} CSP`, "CSP allows any origin (*, https:, http:) in default-src, script-src or connect-src.");
     } else {
-      record("PASS", `${rel} CSP set`);
+      pass(`${rel} CSP set`);
     }
     if ((conf.app ?? conf.build ?? {}).withGlobalTauri === true) {
-      record("WARN", `${rel} withGlobalTauri`, "window.__TAURI__ is exposed to every script in the WebView; import the APIs from the npm packages instead.");
+      passWithWarning(`${rel} withGlobalTauri`, "window.__TAURI__ is exposed to every script in the WebView; import the APIs from the npm packages instead.");
     }
 
-    // Capabilities: parsed, not grepped — an opener scope of https://* is fine, an HTTP-plugin scope is not.
+    // Capabilities are parsed, not searched: an opener scope of https://* is fine, an HTTP-plugin scope is not.
     const listed = Array.isArray(security.capabilities) ? security.capabilities : null;
     const caps = [];
     const capDir = join(dir, "capabilities");
@@ -260,9 +538,9 @@ function tauriChecks() {
         if (f.endsWith(".json")) {
           const cap = readJson(join(capDir, f));
           if (cap) caps.push({ file: f, cap });
-          else record("FAIL", `${rel} capabilities/${f}`, "not valid JSON");
+          else fail(`${rel} capabilities/${f}`, "not valid JSON");
         } else if (/\.(json5|toml)$/.test(f)) {
-          record("SKIP", `${rel} capabilities/${f}`, "format not parsed — review its scopes by hand.");
+          notRun(`${rel} capabilities/${f}`, "format not parsed: review its scopes by hand.");
         }
       }
     }
@@ -284,131 +562,301 @@ function tauriChecks() {
         }
       }
     }
-    if (wide.length) record("FAIL", `${rel} HTTP capability scope`, `Wildcard hosts let any script in the WebView call anywhere — list exact API origins:\n${wide.join("\n")}`);
-    else record("PASS", `${rel} HTTP capability scope`);
-    if (cleartext.length) record("FAIL", `${rel} cleartext API origin`, `Remote hosts must be https:\n${cleartext.join("\n")}`);
+    if (wide.length) fail(`${rel} HTTP capability scope`, `Wildcard hosts let any script in the WebView call anywhere: list exact API origins (${TAURI_DOC}):\n${wide.join("\n")}`);
+    else pass(`${rel} HTTP capability scope`);
+    if (cleartext.length) fail(`${rel} cleartext API origin`, `Remote hosts must be https:\n${cleartext.join("\n")}`);
     if (debugOrigins.length) {
-      record("WARN", `${rel} debug origins in release capabilities`,
-        `Emulator/LAN origins in a capability release builds enable — move them to a debug-only capability (security.md §2):\n${debugOrigins.join("\n")}`);
+      passWithWarning(`${rel} debug origins in release capabilities`,
+        `emulator or LAN origins in a capability that release builds enable: move them to a debug-only capability (${TAURI_DOC}):\n${debugOrigins.join("\n")}`);
     }
-    if (remote.length) record("FAIL", `${rel} remote capabilities`, `Remote URLs can call native commands (${remote.join(", ")}); remove or document a reviewed requirement.`);
+    if (remote.length) fail(`${rel} remote capabilities`, `Remote URLs can call native commands (${remote.join(", ")}); remove or document a reviewed requirement.`);
 
     const cargoPath = join(dir, "Cargo.toml");
     if (existsSync(cargoPath)) {
       const cargo = readFileSync(cargoPath, "utf8").replaceAll("\r\n", "\n");
-      // Every form of the dependency: `tauri = { … }` (arrays may span lines), `[dependencies.tauri]`, target tables.
+      // Every form of the dependency: `tauri = { ... }` (arrays may span lines), `[dependencies.tauri]`, target tables.
       const specs = [
         ...[...cargo.matchAll(/^\s*tauri\s*=\s*(\{[\s\S]*?\}|.*)$/gm)].map((m) => m[0]),
         ...[...cargo.matchAll(/^\[(?:target\.[^\n]*\.)?dependencies\.tauri\][\s\S]*?(?=^\[|(?![\s\S]))/gm)].map((m) => m[0]),
       ];
-      if (specs.some((s) => /["']devtools["']/.test(s))) record("FAIL", `${rel} devtools`, "The tauri crate enables the devtools feature for every build, including release.");
-      else record("PASS", `${rel} no devtools in release`);
+      if (specs.some((s) => /["']devtools["']/.test(s))) fail(`${rel} devtools`, "The tauri crate enables the devtools feature for every build, including release.");
+      else pass(`${rel} no devtools in release`);
       const profile = cargo.match(/^\[profile\.release\]([\s\S]*?)(?=^\[|(?![\s\S]))/m)?.[1] ?? "";
       if (!/^\s*strip\s*=\s*(true|"symbols"|"debuginfo")/m.test(profile)) {
-        record("WARN", `${rel} release profile`, "[profile.release] does not strip debug info (strip = true; design-to-tauri/references/security.md §5).");
+        passWithWarning(`${rel} release profile`, `[profile.release] does not strip debug info (strip = true; ${TAURI_DOC}).`);
       }
     }
   }
 }
 
-// --------------------------------------------- committed runtime suites (--suites)
-async function suites() {
-  if (!RUN_SUITES) return;
-  const port = process.env.PORT ?? "3001";
-  const base = (API_URL ?? `http://127.0.0.1:${port}`).replace(/\/$/, "");
-  const candidates = HEALTH_URL ? [HEALTH_URL] : [`${base}/health/ready`, `${base}/health`, `${base}/api/v1/health`, `${base}/v1/health`];
-  let up = false;
-  for (const u of candidates) {
-    try { const r = await fetch(u, { signal: AbortSignal.timeout(3000) }); if (r.status < 500) { up = true; break; } } catch { /* next */ }
+// ------------------------------------------------------------------ sweeps
+const RUST_SUPPRESSION = /#!?\[(allow|expect)\(|#!?\[cfg_attr\(.*\b(allow|expect)\(/;
+const SCRIPT_SUPPRESSION = /(?:es|ox)lint-disable|@ts-ignore|@ts-expect-error|@ts-nocheck/;
+// The configuration of ESLint and of oxlint (the Next.js kit lints with it); oxlint also reads "allow" as off.
+const ESLINT_CONFIG = /(^|\/)(eslint\.config\.[cm]?[jt]s|\.eslintrc(\.(json|[cm]?js|ya?ml))?|\.oxlintrc\.json)$/;
+const ESLINT_RULE_OFF = /^\s*["']?[@\w/.-]+["']?\s*:\s*(?:["'](?:off|allow)["']|0(?![\w.])|\[\s*(?:["'](?:off|allow)["']|0(?![\w.])))/;
+// A clippy.toml loosens a lint with an allow-* key or a *-threshold key; disallowed-* keys only tighten.
+const CLIPPY_TOML = /(^|\/)\.?clippy\.toml$/;
+const CLIPPY_LOOSENS = /^\s*(allow-[\w-]+|[\w-]*-threshold)\s*=/;
+const CARGO_CONFIG = /(^|\/)\.cargo\/config(\.toml)?$/;
+const ALLOW_FLAG = /(^|["'\s=\[,])(-A\s*[A-Za-z_:]*|--allow\b[ =]?[\w:]*)(?=["'\s,\]]|$)/;
+const TSCONFIG = /(^|\/)tsconfig[^/]*\.json$/;
+const SUPPRESSION_FILE = /\.(rs|tsx?|jsx?|mjs)$|(^|\/)Cargo\.toml$/;
+
+// The line of `rel` that numbers `lineNo` sits inside a [lints] table (or a dotted lints key) of a Cargo.toml.
+const lintLines = new Map();
+function inLintsTable(rel, lineNo) {
+  if (!lintLines.has(rel)) {
+    const inside = new Set();
+    let open = false;
+    linesOf(rel).forEach(({ text, line }) => {
+      const header = text.match(/^\s*\[([^\]]+)\]\s*$/);
+      if (header) open = /^(workspace\.)?lints(\.|$)/.test(header[1].trim());
+      else if (open) inside.add(line);
+    });
+    lintLines.set(rel, inside);
   }
-  if (!up) {
-    record("FAIL", "suites: stack running", `No health answer at ${candidates.join(", ")}. Start the stack (and reset the demo data), or pass --api-url / --health-url.`);
-    return;
-  }
-  const order = (name) => (name === "smoke" ? 0 : name === "test:contract" ? 1 : name === "test:security" ? 2 : 3);
-  let ran = 0;
-  for (const dir of packageDirs) {
-    const rel = dir.slice(ROOT.length + 1) || ".";
-    const scripts = (readJson(join(dir, "package.json")) ?? {}).scripts ?? {};
-    const names = Object.keys(scripts)
-      .filter((n) => n === "smoke" || (/^test:/.test(n) && !/^test:(watch|unit|cov|coverage|e2e:ui)(:|$)/.test(n)))
-      .sort((a, b) => order(a) - order(b) || a.localeCompare(b));
-    for (const name of names) {
-      const r = runScript(pm, dir, name, 900_000);
-      record(r.ok ? "PASS" : "FAIL", `${rel} ${name}`, r.ok ? undefined : r.tail);
-      ran++;
+  return lintLines.get(rel).has(lineNo);
+}
+
+// The only suppression allowed: `#![allow(dead_code)]` as the first attribute of tests/support/mod.rs (hard rule 15).
+function isSupportException(rel, text, lineNo) {
+  if (rel !== "tests/support/mod.rs" || text.trim() !== "#![allow(dead_code)]") return false;
+  const first = linesOf(rel).find((l) => l.text.trim() && !l.text.trim().startsWith("//"));
+  return first?.line === lineNo;
+}
+
+// The text of a TypeScript line without its strings and comments, so that English in them is not read as code.
+function codeOf(text) {
+  if (/^\s*\*/.test(text)) return "";
+  let out = "";
+  let quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (c === "\\") i++;
+      else if (c === quote) quote = null;
+    } else if (c === '"' || c === "'" || c === "`") {
+      quote = c;
+    } else if (c === "/" && text[i + 1] === "/") {
+      break;
+    } else if (c === "/" && text[i + 1] === "*") {
+      const end = text.indexOf("*/", i + 2);
+      if (end < 0) break;
+      i = end + 1;
+    } else {
+      out += c;
     }
   }
-  if (!ran) record("FAIL", "suites", "--suites given but no package defines smoke or test:* scripts (security-foundation/references/security-test-suites.md).");
+  return out;
 }
 
-// --------------------------------------------------------- suppression sweep
-function suppressionSweep() {
-  const re = /eslint-disable|@ts-ignore|@ts-expect-error|as any[^A-Za-z]|as unknown as/;
-  const git = spawnSync("git", ["-C", ROOT, "rev-parse", "--git-dir"], { encoding: "utf8" });
-  if (git.status !== 0) { record("SKIP", "suppression sweep", "not a git repo"); return; }
-  const diff = spawnSync("git", ["-C", ROOT, "-c", "color.ui=never", "diff", "HEAD", "--", "apps", "packages"],
-    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  const added = (diff.stdout ?? "").split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++") && re.test(l));
-  const untracked = spawnSync("git", ["-C", ROOT, "ls-files", "--others", "--exclude-standard", "--", "apps", "packages"],
-    { encoding: "utf8" }).stdout?.split("\n").filter(Boolean) ?? [];
-  const untrackedHits = grepFiles(
-    untracked.map((f) => join(ROOT, f)).filter((f) => existsSync(f)), re, /$^/);
-  const all = [...added.map((l) => l.trim().slice(0, 120)), ...untrackedHits];
-  if (all.length) {
-    record("FAIL", "no new suppressions vs HEAD", `Fix root causes instead:\n${all.slice(0, 10).join("\n")}`);
-  } else {
-    record("PASS", "no new suppressions vs HEAD");
+function isSuppression({ file: rel, text, line }) {
+  if (rel.endsWith(".rs")) return RUST_SUPPRESSION.test(text) && !isSupportException(rel, text, line);
+  if (CLIPPY_TOML.test(rel)) return CLIPPY_LOOSENS.test(text);
+  if (ESLINT_CONFIG.test(rel) && ESLINT_RULE_OFF.test(text)) return true;
+  if (/\.(tsx?|jsx?|mjs)$/.test(rel)) return SCRIPT_SUPPRESSION.test(text) || (/\.tsx?$/.test(rel) && /\bas any\b/.test(codeOf(text)));
+  if (TSCONFIG.test(rel)) return /"strict"\s*:\s*false/.test(text);
+  if (CARGO_CONFIG.test(rel)) return ALLOW_FLAG.test(text);
+  return /Cargo\.toml$/.test(rel) && /["']allow["']/.test(text) && (inLintsTable(rel, line) || /^\s*(workspace\.)?lints\./.test(text));
+}
+const PLACEHOLDER = /lorem ipsum|coming soon|not implemented|TODO: ?implement|mockData|fakeUsers|placeholder data|4242 ?4242|\btodo!\(|\bunimplemented!\(/i;
+const TEST_CODE = /(^|\/)(tests?|__tests__|e2e)\/|\.(test|spec|stories)\./;
+const MOCK_FOLDER = /(^|\/)(mocks?|fixtures)\//;
+
+function suppressionSweep(base, apiTypes) {
+  const label = `no new suppressions since ${base ?? "base"}`;
+  if (!isGitRepo()) return notRun(label, "not a git repository");
+  if (!base) return notRun(label, "no base: set base_commit in STACK.md or pass --base");
+  if (!isCommit(base)) return notRun(label, `the base ${base} is not a commit of this repository: correct base_commit in STACK.md or --base`);
+  const generated = apiTypes ? posixPath(apiTypes) : null;
+  const considered = (rel) => rel !== generated && !/^(\.claude|\.agents|target|plugins|design\/source|docs\/brief)\//.test(rel) && !rel.split("/").includes("node_modules");
+  const wants = (rel) => considered(rel) && [SUPPRESSION_FILE, ESLINT_CONFIG, TSCONFIG, CARGO_CONFIG, CLIPPY_TOML].some((re) => re.test(rel));
+  const hits = addedSince(base, wants).filter(isSuppression).map(asHit);
+  if (hits.length) return fail(label, `Fix the cause instead of silencing the check (hard rule 15):\n${capped(hits)}`);
+  pass(label);
+}
+
+function placeholderSweep(webDir, apiTypes) {
+  const label = "no placeholder content";
+  const web = webDir || "web";
+  const scripts = [".ts", ".tsx", ".js", ".jsx"];
+  const folders = [{ dir: join(ROOT, "src"), suffixes: [".rs"], frontEnd: false }];
+  for (const sub of ["app", "components", "lib", "modules"]) folders.push({ dir: join(ROOT, web, sub), suffixes: scripts, frontEnd: true });
+  const clients = join(ROOT, "clients");
+  for (const name of isDir(clients) ? readdirSync(clients) : []) folders.push({ dir: join(clients, name, "src"), suffixes: scripts, frontEnd: true });
+  const present = folders.filter((f) => isDir(f.dir));
+  if (!present.length) return notRun(label, "no source folders found");
+  const generated = apiTypes ? posixPath(apiTypes) : null;
+  const files = [];
+  const hits = [];
+  for (const f of present) {
+    // In a front end any file of a mocks or fixtures folder is a hit; in Rust sources those folders are test support.
+    for (const file of walk(f.dir, f.frontEnd ? [""] : f.suffixes)) {
+      const rel = toRel(file);
+      if (TEST_CODE.test(rel) || rel === generated) continue;
+      if (MOCK_FOLDER.test(rel)) {
+        if (f.frontEnd) hits.push(`${rel}:1: a file in a mocks or fixtures folder of the front end: no mock data path stays in the app`);
+      } else if (f.suffixes.some((s) => rel.endsWith(s))) {
+        files.push(file);
+      }
+    }
+  }
+  hits.push(...scanFiles(files, PLACEHOLDER));
+  if (hits.length) fail(label, capped(hits));
+  else pass(label);
+}
+
+// ------------------------------------------------------------------ committed suites (--suites)
+async function suiteChecks(stack, apiUrl) {
+  if (!stack.present || stack.problems.length) {
+    return fail("suites", "--suites needs a valid STACK.md with a ## Suites section (superdev-build/references/artifacts.md).");
+  }
+  if (!stack.suites.length) {
+    return fail("suites", "STACK.md lists no command under ## Suites; each committed suite is added there when it is created (security-foundation/references/security-suites.md).");
+  }
+  const healthUrl = HEALTH_URL ?? `${apiUrl.replace(/\/$/, "")}/health/ready`;
+  progress(`GET ${healthUrl}`);
+  const health = await probe(healthUrl, 5000);
+  if (health.status !== 200) {
+    return fail("suites: app running", `${healthUrl}: ${health.text}. Start the app on a freshly seeded database (navree migrate:fresh --seed), or pass --api-url or --health-url.`);
+  }
+  pass("suites: app running", `${healthUrl} answered 200`);
+  const env = { ...process.env };
+  const { database, test_database_url: url } = stack.keys;
+  if (url && ["timescaledb", "postgres"].includes(database)) env.NAVREE_TEST_POSTGRES_URL = url;
+  if (url && database === "mysql") env.NAVREE_TEST_MYSQL_URL = url;
+  for (const command of stack.suites) {
+    // A changed STACK.md must not run anything but cargo test: no shell, and arguments of plain characters only.
+    const words = command.split(/\s+/);
+    if (words[0] !== "cargo" || words[1] !== "test") {
+      fail(`suite: ${command}`, "refused: a suite line must start with cargo test (STACK.md ## Suites, superdev-build/references/artifacts.md)");
+    } else if (!words.every((w) => /^[A-Za-z0-9_.:=+@%/,-]+$/.test(w))) {
+      fail(`suite: ${command}`, "refused: a suite line holds cargo test and its arguments only, with no shell syntax and no quotes");
+    } else {
+      const r = run("cargo", words.slice(1), { timeout: TIMEOUT.suite, env });
+      if (r.ok) pass(`suite: ${command}`); else fail(`suite: ${command}`, failureDetail("cargo", r));
+    }
   }
 }
 
-// --------------------------------------------------------- placeholder sweep
-function placeholderSweep() {
-  // Every client app's src (web, admin, mobile, desktop…); API servers are left to the audits.
-  const dirs = packageDirs
-    .filter((d) => d.startsWith(join(ROOT, "apps")))
-    .filter((d) => { const p = readJson(join(d, "package.json")) ?? {}; return !{ ...p.dependencies, ...p.devDependencies }["@nestjs/core"]; })
-    .map((d) => join(d, "src"))
-    .concat(["apps/api/resources/js", "resources/js"].map((d) => join(ROOT, d)))
-    .filter((d) => existsSync(d));
-  if (!dirs.length) { record("SKIP", "placeholder sweep", "no frontend src dirs"); return; }
-  const files = dirs.flatMap((d) => [...walk(d, [".ts", ".tsx", ".js", ".jsx"])]);
-  const hits = grepFiles(files, /lorem ipsum|coming soon|not implemented|TODO: ?implement|mockData|fakeUsers|placeholder data|4242 ?4242/i);
-  if (hits.length) {
-    record("FAIL", "no demo/placeholder content", hits.slice(0, 10).join("\n"));
-  } else {
-    record("PASS", "no demo/placeholder content");
+// Hard rule 6: the public routes of navree routes --json are the plan's list.
+function publicRoutes() {
+  const label = "public routes";
+  const plan = readText(join(ROOT, "EXECUTION_PLAN.md"));
+  if (plan === null) return notRun(label, "no EXECUTION_PLAN.md: the public routes are compared with its ## Access section (hard rule 6)");
+  const r = run("navree", ["routes", "--json"], { timeout: TIMEOUT.navree });
+  if (!r.ok) return fail(label, `navree routes --json failed:\n${failureDetail("navree", r)}`);
+  const routes = routeList(r.stdout);
+  if (!routes) return fail(label, `navree routes --json did not print a JSON list:\n${tail(r.out)}`);
+  const access = sectionOf(plan, "Access");
+  const open = routes.filter((x) => String(x.access ?? "").split(/\s+/).includes("public"));
+  const unnamed = open.filter((x) => !new RegExp(`\`${escapeRe(String(x.method))}\\s+${escapeRe(String(x.path))}\``).test(access));
+  if (unnamed.length) {
+    return fail(label, `${capped(unnamed.map((x) => `${x.method} ${x.path}`))}\nnot named in EXECUTION_PLAN.md ## Access as \`METHOD path\` in backticks: list each public route there that way, or remove #[public] (hard rule 6)`);
   }
+  pass(label, `${open.length} public route(s), each named in EXECUTION_PLAN.md ## Access`);
 }
 
-await bootCheck();
-tauriChecks();
-suppressionSweep();
-placeholderSweep();
-await suites();
+// The route list of navree routes --json: it starts at a line beginning with [ and ends at the first line that is exactly ]
+// (or is that one line); a log line before or after it is skipped.
+function routeList(stdout) {
+  const lines = stdout.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].startsWith("[")) continue;
+    const end = lines.findIndex((l, k) => k > i && l.trimEnd() === "]");
+    for (const text of [lines[i], end > i ? lines.slice(i, end + 1).join("\n") : "null"]) {
+      try {
+        const value = JSON.parse(text);
+        if (Array.isArray(value)) return value;
+      } catch { /* a log line, not the list */ }
+    }
+  }
+  return null;
+}
 
 // ------------------------------------------------------------------ report
-console.log("");
-for (const r of results) {
-  const mark = { PASS: "✓", FAIL: "✗", WARN: "!", SKIP: "–" }[r.status];
-  console.log(` ${mark} [${r.status}] ${r.label}`);
-  if (r.detail) console.log(r.detail.split("\n").map((l) => `      ${l}`).join("\n"));
+function report(stack, withSuites) {
+  const lines = [
+    `superdev verify-done ${VERSION} — root: ${ROOT}`,
+    !stack.present ? "stack: not read"
+      : stack.problems.length ? "stack: invalid (see the STACK.md check)"
+        : `stack: front_end=${stack.keys.front_end} database=${stack.keys.database} binary=${stack.keys.binary} (STACK.md)`,
+    "=".repeat(60),
+  ];
+  for (const r of results) {
+    lines.push(` [${r.status}] ${r.label}`);
+    if (r.detail) lines.push(...r.detail.split("\n").map((l) => `      ${l}`.trimEnd()));
+  }
+  const failed = results.filter((r) => r.status === "FAIL").length;
+  const warned = results.filter(isWarning).length;
+  const skipped = results.filter((r) => r.status === "NOT RUN").length;
+  const caveat = warned || skipped ? ` — with ${warned} warning(s) and ${skipped} check(s) not run, so not a release claim (re-run with --strict)` : "";
+  lines.push("");
+  let code = 0;
+  if (failed) {
+    code = 1;
+    lines.push(`NOT DONE — ${failed} failing check(s). Fix at the root cause (no suppressions), then re-run.`);
+  } else if (STRICT && (warned || skipped)) {
+    code = 1;
+    lines.push(`NOT DONE (--strict) — ${warned} warning(s) and ${skipped} check(s) not run. A release claim needs every check run and clean.`);
+  } else {
+    lines.push(`DONE — all live checks${withSuites ? " and committed suites" : ""} green${caveat}. Browser, role and device evidence is the product-qa gate's QA_COVERAGE.md.`);
+  }
+  return { code, stdout: `${lines.join("\n")}\n`, stderr: "" };
 }
-console.log("");
-const count = (status) => results.filter((r) => r.status === status).length;
-const [failed, warned, skipped] = [count("FAIL"), count("WARN"), count("SKIP")];
-if (failed) {
-  console.log(`NOT DONE — ${failed} failing check(s). Fix at root cause (no suppressions), then re-run.`);
-  process.exit(1);
+
+async function main(argv) {
+  const parsed = parseArgs(argv);
+  if (parsed.help) return { code: 0, stdout: helpText(), stderr: "" };
+  if (parsed.error) return { code: 2, stdout: "", stderr: `verify-done: ${parsed.error}\n${USAGE}\nRun with --help for the flags and the checks.\n` };
+  const o = parsed.opts;
+  ROOT = resolve(o["--root"] ?? process.cwd());
+  if (!isDir(ROOT)) return { code: 2, stdout: "", stderr: `verify-done: --root is not a directory: ${ROOT}\n` };
+  SKIP_BUILD = Boolean(o["--skip-build"]);
+  SKIP_BOOT = Boolean(o["--skip-boot"]);
+  HEALTH_URL = o["--health-url"];
+  STRICT = Boolean(o["--strict"]);
+
+  const stack = readStack();
+  if (!stack.present) fail("STACK.md", "no STACK.md in the app root: run the check from the app root (or pass --root), where superdev-build writes it at step 1 (format in superdev-build/references/artifacts.md)");
+  else if (stack.problems.length) fail("STACK.md", stack.problems.join("\n"));
+  else pass("STACK.md");
+  const keys = stack.keys;
+  const base = o["--base"] ?? (keys.base_commit || undefined);
+
+  if (stack.present && !stack.problems.length) {
+    navreeCli(stack);
+    skillsInstalled();
+    programCheck("cargo fmt", "cargo", ["fmt", "--all", "--", "--check"], TIMEOUT.cargo);
+    programCheck("cargo clippy", "cargo", ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"], TIMEOUT.cargo);
+    cargoTest();
+    programCheck("navree check", "navree", ["check"], TIMEOUT.navree, {
+      extraFailure: "navree check needs config and a migrated database: start the database (navree dock up for TimescaleDB and PostgreSQL; MySQL runs on a server you provide at database.url; SQLite needs nothing), then run navree migrate (hard rule 13).",
+    });
+    programCheck("navree config:check", "navree", ["config:check"], TIMEOUT.navree);
+    publicRoutes();
+    if (SKIP_BUILD) notRun("release build", "skipped by flag");
+    else programCheck("release build", "cargo", ["build", "--release"], TIMEOUT.cargo);
+    await bootCheck(stack);
+    if (keys.front_end === "next") {
+      webChecks(stack);
+      contractDrift(stack);
+    }
+    if (keys.front_end === "navree") {
+      rawMarkupSweep(base);
+      gapRowSweep(base);
+    }
+  }
+  tauriChecks();
+  suppressionSweep(base, keys.api_types);
+  placeholderSweep(keys.web_dir, keys.api_types);
+  if (o["--suites"]) await suiteChecks(stack, o["--api-url"] ?? DEFAULT_API_URL);
+  return report(stack, Boolean(o["--suites"]));
 }
-if (STRICT && (warned || skipped)) {
-  console.log(`NOT DONE (--strict) — ${warned} warning(s) and ${skipped} skipped check(s). A release claim needs every check run and clean.`);
-  process.exit(1);
-}
-const caveat = warned || skipped
-  ? ` — with ${warned} warning(s) and ${skipped} skipped check(s), so not a release claim (re-run with --strict)`
-  : "";
-console.log(RUN_SUITES
-  ? `DONE — all live checks and committed suites green${caveat}. (Browser, device and accessibility evidence live in release-qa-gate's QA_COVERAGE.md.)`
-  : `DONE — all live checks green${caveat}. (Run with --suites against the running stack for the committed runtime suites; browser and device QA are in release-qa-gate.)`);
+
+const result = await main(process.argv.slice(2));
+const flush = (stream, text) => new Promise((done) => (text ? stream.write(text, done) : done()));
+await flush(process.stderr, result.stderr);
+await flush(process.stdout, result.stdout);
+process.exit(result.code);
