@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Superdev · From a brief to a released app on Navree</title>
+<meta name="description" content="Superdev is a Claude Code and Codex plugin of 15 skills and 41 agents that takes a product from a PRD and a design to a released, verified app on Navree, the complete application framework for Rust.">
+<meta name="author" content="Amritpal Singh">
+<meta name="theme-color" content="#000000">
+<link rel="canonical" href="https://boparaiamrit.github.io/superdev/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Superdev · From a brief to a released app on Navree">
+<meta property="og:description" content="15 skills and 41 agents for Claude Code and Codex: a plan and contracts on disk before code, one module at a time with proof, a QA gate with evidence in every cell, and a done check that exits 0.">
+<meta property="og:url" content="https://boparaiamrit.github.io/superdev/">
+<meta property="og:image" content="https://boparaiamrit.github.io/superdev/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23000'/%3E%3Cpath d='M9 11l6 5-6 5' fill='none' stroke='%233dff8f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17 22h7' stroke='%233dff8f' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Mona+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000;--bg1:#060907;--bg2:#0b100d;--bg3:#111813;--line:#1a241e;--line2:#24322a;
+  --text:#e9efeb;--muted:#9aa7a0;--dim:#66736c;
+  --accent:#3dff8f;--ink:#03130a;--accent-soft:rgba(61,255,143,.1);
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --display:"Mona Sans","Geist",ui-sans-serif,system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,"JetBrains Mono",Menlo,monospace;
+  --max:1180px;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16.5px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+img{max-width:100%;height:auto;display:block}
+code{font-family:var(--mono);font-size:.86em;background:var(--bg3);border:1px solid var(--line2);padding:1px 6px;border-radius:6px;color:#d6f5e3}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+.acc{color:var(--accent)}
+.grid-bg{position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-image:linear-gradient(rgba(61,255,143,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(61,255,143,.06) 1px,transparent 1px);
+  background-size:56px 56px;-webkit-mask-image:radial-gradient(ellipse 80% 70% at 70% 30%,#000 30%,transparent 75%);mask-image:radial-gradient(ellipse 80% 70% at 70% 30%,#000 30%,transparent 75%)}
+.glow{position:absolute;z-index:-1;pointer-events:none;width:900px;height:600px;right:-200px;top:-120px;background:radial-gradient(closest-side,rgba(61,255,143,.16),transparent)}
+
+/* nav */
+header.nav{position:sticky;top:0;z-index:30;background:rgba(0,0,0,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+header.nav .wrap{height:64px;display:flex;align-items:center;gap:24px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--text);font:600 19px var(--display);letter-spacing:-.3px}
+.brand:hover{text-decoration:none}
+.mark{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--bg3);border:1px solid var(--line2);box-shadow:0 0 14px rgba(61,255,143,.25)}
+.mark svg{width:16px;height:16px}
+.links{display:flex;gap:22px;font-size:14.5px}
+.links a{color:var(--muted)}.links a:hover{color:var(--text);text-decoration:none}
+.right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:999px;font:500 15px var(--sans);border:1px solid var(--line2);color:var(--text);background:transparent;white-space:nowrap;transition:background .15s,border-color .15s,transform .15s}
+.btn:hover{text-decoration:none;border-color:#35473c;background:var(--bg2)}
+.btn svg{width:17px;height:17px}
+.btn.primary{background:var(--accent);color:var(--ink);border-color:var(--accent);font-weight:600;box-shadow:0 0 30px -6px rgba(61,255,143,.55)}
+.btn.primary:hover{background:#5bffa1;transform:translateY(-1px)}
+.btn.sm{padding:7px 14px;font-size:14px}
+.btn .arr{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(3,19,10,.14)}
+
+/* hero */
+.hero{position:relative;padding:80px 0 72px;overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.tag{display:inline-flex;align-items:center;gap:10px;padding:5px 12px 5px 6px;border:1px solid var(--line2);border-radius:999px;font-size:13.5px;color:var(--muted);background:rgba(11,16,13,.7)}
+.tag b{font:500 12px var(--mono);color:var(--accent);background:var(--accent-soft);border:1px solid rgba(61,255,143,.3);padding:1px 8px;border-radius:999px}
+h1{font:600 clamp(42px,6vw,72px)/1.04 var(--display);letter-spacing:-.035em;margin:22px 0 20px}
+.lede{color:var(--muted);font-size:clamp(16.5px,1.6vw,18.5px);max-width:580px;margin:0}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin:32px 0 30px}
+.stats{display:grid;grid-template-columns:repeat(4,auto);gap:28px;justify-content:start}
+.stats div{font-size:13px;color:var(--dim)}
+.stats b{display:block;font:600 30px var(--display);color:var(--text);letter-spacing:-.02em}
+
+.term{border:1px solid var(--line2);border-radius:16px;background:linear-gradient(180deg,#07100b,#030604);box-shadow:0 0 0 1px rgba(61,255,143,.05),0 30px 80px -20px rgba(61,255,143,.22);overflow:hidden}
+.term .bar{display:flex;align-items:center;gap:7px;padding:12px 16px;border-bottom:1px solid var(--line);font:12.5px var(--mono);color:var(--dim)}
+.term .bar i{width:10px;height:10px;border-radius:50%;background:#1f2b24}
+.term .bar span{margin-left:10px}
+.term pre{margin:0;padding:20px 22px;font:13.5px/1.85 var(--mono);color:#cfe3d7;overflow-x:auto;white-space:pre}
+.term .p{color:var(--accent)}.term .c{color:var(--dim)}.term .s{color:#9ccfff}.term .ok{color:var(--accent)}
+
+/* sections */
+section{padding:92px 0;position:relative}
+.eyebrow{font:500 12.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:18px;height:1px;background:var(--accent)}
+h2{font:600 clamp(30px,4.2vw,46px)/1.08 var(--display);letter-spacing:-.03em;margin:0 0 16px}
+.sub{color:var(--muted);max-width:680px;margin:0 0 44px;font-size:17.5px}
+.status{display:flex;gap:14px;align-items:flex-start;border:1px solid rgba(255,204,102,.25);background:rgba(255,204,102,.04);border-radius:14px;padding:16px 18px;color:var(--muted);font-size:14.5px;max-width:var(--max)}
+.status b{color:#ffcc66}
+
+/* split cards */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.card{border:1px solid var(--line);background:linear-gradient(180deg,var(--bg2),var(--bg1));border-radius:16px;padding:22px;transition:border-color .2s}
+.card:hover{border-color:var(--line2)}
+.card .k{font:500 12px var(--mono);color:var(--accent);margin-bottom:10px}
+.card h3{font:600 18px var(--display);margin:0 0 8px;letter-spacing:-.01em}
+.card p{margin:0;color:var(--muted);font-size:14.5px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.two .card{padding:26px}
+.two .card.navree{border-color:rgba(61,255,143,.28);background:linear-gradient(180deg,rgba(61,255,143,.07),var(--bg1))}
+
+/* flow */
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;counter-reset:f}
+.step{position:relative;border:1px solid var(--line);border-radius:16px;padding:20px 18px 20px;background:var(--bg1);counter-increment:f}
+.step::before{content:counter(f,decimal-leading-zero);font:500 13px var(--mono);color:var(--accent);display:block;margin-bottom:12px}
+.step h4{margin:0 0 6px;font:600 16px var(--display)}
+.step p{margin:0;color:var(--muted);font-size:13.8px;line-height:1.55}
+.step.done{border-color:rgba(61,255,143,.35);background:linear-gradient(180deg,rgba(61,255,143,.08),var(--bg1))}
+
+.files{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
+.files span{font:13.5px var(--mono);padding:8px 13px;border:1px dashed var(--line2);border-radius:10px;color:#d6f5e3}
+.files span i{font-style:normal;color:var(--dim);font-family:var(--sans);margin-left:8px;font-size:13px}
+
+/* skills */
+.skills{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.skill{border:1px solid var(--line);border-radius:14px;padding:18px 18px;background:var(--bg1);display:block;color:inherit}
+.skill:hover{text-decoration:none;border-color:rgba(61,255,143,.35)}
+.skill code{background:none;border:0;padding:0;color:var(--accent);font-size:14px}
+.skill p{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.5}
+.agents{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.agents span{font:12.5px var(--mono);padding:6px 11px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--bg1)}
+
+/* rules */
+.rules{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.rgroup{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--bg1)}
+.rgroup h4{margin:0 0 12px;font:500 12.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.rgroup ol{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+.rgroup li{display:flex;gap:10px;font-size:14px;color:var(--muted);line-height:1.45}
+.rgroup li b{flex:none;font:500 12px var(--mono);color:var(--dim);width:20px;padding-top:2px}
+
+/* done check */
+.checks{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.checks div{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:var(--bg1);font-size:14px;color:var(--muted)}
+.checks div::before{content:"";flex:none;width:8px;height:8px;margin-top:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(61,255,143,.7)}
+
+/* install */
+.install{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;align-items:start}
+.box{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--bg1);color:var(--muted);font-size:15px}
+.box h4{margin:0 0 10px;color:var(--text);font:600 17px var(--display)}
+.box ul{margin:0;padding-left:18px}.box li{margin:6px 0}
+.stack{display:grid;gap:14px}
+
+/* navree */
+.nv{border:1px solid rgba(61,255,143,.25);border-radius:28px;overflow:hidden;position:relative;background:radial-gradient(700px 360px at 85% 0%,rgba(61,255,143,.14),transparent 70%),var(--bg1)}
+.nv .in{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;padding:52px}
+.nvlogo{display:flex;align-items:center;gap:12px;font:600 30px var(--display);letter-spacing:-.02em;margin-bottom:18px}
+.nvlogo svg{width:40px;height:40px;color:var(--accent);filter:drop-shadow(0 0 10px rgba(61,255,143,.5))}
+.nv p{color:var(--muted);margin:0 0 14px}
+.feat{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 26px}
+.feat span{font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line2);color:var(--text);background:rgba(0,0,0,.4)}
+.founder{border:1px solid var(--line2);border-radius:20px;padding:26px;background:rgba(0,0,0,.45);align-self:start}
+.founder .who{display:flex;gap:14px;align-items:center;margin-bottom:14px}
+.founder img{width:56px;height:56px;border-radius:50%;border:2px solid rgba(61,255,143,.5)}
+.founder h4{margin:0;font:600 19px var(--display)}
+.founder small{color:var(--dim);font-size:13px}
+.founder p{font-size:14.5px}
+.founder .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+
+footer{border-top:1px solid var(--line);padding:40px 0 56px;color:var(--dim);font-size:14px}
+footer .wrap{display:grid;gap:12px}
+footer .row{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+footer a{color:var(--muted)}
+
+@media (max-width:1020px){
+  .hero .wrap,.install,.nv .in{grid-template-columns:1fr}
+  .cards,.rules{grid-template-columns:repeat(2,1fr)}
+  .flow{grid-template-columns:repeat(2,1fr)}
+  .skills,.checks{grid-template-columns:repeat(2,1fr)}
+  .links{display:none}
+}
+@media (max-width:640px){
+  body{font-size:16px}.wrap{padding:0 16px}
+  .hero{padding-top:52px}section{padding:66px 0}
+  .cards,.rules,.flow,.skills,.checks,.two{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,auto);gap:18px 30px}
+  .nv .in{padding:28px 20px}
+  .term pre{font-size:12.5px;padding:16px}
+  .right .btn:not(.primary){display:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="navree" viewBox="0 0 32 32"><path fill="currentColor" d="M1.5 9.5 L30.5 7 C29.6 9.4 28.6 11.3 27.4 12.7 L3.4 12.7 C2.6 11.8 2 10.8 1.5 9.5Z"/><path fill="currentColor" d="M4.4 14.5 L26 14.5 C24.4 16.5 22.4 17.8 19.5 18.3 L10 18.3 C7.6 17.8 5.8 16.5 4.4 14.5Z"/><path fill="currentColor" d="M13 18.3H19.4L16.4 26H14.4Z"/></symbol>
+<symbol id="gh" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol></svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#3dff8f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7 6 5-6 5"/><path d="M13 18h6"/></svg></span>Superdev</a>
+    <nav class="links">
+      <a href="#flow">The build</a>
+      <a href="#skills">Skills</a>
+      <a href="#rules">Hard rules</a>
+      <a href="#done">Done check</a>
+      <a href="#install">Install</a>
+      <a href="#navree">Navree</a>
+    </nav>
+    <div class="right">
+      <a class="btn sm" href="https://github.com/boparaiamrit/superdev"><svg><use href="#gh"/></svg>GitHub</a>
+      <a class="btn sm primary" href="#install">Install</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <div class="hero">
+    <div class="grid-bg"></div><div class="glow"></div>
+    <div class="wrap">
+      <div>
+        <span class="tag"><b>v3.0.0</b> Builds products on Navree</span>
+        <h1>From a brief to a <span class="acc">released app</span> on Navree.</h1>
+        <p class="lede">Superdev is a plugin of 15 skills and 41 agents for Claude Code and Codex. It is the process for taking a product from a PRD and a design to a released, verified app on <a href="https://navree.com">Navree</a>, the Rust application framework: the order of work, the files written to disk, the rules, and the proof each step needs.</p>
+        <div class="cta">
+          <a class="btn primary" href="#install">Install Superdev <span class="arr"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span></a>
+          <a class="btn" href="https://github.com/boparaiamrit/superdev"><svg><use href="#gh"/></svg>View on GitHub</a>
+        </div>
+        <div class="stats">
+          <div><b>15</b>skills</div>
+          <div><b>41</b>agents</div>
+          <div><b>25</b>hard rules</div>
+          <div><b>10</b>steps, each with a proof</div>
+        </div>
+      </div>
+      <div class="term" aria-label="Installing Superdev and starting a build">
+        <div class="bar"><i></i><i></i><i></i><span>~/products/ledger</span></div>
+<pre><span class="c"># install per project, never at user scope</span>
+<span class="p">$</span> claude plugin marketplace add boparaiamrit/superdev \
+    --scope project
+<span class="p">$</span> claude plugin install superdev@superdev --scope project
+
+<span class="c"># then give the agent the PRD and the design</span>
+<span class="s">›</span> Build this product on Navree. The PRD is
+  docs/prd.md and the design is in docs/design/.
+
+<span class="c"># the build ends only when this exits 0</span>
+<span class="p">$</span> node verify-done.mjs --suites --strict</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap"><div class="status"><span>●</span><div><b>Status.</b> 3.0.0 has been checked by its tests and by reading it against Navree's documentation and source, and its done check has been tested against stand-ins of the Navree CLI. It has not yet been used to build an app end to end; that build is in progress.</div></div></div>
+
+  <section id="why">
+    <div class="wrap">
+      <p class="eyebrow">How the work is divided</p>
+      <h2>Navree knows the framework.<br>Superdev knows the <span class="acc">process</span>.</h2>
+      <p class="sub">Every Navree app installs Navree's own skills with <code>navree skills:install</code>. Superdev never restates the framework: for every fact it names the Navree skill and the command, and keeps what a framework can't.</p>
+      <div class="two">
+        <div class="card navree"><div class="k">navree skills:install</div><h3>Navree carries its own knowledge</h3><p>Routing, the ORM, access, workspaces, queues, Navree UI and its tools are documented by the skills Navree puts in every app, kept in step with each release.</p></div>
+        <div class="card"><div class="k">superdev</div><h3>Superdev carries the way to ship</h3><p>Code listings that restated a framework's documentation were the largest source of errors in 2.1.0, so 3.0.0 has none. It went from 37,306 lines to 6,197.</p></div>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="k">01 · order</div><h3>The order of work</h3><p>Ten steps, from <code>navree new</code> to the done check, each ending with a proof on disk.</p></div>
+        <div class="card"><div class="k">02 · files</div><h3>The files on disk</h3><p>STACK.md, EXECUTION_PLAN.md, contracts/, GAPS.md and QA_COVERAGE.md: the build's memory, not the chat's.</p></div>
+        <div class="card"><div class="k">03 · rules</div><h3>The product rules</h3><p>25 hard rules, each with where it applies and the check that proves it.</p></div>
+        <div class="card"><div class="k">04 · proofs</div><h3>The proofs</h3><p>And the script that runs them, <code>verify-done.mjs</code>, against the final commit.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="flow" style="padding-top:20px">
+    <div class="wrap">
+      <p class="eyebrow">What a build does</p>
+      <h2>Ten steps. <span class="acc">Each ends with a proof.</span></h2>
+      <p class="sub">The <code>superdev-build</code> skill runs them in order. A plan is confirmed and each module's contract is agreed before its code is written.</p>
+      <div class="flow">
+        <div class="step"><h4>Navree and the app</h4><p>The Navree CLI, the app from the agreed <code>navree new</code> line, Navree's skills, <code>STACK.md</code>.</p></div>
+        <div class="step"><h4>Digests</h4><p>The PRD and design extracted into <code>PRD_DIGEST.md</code> and <code>DESIGN_DIGEST.md</code>, without decisions.</p></div>
+        <div class="step"><h4>Plan</h4><p>Gaps decided by the operator in <code>GAPS.md</code>; <code>EXECUTION_PLAN.md</code> confirmed before any code.</p></div>
+        <div class="step"><h4>Foundation</h4><p>Services, migrations, the security foundation, the demo seed and the first suite. The release binary boots.</p></div>
+        <div class="step"><h4>Contracts</h4><p>A contract per module in <code>contracts/</code>, agreed by the operator before its code.</p></div>
+        <div class="step"><h4>Modules</h4><p>One at a time: contract, backend, runtime proof, screens, browser proof, suites, a commit.</p></div>
+        <div class="step"><h4>Audits</h4><p>The security review, then the product audit: real data, wired controls, readiness.</p></div>
+        <div class="step"><h4>QA gate</h4><p>Every route, role, width and colour mode on fresh data, with evidence in every cell.</p></div>
+        <div class="step"><h4>Deployment</h4><p>When the operator asks, with Navree's tools and the deploy checklist.</p></div>
+        <div class="step done"><h4>Done</h4><p><code>verify-done.mjs --suites --strict</code> exits 0 on the final commit; lessons recorded.</p></div>
+      </div>
+      <div class="files">
+        <span>STACK.md<i>the stack and base commit</i></span>
+        <span>PRD_DIGEST.md</span>
+        <span>DESIGN_DIGEST.md</span>
+        <span>GAPS.md<i>operator decisions</i></span>
+        <span>EXECUTION_PLAN.md<i>build order + proofs</i></span>
+        <span>contracts/&lt;module&gt;.md</span>
+        <span>QA_COVERAGE.md<i>evidence per cell</i></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="skills" style="padding-top:20px">
+    <div class="wrap">
+      <p class="eyebrow">Skills</p>
+      <h2>15 skills that run on <span class="acc">their own, too</span>.</h2>
+      <p class="sub">The build dispatches them in order, and each one also runs by itself when a request matches it.</p>
+      <div class="skills">
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/superdev-build/SKILL.md"><code>superdev-build</code><p>Building a product from a PRD and a design as a Navree app, or resuming such a build.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/backend-on-navree/SKILL.md"><code>backend-on-navree</code><p>Models, routes, validation, access, workspace scope, lists, jobs, mail, audit, seed data.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/security-foundation/SKILL.md"><code>security-foundation</code><p>Sign-in, staff, roles, personal data, money or live updates: what Navree gives and what the app builds.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/design-to-navree-ui/SKILL.md"><code>design-to-navree-ui</code><p>A design becomes Navree UI screens, built only from Navree UI components.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/design-to-nextjs/SKILL.md"><code>design-to-nextjs</code><p>A design becomes a Next.js front end on the Navree API, from its OpenAPI document and types.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/frontend-structure/SKILL.md"><code>frontend-structure</code><p>Laying out, auditing or splitting a module of a Next.js front end.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/prototype-to-navree/SKILL.md"><code>prototype-to-navree</code><p>A prototype or older product becomes a Navree app without losing what users see.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/design-preservation/SKILL.md"><code>design-preservation</code><p>A prototype is kept as built and every screen is checked against it.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/design-to-tauri/SKILL.md"><code>design-to-tauri</code><p>A desktop or phone client in Tauri on the product's Navree API.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/security-review-and-fix/SKILL.md"><code>security-review-and-fix</code><p>Before launch or after a large change: a review, a secret scan, a dependency audit.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/product-audit/SKILL.md"><code>product-audit</code><p>Is it really done? Real data, wired controls, readiness scores, a full inventory.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/product-qa/SKILL.md"><code>product-qa</code><p>Every page and role, contrast, dead links, the phone app; or exploring the running app.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/systematic-debugging/SKILL.md"><code>systematic-debugging</code><p>Anything fails: a test, a build, a runtime error, a flaky test.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/superdev-done/SKILL.md"><code>superdev-done</code><p>Someone asks whether the build is done, and before any claim that it is.</p></a>
+        <a class="skill" href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/superdev-self-learning/SKILL.md"><code>superdev-self-learning</code><p>The operator corrects the approach, a verifier rejects work, or someone says remember this.</p></a>
+      </div>
+      <p style="margin:40px 0 0;color:var(--muted)">And <b style="color:var(--text)">41 agents</b>, dispatched one module or one task at a time:</p>
+      <div class="agents">
+        <span>navree-app-bootstrapper</span><span>navree-module-builder</span><span>navree-ui-screen-builder</span><span>nextjs-module-builder</span><span>plan-architect</span><span>prd-analyst</span><span>design-inventory</span><span>seed-data-architect</span><span>schema-reverse-engineer</span><span>migration-planner</span><span>refactor-planner</span><span>repo-cartographer</span><span>codebase-discoverer</span><span>static-auditor</span><span>dynamic-auditor</span><span>gap-auditor</span><span>ui-auditor</span><span>visual-diff-auditor</span><span>a11y-contrast-auditor</span><span>data-source-auditor</span><span>dependency-auditor</span><span>placeholder-hunter</span><span>module-readiness-rater</span><span>module-structure-auditor</span><span>money-integrity-prober</span><span>tenancy-isolation-tester</span><span>realtime-prober</span><span>role-matrix-tester</span><span>journey-walker</span><span>link-crawler</span><span>qa-environment</span><span>qa-flow-tester</span><span>qa-consistency-checker</span><span>qa-performance-prober</span><span>mobile-qa-tester</span><span>bug-reproducer</span><span>root-cause-investigator</span><span>hypothesis-tester</span><span>fix-applier</span><span>regression-verifier</span><span>lesson-writer</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="rules" style="padding-top:20px">
+    <div class="wrap">
+      <p class="eyebrow">Hard rules</p>
+      <h2>25 rules, <span class="acc">each with its check</span>.</h2>
+      <p class="sub">No rule is a slogan: every one says where it applies and how it is proved. Read them in <a href="https://github.com/boparaiamrit/superdev/blob/main/plugins/superdev/skills/superdev-build/references/hard-rules.md">hard-rules.md</a>.</p>
+      <div class="rules">
+        <div class="rgroup"><h4>Before code</h4><ol>
+          <li><b>01</b>Install the Navree CLI, create the app and install Navree's skills first</li>
+          <li><b>02</b>Confirm the plan on disk before code</li>
+          <li><b>03</b>Agree each module's contract before its code; one owner</li>
+        </ol><h4 style="margin-top:20px">Every module</h4><ol>
+          <li><b>04</b>Boot the release binary after each backend module</li>
+          <li><b>05</b>A declaration is not proof</li>
+        </ol></div>
+        <div class="rgroup"><h4>Navree traps</h4><ol>
+          <li><b>06</b>Declare access on every route</li>
+          <li><b>07</b>Write inside the request's unit of work; make jobs safe to run twice</li>
+          <li><b>08</b>Validation errors are 400; only Navree UI forms answer 422</li>
+          <li><b>09</b>Keep secrets in .env or the environment</li>
+          <li><b>10</b>Models are global until marked for a workspace</li>
+          <li><b>11</b>SQLite and MySQL have no row-level security</li>
+        </ol></div>
+        <div class="rgroup"><h4>Navree traps</h4><ol>
+          <li><b>12</b>Register the audit module; the minimal app does not</li>
+          <li><b>13</b>Give navree check its configuration and a migrated database</li>
+          <li><b>14</b>Fill a gap in Navree UI the Navree way, never with raw markup</li>
+          <li><b>15</b>Fix the cause; add no suppression</li>
+          <li><b>16</b>Never edit a shipped migration; set the production defaults</li>
+          <li><b>17</b>Never edit regenerated files by hand</li>
+        </ol></div>
+        <div class="rgroup"><h4>Product, security, clients</h4><ol>
+          <li><b>18</b>Prove every screen in a real browser</li>
+          <li><b>19</b>Give operators structured controls</li>
+          <li><b>20</b>Use one canonical public origin</li>
+          <li><b>21</b>End access the way each client signs in</li>
+          <li><b>22</b>Serialize balance changes per account</li>
+          <li><b>23</b>Make money-moving requests idempotent</li>
+          <li><b>24</b>Publish live updates only after the commit</li>
+          <li><b>25</b>Prove native clients on a device</li>
+        </ol></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="done" style="padding-top:20px">
+    <div class="wrap">
+      <p class="eyebrow">The done check</p>
+      <h2>Done means <span class="acc">verify-done.mjs exits 0</span>.</h2>
+      <p class="sub">Not "looks finished". The script runs Navree's checks on the final commit, the Next.js checks only when STACK.md names that front end, and its own checks for the rules a linter can't see.</p>
+      <div class="checks">
+        <div>navree --version matches STACK.md</div>
+        <div>Navree's skills are installed</div>
+        <div>cargo fmt, cargo clippy, cargo test</div>
+        <div>navree check and navree config:check</div>
+        <div>The release build boots and its health routes answer</div>
+        <div>No raw markup in Navree UI screens</div>
+        <div>Every gap row is recorded in the plan</div>
+        <div>Every public route is declared</div>
+        <div>No lint suppression added since base_commit</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install" style="padding-top:20px">
+    <div class="wrap">
+      <p class="eyebrow">Install</p>
+      <h2>Per project. <span class="acc">Never at user scope.</span></h2>
+      <p class="sub">For an existing Navree app, install it in the app. For a new product, install it in the Git folder that holds the PRD and the design; the build creates the app inside it.</p>
+      <div class="install">
+        <div class="term">
+          <div class="bar"><i></i><i></i><i></i><span>Claude Code</span></div>
+<pre><span class="p">$</span> claude plugin marketplace add boparaiamrit/superdev \
+    --scope project
+<span class="p">$</span> claude plugin install superdev@superdev --scope project
+
+<span class="c"># or the helper, which runs both and checks the result</span>
+<span class="p">$</span> bash /path/to/superdev/install-superdev.sh
+
+<span class="c"># NestJS or Laravel project? pin 2.1.0</span>
+<span class="p">$</span> claude plugin marketplace add boparaiamrit/superdev#v2.1.0 \
+    --scope project</pre>
+        </div>
+        <div class="stack">
+          <div class="box"><h4>Requirements</h4><ul>
+            <li>The Navree CLI: <code>cargo install navree-cli</code>, Rust 1.95+, a C compiler, and Docker or Podman for a local PostgreSQL/TimescaleDB (SQLite needs nothing)</li>
+            <li>Node.js 22+, only for a Next.js front end and the QA agents' browser tools</li>
+            <li>Claude Code or Codex</li>
+          </ul></div>
+          <div class="box"><h4>Codex</h4>Codex installs Superdev from the repository marketplace <code>.agents/plugins/marketplace.json</code>. See <a href="https://github.com/boparaiamrit/superdev/blob/main/INSTALL.md">INSTALL.md</a> and <a href="https://github.com/boparaiamrit/superdev/blob/main/CODEX.md">CODEX.md</a>.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="navree" style="padding-top:20px">
+    <div class="wrap">
+      <div class="nv">
+        <div class="grid-bg" style="z-index:0;opacity:.6"></div>
+        <div class="in" style="position:relative">
+          <div>
+            <p class="eyebrow">Built for Navree</p>
+            <div class="nvlogo"><svg><use href="#navree"/></svg>navree</div>
+            <p style="font-size:19px;color:var(--text)">The complete application framework for Rust.</p>
+            <p>Navree gives every application one clear structure: modules wired by dependency injection and checked when the app boots. Auth, workspaces, an ORM, queues, search, real time and AI are in the box. Screens are written in Rust with Navree UI, or in Next.js or Nuxt, and first-party tools handle monitoring, admin and debugging.</p>
+            <p>Navree is free and open source, licensed MIT OR Apache-2.0, and every app it creates comes with skills for AI coding agents. Superdev is the product process that sits on top of it.</p>
+            <div class="feat"><span>Modules + DI</span><span>Navree UI</span><span>ORM</span><span>Auth &amp; workspaces</span><span>Queues · Fleet</span><span>Admin · Helm</span><span>Deploy · Harbor</span><span>MCP</span><span>AI SDK</span></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <a class="btn primary" href="https://navree.com">navree.com</a>
+              <a class="btn" href="https://github.com/NavreeHQ/navree"><svg><use href="#gh"/></svg>NavreeHQ/navree</a>
+            </div>
+          </div>
+          <div class="founder">
+            <div class="who"><img src="https://github.com/boparaiamrit.png?size=112" alt="" width="56" height="56"><div><h4>Amritpal Singh</h4><small>Founder of Navree · author of Superdev</small></div></div>
+            <p>A serial entrepreneur and full-stack developer: fifteen years of building software, six startups, and more than a hundred open-source packages. Navree holds what those years taught him, and it carries his daughter Navreet's name.</p>
+            <div class="row">
+              <a class="btn sm" href="mailto:boparaiamrit@gmail.com">boparaiamrit@gmail.com</a>
+              <a class="btn sm" href="https://github.com/boparaiamrit"><svg><use href="#gh"/></svg>boparaiamrit</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <a class="brand" href="#top" style="font-size:16px"><span class="mark" style="width:24px;height:24px"><svg viewBox="0 0 24 24" fill="none" stroke="#3dff8f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7 6 5-6 5"/><path d="M13 18h6"/></svg></span>Superdev</a>
+      <a href="https://github.com/boparaiamrit/superdev">GitHub</a>
+      <a href="https://github.com/boparaiamrit/superdev/releases">Releases</a>
+      <a href="https://github.com/boparaiamrit/superdev/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="https://navree.com">Navree</a>
+      <a href="https://boparaiamrit.github.io/skiff/">Skiff</a>
+    </div>
+    <div>Superdev is MIT licensed. Built by <a href="https://github.com/boparaiamrit">Amritpal Singh</a> (<a href="mailto:boparaiamrit@gmail.com">boparaiamrit@gmail.com</a>), founder of <a href="https://navree.com">Navree</a>, the complete application framework for Rust.</div>
+    <div>Claude and Claude Code are Anthropic's; Codex is OpenAI's. Superdev is an independent project.</div>
+  </div>
+</footer>
+</body>
+</html>
