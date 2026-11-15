@@ -240,7 +240,7 @@ Finding ids: `G-` gaps (`GAPS.md`), `A-` audit, `Q-` QA, `S-` security, `B-` deb
 
 ## ACCEPTANCES.md
 
-The operator's own file, at the app root: the only place where something that blocks a release is accepted. The operator writes it, one entry per acceptance, and commits each entry on its own. The main agent and every dispatched agent never create or edit it and never write a sentence the operator did not say (rule BLD-6).
+The operator's own file, at the app root: the only place where something that blocks a release is accepted. The operator writes it, one entry per acceptance, and commits each entry on its own; agents never create or edit it (rule BLD-6).
 
 ```markdown
 # Acceptances
@@ -270,7 +270,7 @@ An entry is a heading `ACC-n` with its date, the operator's name, what it accept
 ## Status lines
 
 - A check, a matrix cell, a post-deploy check: exactly `PASS`, `FAIL` or `NOT RUN`; a cell may carry an evidence level in a parenthesis, defined with the matrix it belongs to. `NOT RUN` blocks like `FAIL` until the operator accepts it in `ACCEPTANCES.md`; an agent never writes an acceptance. A matrix lists only the cells that apply and states the rule for which cells apply once per section.
-- `verify-done.mjs` prints the same three labels. A check that passes for development but would not pass a release claim prints `PASS` with a detail line starting `warning:`; `--strict` turns every warning and every `NOT RUN` into a failure. Exit 0 means that no check failed; only a `--strict` run whose last line is `DONE` means the build is done.
+- `verify-done.mjs` prints the same three labels. A check that passes for development but would not pass a release claim prints `PASS` with a detail line starting `warning:`; `--strict` turns every warning and every `NOT RUN` into a failure ([superdev-done](../../superdev-done/SKILL.md) has the exit codes).
 - Artifact status lines: `Status: DRAFT`; `Status: CONFIRMED by <name> on <YYYY-MM-DD>` (`EXECUTION_PLAN.md`); `Status: AGREED by <name> on <YYYY-MM-DD>` (`contracts/*.md`, `refactor/<module>/PLAN.md`); `Status: APPROVED by <name> on <YYYY-MM-DD>` (`prototype/MIGRATION_PLAN.md`).
 - Verdict words, each used in one place only: `PRODUCT` / `HYBRID` / `DEMO` (the completeness verdict of `product-audit`); `REAL` / `MOCKED` / `HYBRID` (a screen's data source); `WIRED` / `STUB` / `NO-OP` (a control); `CONFIRMED` / `REJECTED` / `INCONCLUSIVE` (a debugging hypothesis); `READY TO COMMIT` / `REJECT` (`REGRESSION.md`); `READY` / `NOT READY` (a module score of 9 or more, or less, in the score mode of `product-audit`).
 
