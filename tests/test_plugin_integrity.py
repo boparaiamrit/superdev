@@ -1,328 +1,526 @@
-"""Integrity tests for the superdev plugin (post-conductor-removal end-state).
+"""Integrity tests for the superdev plugin: names, counts, frontmatter, hard rules, vocabulary, links, package.
 
 Run: python -m unittest discover -s tests -v
+
+Names are typed here (they are the contract); counts are read from disk. Files are read as UTF-8 and
+their line endings are made LF, so the tests give the same result on Linux, macOS and Windows.
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import unittest
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "plugins" / "superdev"
 SKILLS = PLUGIN / "skills"
 AGENTS = PLUGIN / "agents"
+SCRIPT = PLUGIN / "scripts" / "verify-done.mjs"
+HARD_RULES = SKILLS / "superdev-build" / "references" / "hard-rules.md"
+CLAUDE_MANIFEST = PLUGIN / ".claude-plugin" / "plugin.json"
+CODEX_MANIFEST = PLUGIN / ".codex-plugin" / "plugin.json"
+CLAUDE_MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
+CODEX_MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 
-TEXT_SUFFIXES = {".md", ".json", ".sh", ".mjs", ".py"}
+EXPECTED_SKILLS = {
+    "superdev-build", "superdev-done", "superdev-self-learning", "backend-on-navree", "security-foundation",
+    "design-to-navree-ui", "design-preservation", "design-to-nextjs", "frontend-structure", "prototype-to-navree",
+    "design-to-tauri", "security-review-and-fix", "product-audit", "product-qa", "systematic-debugging",
+}
+EXPECTED_REFERENCES = {
+    "superdev-build": {"artifacts.md", "hard-rules.md", "deploy-checklist.md"},
+    "superdev-done": set(),
+    "superdev-self-learning": {"memory-entry-format.md"},
+    "backend-on-navree": set(),
+    "security-foundation": {"staff-and-personal-data.md", "money-and-ledgers.md", "live-updates.md", "security-suites.md"},
+    "design-to-navree-ui": set(),
+    "design-preservation": {"drift-check.md"},
+    "design-to-nextjs": set(),
+    "frontend-structure": {"refactor-plan.md"},
+    "prototype-to-navree": {"prototype-artifacts.md"},
+    "design-to-tauri": {"security.md", "device-qa.md"},
+    "security-review-and-fix": {"static-checks.md", "dynamic-probes.md", "fix-plan-format.md"},
+    "product-audit": {"rubric.md", "completeness-checks.md"},
+    "product-qa": {"coverage-matrix.md", "ui-sweeps.md", "explore-checklist.md"},
+    "systematic-debugging": {"repro-and-instrumentation.md"},
+}
+EXPECTED_AGENTS = {
+    "a11y-contrast-auditor", "bug-reproducer", "codebase-discoverer", "data-source-auditor", "dependency-auditor",
+    "design-inventory", "dynamic-auditor", "fix-applier", "gap-auditor", "hypothesis-tester", "journey-walker",
+    "lesson-writer", "link-crawler", "migration-planner", "mobile-qa-tester", "module-readiness-rater",
+    "module-structure-auditor", "money-integrity-prober", "navree-app-bootstrapper", "navree-module-builder",
+    "navree-ui-screen-builder", "nextjs-module-builder", "placeholder-hunter", "plan-architect", "prd-analyst",
+    "qa-consistency-checker", "qa-environment", "qa-flow-tester", "qa-performance-prober", "realtime-prober",
+    "refactor-planner", "regression-verifier", "repo-cartographer", "role-matrix-tester", "root-cause-investigator",
+    "schema-reverse-engineer", "seed-data-architect", "static-auditor", "tenancy-isolation-tester", "ui-auditor",
+    "visual-diff-auditor",
+}
+EXPECTED_HARD_RULES = 25
+GATE_AGENTS = (
+    "qa-flow-tester", "link-crawler", "a11y-contrast-auditor", "qa-consistency-checker", "role-matrix-tester",
+    "money-integrity-prober", "realtime-prober", "mobile-qa-tester", "qa-performance-prober",
+)
+NAVREE_SKILLS = {
+    "navree", "navree-new-app", "navree-modules-and-di", "navree-controllers-and-routing", "navree-validation",
+    "navree-errors-and-responses", "navree-orm", "navree-migrations", "navree-database", "navree-auth",
+    "navree-access-control", "navree-queues-and-scheduling", "navree-events-and-broadcasting",
+    "navree-mail-and-notifications", "navree-mail-delivery", "navree-inbound-mail", "navree-notification-channels",
+    "navree-notification-preferences", "navree-storage", "navree-cache-and-http-client", "navree-openapi",
+    "navree-frontend-next", "navree-frontend-nuxt", "navree-config", "navree-testing", "navree-cli-generators",
+    "navree-deployment", "navree-security-checklist", "navree-jose", "navree-module-conformity", "navree-workspaces",
+    "navree-time-zones", "navree-billing", "navree-lighthouse", "navree-fleet", "navree-dock", "navree-harbor",
+    "navree-social", "navree-sso", "navree-oauth", "navree-webhooks", "navree-integrations", "navree-directory",
+    "navree-custom-domains", "navree-flags", "navree-settings", "navree-search", "navree-telemetry", "navree-graphql",
+    "navree-grpc", "navree-mcp", "navree-ai", "navree-redis", "navree-logbook", "navree-microservices", "navree-helm",
+    "navree-navigator", "navree-i18n", "navree-browser-testing", "navree-performance", "navree-documents",
+    "navree-media", "navree-sheets", "navree-workflows", "navree-reverse-engineering", "navree-design-to-ui",
+    "navree-ui", "navree-native", "navree-native-design", "navree-native-apple", "navree-native-android",
+}
+REMOVED_SKILLS = (
+    "nestjs-enterprise-backend", "laravel-enterprise-backend", "design-to-laravel", "laravel-bref-deploy",
+    "frontend-modular-architecture", "frontend-refactoring", "prototype-to-saas", "brutal-exhaustive-audit",
+    "product-completeness-audit", "production-readiness-audit", "exploratory-qa", "release-qa-gate",
+)
+REMOVED_AGENTS = (
+    # deleted
+    "laravel-module-builder", "inertia-module-builder", "atomic-module-converter", "audit-synthesizer",
+    "backend-extractor", "backend-module-builder", "contracts-author", "conversion-verifier", "data-flow-tracer",
+    "design-source-mirror", "edge-case-prober", "flow-walker", "frontend-module-builder", "frontend-rewirer",
+    "integration-tester", "module-behavior-snapshotter", "monorepo-bootstrapper", "portal-correctness-auditor",
+    "route-completeness-checker", "route-walker", "security-fixer", "security-inventory", "wiring-auditor",
+    # old names of renamed agents
+    "data-flow-real-vs-mock", "learn-from-frustration", "module-conversion-planner", "design-fidelity-auditor",
+)
+OLD_ARTIFACTS = (
+    "AUDIT.md", "SECURITY_INVENTORY.md", "SECURITY_FINDINGS.md", "SECURITY_FIX_PLAN.md", "READINESS.md",
+    "READINESS_CHECKLIST.md", "COMPLETENESS_REPORT.md", "QA_ENVIRONMENT.md", "QA_CONSISTENCY.md", "QA_PERFORMANCE.md",
+    "MAP.md", "INVENTORY.md", "CONVERSION_PLAN.md", "EXTRACTED_CONTRACTS.md", "FIDELITY_BASELINE.md", "SEED.md",
+    "last-audit-counts.md", "packages/contracts", "db:fresh", "test:security", "test:contract",
+)
+# `db:seed` is also Navree's own command (navree db:seed); only its use as a package script is old.
+OLD_PACKAGE_SEED = re.compile(r'(?:\b(?:pnpm|npm|yarn|bun)(?: run)? db:seed\b|"db:seed"\s*:)')
+OLD_STACK = re.compile(
+    r"NestJS|Nest\.js|nestjs|Laravel|Inertia|Bref|Sanctum|Eloquent|Fortify|Drizzle|CASL|BullMQ|Zustand|"
+    r"patchNestJsSwagger|Turborepo|InboxKit|Acme|Meridian"
+)
+RULE_PREFIXES = "BLD BE SEC NUI PRE NX FS PRO TAU SR AUD QA DBG LRN".split()
+AGENT_TOOLS = {"Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebFetch"}
+OUTSIDE_NAVREE_SKILLS = {"superdev-build", "superdev-done", "superdev-self-learning"}
 
 
-def read(p: Path) -> str:
-    return p.read_text(encoding="utf-8", errors="replace")
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8").replace("\r\n", "\n")
 
 
 def plugin_text_files() -> list[Path]:
-    return sorted(p for p in PLUGIN.rglob("*") if p.is_file() and p.suffix in TEXT_SUFFIXES)
+    return sorted(p for p in PLUGIN.rglob("*")
+                  if p.is_file() and p.suffix in {".md", ".json", ".mjs"} and "__pycache__" not in p.parts)
 
 
-def frontmatter(p: Path) -> dict[str, str]:
-    text = read(p)
-    m = re.match(r"^---\n(.*?)\n---", text, re.S)
-    assert m, f"{p} has no YAML frontmatter"
-    out: dict[str, str] = {}
-    for line in m.group(1).splitlines():
-        if ":" in line and not line.startswith((" ", "-")):
-            k, _, v = line.partition(":")
-            out[k.strip()] = v.strip()
-    return out
+def doc_files() -> list[Path]:
+    return [p for p in (ROOT / "README.md", ROOT / "INSTALL.md", ROOT / "CODEX.md", CLAUDE_MARKETPLACE, CODEX_MARKETPLACE) if p.exists()]
 
 
-class ConductorRemovedTests(unittest.TestCase):
-    def test_orchestrator_skill_gone_build_skill_present(self) -> None:
-        self.assertFalse((SKILLS / "prd-design-build-orchestrator").exists(),
-                         "conductor skill must be removed")
-        self.assertTrue((SKILLS / "superdev-build" / "SKILL.md").exists(),
-                        "lean superdev-build skill must replace it")
+def scanned() -> list[Path]:
+    return plugin_text_files() + doc_files()
 
-    def test_no_install_or_extraction_machinery(self) -> None:
-        leftovers = [str(p.relative_to(PLUGIN)) for p in PLUGIN.rglob("install-*-agents.sh")]
-        for name in ("qa-agents.md", "security-agents.md", "migration-agents.md", "extract-agent.py"):
-            leftovers += [str(p.relative_to(PLUGIN)) for p in PLUGIN.rglob(name)]
-        self.assertEqual([], leftovers)
 
-    def test_no_bash_hooks(self) -> None:
-        self.assertFalse((PLUGIN / "hooks").exists(),
-                         "bash hook machinery must be removed (explicit verify replaces it)")
-        self.assertTrue((PLUGIN / "scripts" / "verify-done.mjs").exists())
+def skill_dirs() -> list[Path]:
+    return sorted(p for p in SKILLS.iterdir() if p.is_dir())
 
-    def test_no_conductor_or_global_path_references(self) -> None:
-        bad: list[str] = []
-        for p in plugin_text_files() + [ROOT / "README.md", ROOT / "CODEX.md", ROOT / "INSTALL.md"]:
-            if not p.exists():
-                continue
-            t = read(p)
-            for needle in ("prd-design-build-orchestrator", "~/.claude/skills",
-                           ".superdev-orchestrating", "CLAUDE_PLUGIN_DIR",
-                           "install-core-agents", "install-qa-agents",
-                           "install-security-agents", "install-migration-agents"):
-                if needle in t:
-                    bad.append(f"{p.relative_to(ROOT)}: {needle}")
-        self.assertEqual([], bad, "\n" + "\n".join(bad[:30]))
 
-    @unittest.skipUnless(shutil.which("node"), "node not on PATH in this environment")
-    def test_verify_script_parses(self) -> None:
-        script = PLUGIN / "scripts" / "verify-done.mjs"
-        res = subprocess.run(["node", "--check", str(script)], capture_output=True, text=True)
-        self.assertEqual(0, res.returncode, res.stderr)
+def agent_files() -> list[Path]:
+    return sorted(AGENTS.glob("*.md"))
+
+
+def frontmatter(path: Path) -> tuple[dict[str, str], list[str]]:
+    """Top-level `key: value` pairs of the frontmatter, and every other line (continuations, indented lines)."""
+    m = re.match(r"---\n(.*?)\n---\n", read(path), re.S)
+    assert m, f"{path.relative_to(ROOT)} has no frontmatter"
+    keys: dict[str, str] = {}
+    other: list[str] = []
+    for line in m.group(1).split("\n"):
+        km = re.match(r"([A-Za-z0-9_-]+):(?: (.*))?$", line)
+        if km:
+            keys[km.group(1)] = (km.group(2) or "").strip()
+        else:
+            other.append(line)
+    return keys, other
+
+
+def rel(path: Path) -> str:
+    return path.relative_to(ROOT).as_posix()
+
+
+def yaml_problems(block: str) -> list[str]:
+    """Why a flat frontmatter block is not valid YAML, or [] when it is.
+
+    The built-in rules cover the failures a plain `key: value` header can have: a colon followed by a space
+    inside a plain value ("mapping values are not allowed here"), a ` #` that starts a comment, a value that
+    starts with a YAML indicator, a malformed quoted value, a duplicate key, or a line that is not a key. When
+    PyYAML is installed its parser must accept the block too and read every value as text.
+    """
+    problems: list[str] = []
+    seen: set[str] = set()
+    for line in block.split("\n"):
+        m = re.match(r"([A-Za-z0-9_-]+):(?: (.*))?$", line)
+        if not m:
+            problems.append(f"not a key: value line: {line[:60]!r}")
+            continue
+        key, value = m.group(1), (m.group(2) or "").strip()
+        if key in seen:
+            problems.append(f"duplicate key {key}")
+        seen.add(key)
+        if value[:1] == '"' and not re.fullmatch(r'"(?:[^"\\]|\\.)*"\s*(?:#.*)?', value):
+            problems.append(f"{key}: malformed double-quoted value")
+        elif value[:1] == "'" and not re.fullmatch(r"'(?:[^']|'')*'\s*(?:#.*)?", value):
+            problems.append(f"{key}: malformed single-quoted value")
+        elif value[:1] not in {'"', "'"}:
+            if value[:1] in set("[]{},&*!|>%@`#"):
+                problems.append(f"{key}: a plain value cannot start with {value[:1]!r}")
+            if ": " in value or value.endswith(":"):
+                problems.append(f"{key}: a colon followed by a space inside a plain value (mapping values are not allowed here)")
+            if " #" in value:
+                problems.append(f"{key}: ' #' starts a comment inside a plain value")
+    try:
+        import yaml
+    except ImportError:
+        return problems
+    try:
+        data = yaml.safe_load(block)
+    except yaml.YAMLError as error:
+        return problems + [f"PyYAML: {str(error).splitlines()[0]}"]
+    if not isinstance(data, dict) or not all(isinstance(v, str) for v in data.values()):
+        problems.append("PyYAML: every value must be read as text")
+    return problems
+
+
+def markdown_links(text: str) -> list[str]:
+    """Link targets of a Markdown text, ignoring fenced code and inline code."""
+    text = re.sub(r"^[ \t]*(```|~~~).*?^[ \t]*\1[^\n]*$", "", text, flags=re.S | re.M)
+    text = re.sub(r"`[^`\n]*`", "", text)
+    return [m.group(1).strip("<>") for m in re.finditer(r"\[[^\]\n]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)", text)]
+
+
+def hard_rules() -> list[tuple[int, str]]:
+    text = read(HARD_RULES)
+    return [(int(n), body) for n, body in re.findall(r"^### (\d+)\. (.*?)(?=^### |^## |\Z)", text, re.M | re.S)]
+
+
+def name_pattern(name: str) -> re.Pattern[str]:
+    return re.compile(rf"(?<![\w-]){re.escape(name)}(?![\w-])")
 
 
 class StructureTests(unittest.TestCase):
-    def test_skill_frontmatter_names_match_dirs(self) -> None:
-        for d in sorted(p for p in SKILLS.iterdir() if p.is_dir()):
-            fm = frontmatter(d / "SKILL.md")
-            self.assertEqual(d.name, fm.get("name"), f"{d.name}/SKILL.md name mismatch")
-            self.assertTrue(fm.get("description"), f"{d.name} missing description")
+    def test_skill_directories_equal_the_expected_set(self) -> None:
+        self.assertEqual(EXPECTED_SKILLS, {p.name for p in skill_dirs()})
+        for name in EXPECTED_SKILLS:
+            self.assertTrue((SKILLS / name / "SKILL.md").is_file(), f"{name}/SKILL.md")
 
-    def test_agent_frontmatter_names_match_files(self) -> None:
-        for p in sorted(AGENTS.glob("*.md")):
-            fm = frontmatter(p)
-            self.assertEqual(p.stem, fm.get("name"), f"{p.name} name mismatch")
+    def test_every_frontmatter_block_is_valid_yaml(self) -> None:
+        blocks = {md: re.match(r"---\n(.*?)\n---\n", read(md), re.S) for md in sorted(PLUGIN.rglob("*.md")) if read(md).startswith("---\n")}
+        self.assertGreaterEqual(len(blocks), len(EXPECTED_SKILLS) + len(EXPECTED_AGENTS))
+        for md, m in blocks.items():
+            with self.subTest(file=rel(md)):
+                self.assertIsNotNone(m, "the frontmatter block is never closed")
+                self.assertEqual([], yaml_problems(m.group(1)))
 
-    def test_relative_links_in_skills_resolve(self) -> None:
+    def test_the_yaml_check_refuses_what_breaks_a_header(self) -> None:
+        good = "name: x\ndescription: Use when a, b and c. Dispatched by y (step 2).\ntools: Read, Grep\nmodel: inherit"
+        self.assertEqual([], yaml_problems(good))
+        for bad in ("description: Use when it is: a trap", "description: Use when it ends with:", "description: Use when a #hash comment",
+                    "description: [a, b", 'description: "open', "description: *alias", "description one\nname: x", "name: x\nname: y"):
+            with self.subTest(block=bad):
+                self.assertNotEqual([], yaml_problems(bad))
+
+    def test_link_extraction_skips_code_spans_and_fenced_blocks(self) -> None:
+        text = "See [a](a.md) and `[b](b.md)`.\n\n```\n[c](c.md)\n```\n\n  ~~~md\n[d](d.md)\n  ~~~\n\n[e](e.md#top)\n"
+        self.assertEqual(["a.md", "e.md#top"], markdown_links(text))
+
+    def test_skill_frontmatter(self) -> None:
+        for d in skill_dirs():
+            with self.subTest(skill=d.name):
+                keys, other = frontmatter(d / "SKILL.md")
+                self.assertEqual({"name", "description"}, set(keys), "exactly the keys name and description")
+                self.assertEqual(d.name, keys["name"])
+                description = keys["description"]
+                self.assertEqual([], other, "the description is one line")
+                self.assertNotIn(description, {">", "|", ">-", "|-"}, "the description is one line")
+                self.assertTrue(description.startswith("Use when"), description)
+                self.assertLessEqual(len(description), 500)
+                self.assertFalse({"<", ">"} & set(description), "no angle brackets in a description")
+
+    def test_reference_files_equal_the_expected_set_and_are_linked(self) -> None:
+        for name, expected in EXPECTED_REFERENCES.items():
+            with self.subTest(skill=name):
+                folder = SKILLS / name
+                refs = folder / "references"
+                actual = {p.name for p in refs.rglob("*") if p.is_file()} if refs.exists() else set()
+                self.assertEqual(expected, actual)
+                self.assertEqual({"SKILL.md"} | ({"references"} if expected else set()), {p.name for p in folder.iterdir()},
+                                 "a skill folder holds SKILL.md and references/ only")
+                linked = {(folder / target.split("#")[0]).resolve() for target in markdown_links(read(folder / "SKILL.md"))
+                          if not target.startswith(("http://", "https://", "#", "mailto:"))}
+                for ref in expected:
+                    self.assertIn((refs / ref).resolve(), linked, f"SKILL.md links references/{ref}")
+
+    def test_agents_equal_the_expected_set(self) -> None:
+        self.assertEqual(EXPECTED_AGENTS, {p.stem for p in agent_files()})
+        self.assertEqual([], [p.name for p in AGENTS.iterdir() if p.suffix != ".md"])
+
+    def test_agent_frontmatter_and_sections(self) -> None:
+        for path in agent_files():
+            with self.subTest(agent=path.stem):
+                keys, other = frontmatter(path)
+                self.assertEqual({"name", "description", "tools", "model"}, set(keys), "exactly name, description, tools and model")
+                self.assertEqual([], other, "name, description, tools and model are one line each")
+                self.assertEqual(path.stem, keys["name"])
+                self.assertEqual("inherit", keys["model"])
+                tools = [t.strip() for t in keys["tools"].split(",")]
+                self.assertTrue(tools and set(tools) <= AGENT_TOOLS, f"tools {tools}")
+                description = keys["description"]
+                self.assertLessEqual(len(description.split()), 60, "a description is at most 60 words")
+                self.assertFalse({"<", ">"} & set(description))
+                self.assertIn("Dispatched by", description)
+                self.assertTrue(re.split(r"(?<=\.) ", description)[-1].startswith("Dispatched by"),
+                                "the description ends with its Dispatched by sentence")
+                text = read(path)
+                headings = [h for h in re.findall(r"^## (.+)$", text, re.M) if h in {"Inputs", "Steps", "Output", "Limits", "Return"}]
+                self.assertIn(headings, (["Inputs", "Steps", "Output", "Return"], ["Inputs", "Steps", "Output", "Limits", "Return"]),
+                              "the sections are Inputs, Steps, Output, an optional Limits, Return")
+                self.assertNotIn("${CLAUDE_PLUGIN_ROOT}", text, "callers pass absolute paths to agents")
+
+    def test_every_agent_is_named_in_backticks_by_a_skill(self) -> None:
+        skills_text = "\n".join(read(p) for p in SKILLS.rglob("*.md"))
+        for name in sorted(EXPECTED_AGENTS):
+            with self.subTest(agent=name):
+                self.assertIn(f"`{name}`", skills_text, "nothing dispatches this agent")
+
+    def test_an_agent_that_names_an_output_file_can_write_it(self) -> None:
+        for path in agent_files():
+            with self.subTest(agent=path.stem):
+                output = re.search(r"^## Output\n(.*?)(?=^## |\Z)", read(path), re.M | re.S)
+                self.assertIsNotNone(output)
+                if re.search(r"[\w./<>{}-]+\.(?:md|txt|json)\b", output.group(1)):
+                    keys, _ = frontmatter(path)
+                    self.assertIn("Write", [t.strip() for t in keys["tools"].split(",")])
+
+    def test_relative_links_resolve(self) -> None:
         broken: list[str] = []
-        for skill_md in SKILLS.rglob("SKILL.md"):
-            for target in re.findall(r"\]\(([^)]+)\)", read(skill_md)):
-                target = target.split("#")[0].strip()
-                if not target or target.startswith(("http://", "https://", "#", "mailto:")):
+        for md in sorted(PLUGIN.rglob("*.md")):
+            for target in markdown_links(read(md)):
+                target = target.split("#")[0]
+                if not target or target.startswith(("http://", "https://", "mailto:")) or "${" in target:
                     continue
-                if not (skill_md.parent / target).resolve().exists():
-                    broken.append(f"{skill_md.relative_to(ROOT)} -> {target}")
+                if not (md.parent / target).resolve().exists():
+                    broken.append(f"{rel(md)} -> {target}")
         self.assertEqual([], broken, "\n" + "\n".join(broken[:30]))
 
-    def test_manifests_agree_and_counts_match_disk(self) -> None:
-        claude_manifest = json.loads(read(PLUGIN / ".claude-plugin" / "plugin.json"))
-        codex_manifest = json.loads(read(PLUGIN / ".codex-plugin" / "plugin.json"))
-        self.assertEqual(claude_manifest["version"], codex_manifest["version"])
-        n_skills = len([p for p in SKILLS.iterdir() if p.is_dir()])
-        n_agents = len(list(AGENTS.glob("*.md")))
-        for label, text in (("claude plugin.json", claude_manifest["description"]),
-                            ("codex plugin.json", codex_manifest["description"]),
-                            ("README.md", read(ROOT / "README.md")),
-                            ("plugin README.md", read(PLUGIN / "README.md"))):
-            ms = re.search(r"(\d+)\s+skills", text)
-            ma = re.search(r"(\d+)\s+(?:specialized\s+)?(?:sub)?agents", text)
-            self.assertIsNotNone(ms, f"{label}: no skill count stated")
-            self.assertIsNotNone(ma, f"{label}: no agent count stated")
-            self.assertEqual(n_skills, int(ms.group(1)), f"{label}: skill count stale")
-            self.assertEqual(n_agents, int(ma.group(1)), f"{label}: agent count stale")
+    def test_plugin_layout(self) -> None:
+        self.assertFalse((PLUGIN / "hooks").exists(), "the plugin has no hooks")
+        self.assertTrue(SCRIPT.is_file())
+        self.assertEqual({".claude-plugin", ".codex-plugin", "README.md", "agents", "scripts", "skills"},
+                         {p.name for p in PLUGIN.iterdir()})
+        self.assertEqual(["verify-done.mjs"], [p.name for p in (PLUGIN / "scripts").iterdir()])
+        self.assertFalse((ROOT / "docs" / "superpowers").exists())
 
-    def test_zip_matches_plugin_tree(self) -> None:
-        zpath = ROOT / "superdev.zip"
-        self.assertTrue(zpath.exists())
-        with zipfile.ZipFile(zpath) as z:
-            names = {n.replace("\\", "/").lstrip("./") for n in z.namelist() if not n.endswith("/")}
-        on_disk = {str(p.relative_to(PLUGIN)).replace("\\", "/")
-                   for p in PLUGIN.rglob("*") if p.is_file()}
-        # zip may use a top-level folder prefix; normalize by stripping it if present
-        if names and not names & on_disk:
-            prefix = sorted(names)[0].split("/")[0] + "/"
-            names = {n[len(prefix):] if n.startswith(prefix) else n for n in names}
-        self.assertEqual(on_disk, names,
-                         f"zip drift: only-disk={sorted(on_disk - names)[:10]} only-zip={sorted(names - on_disk)[:10]}")
+    @unittest.skipUnless(shutil.which("node"), "node is not on PATH; the syntax check of verify-done.mjs needs it")
+    def test_verify_script_parses(self) -> None:
+        res = subprocess.run(["node", "--check", str(SCRIPT)], capture_output=True, text=True)
+        self.assertEqual(0, res.returncode, res.stderr)
 
 
-class HardLearnedRulesTests(unittest.TestCase):
-    def test_nestjs_recipes_do_not_teach_patch_nestjs_swagger(self) -> None:
-        # Mentions in warnings are fine; an executable call or import is not.
-        call = re.compile(r"^\s*patchNestJsSwagger\(\);|import\s*\{[^}]*patchNestJsSwagger", re.M)
-        offenders = [str(p.relative_to(ROOT)) for p in (SKILLS / "nestjs-enterprise-backend").rglob("*.md")
-                     if call.search(read(p))]
-        self.assertEqual([], offenders)
+class VersionAndCountTests(unittest.TestCase):
+    def changelog_version(self) -> str:
+        m = re.search(r"^## v(\d+\.\d+\.\d+) — ", read(ROOT / "CHANGELOG.md"), re.M)
+        self.assertIsNotNone(m, "CHANGELOG.md starts with a heading `## vX.Y.Z — date`")
+        return m.group(1)
 
-    def test_hard_rules_cover_the_recurring_failures(self) -> None:
-        hard = read(SKILLS / "superdev-build" / "references" / "hard-rules.md")
-        for needle in ("node apps/api/dist/main.js", "patchNestJsSwagger", "CommonJS",
-                       "audit_log", "base-nova", "contracts", "pg_advisory_xact_lock",
-                       "Idempotency-Key", "same transaction", "adb", "session row"):
-            self.assertIn(needle, hard, f"hard-rules.md must cover: {needle}")
+    def test_versions_agree(self) -> None:
+        version = self.changelog_version()
+        self.assertEqual(version, json.loads(read(CLAUDE_MANIFEST))["version"])
+        self.assertEqual(version, json.loads(read(CODEX_MANIFEST))["version"])
+        self.assertEqual(version, json.loads(read(CLAUDE_MARKETPLACE))["plugins"][0]["version"])
+        self.assertIn(version, read(ROOT / "README.md"))
+        self.assertIn(version, "\n".join(read(SCRIPT).split("\n")[:5]), "the header of verify-done.mjs names the version")
+
+    def count_texts(self) -> dict[str, str]:
+        claude, codex, market = (json.loads(read(p)) for p in (CLAUDE_MANIFEST, CODEX_MANIFEST, CLAUDE_MARKETPLACE))
+        texts = {rel(p): read(p) for p in (ROOT / "README.md", PLUGIN / "README.md", ROOT / "INSTALL.md", ROOT / "CODEX.md")}
+        texts["claude plugin.json description"] = claude["description"]
+        texts["codex plugin.json description"] = codex["description"]
+        texts["codex interface.longDescription"] = codex["interface"]["longDescription"]
+        texts["marketplace description"] = market["description"]
+        texts["marketplace plugins[0].description"] = market["plugins"][0]["description"]
+        return texts
+
+    def test_counts_written_in_documents_equal_the_counts_on_disk(self) -> None:
+        skills, agents, rules = len(skill_dirs()), len(agent_files()), len(hard_rules())
+        for label, text in self.count_texts().items():
+            with self.subTest(text=label):
+                for pattern, expected in ((r"(\d+)\s+skills\b", skills), (r"(\d+)\s+agents\b", agents), (r"(\d+)\s+hard rules\b", rules)):
+                    for found in re.findall(pattern, text):
+                        self.assertEqual(expected, int(found), f"{found} stated, {expected} on disk ({pattern})")
+
+    def test_the_main_documents_state_the_skill_and_agent_counts(self) -> None:
+        texts = self.count_texts()
+        for label in ("README.md", "plugins/superdev/README.md", "claude plugin.json description"):
+            with self.subTest(text=label):
+                self.assertTrue(re.search(r"\d+\s+skills\b", texts[label]), "no skill count")
+                self.assertTrue(re.search(r"\d+\s+agents\b", texts[label]), "no agent count")
+
+    def test_documents_list_every_skill_and_agent(self) -> None:
+        readme, plugin_readme = read(ROOT / "README.md"), read(PLUGIN / "README.md")
+        for name in sorted(EXPECTED_SKILLS):
+            self.assertIn(name, readme, f"README.md lists the skill {name}")
+        for name in sorted(EXPECTED_AGENTS):
+            self.assertIn(name, plugin_readme, f"plugins/superdev/README.md lists the agent {name}")
 
 
-class PublicGuidanceTests(unittest.TestCase):
-    def test_hard_rules_have_scope_and_verification(self) -> None:
-        hard = read(SKILLS / "superdev-build" / "references" / "hard-rules.md")
-        rules = re.findall(r"^### (\d+)\. (.*?)(?=^### |^## |\Z)", hard, re.M | re.S)
-        self.assertEqual(list(range(1, 19)), [int(number) for number, _ in rules])
-        for number, rule in rules:
+class HardRulesTests(unittest.TestCase):
+    def test_rules_are_numbered_without_gaps_with_scope_and_verify(self) -> None:
+        rules = hard_rules()
+        self.assertEqual(list(range(1, EXPECTED_HARD_RULES + 1)), [n for n, _ in rules])
+        for number, body in rules:
             with self.subTest(rule=number):
-                self.assertIn("**Scope:**", rule)
-                self.assertIn("**Verify:**", rule)
+                self.assertIn("**Scope:**", body)
+                self.assertIn("**Verify:**", body)
 
-    def test_public_guidance_has_no_case_study_attribution(self) -> None:
-        paths = [ROOT / "README.md", PLUGIN / "README.md", ROOT / "CHANGELOG.md",
-                 SKILLS / "superdev-build" / "SKILL.md",
-                 SKILLS / "superdev-build" / "references" / "hard-rules.md",
-                 SKILLS / "superdev-self-learning" / "SKILL.md"]
-        attribution = re.compile(
-            r"projects built with it\s*\(|learned on [A-Z][\w-]+|"
-            r"\b\d+ (?:unit|audit decorators)|\bWave \d+,", re.M)
-        for path in paths:
-            with self.subTest(path=str(path.relative_to(ROOT))):
-                self.assertIsNone(attribution.search(read(path)))
+    def test_domains_are_example_domains(self) -> None:
+        for m in re.finditer(r"\b(?:[a-z0-9-]+\.)+(?:com|org|net|io)\b", read(HARD_RULES), re.I):
+            self.assertRegex(m.group(0).lower(), r"(?:^|\.)example\.(?:com|org|net|io)$", m.group(0))
 
-    def test_hard_rule_domains_are_generic(self) -> None:
-        hard = read(SKILLS / "superdev-build" / "references" / "hard-rules.md")
-        domains = re.findall(r"\b(?:[a-z0-9-]+\.)+(?:com|org|net|io)\b", hard, re.I)
-        for domain in domains:
-            self.assertIn(domain.lower(), {"example.com", "example.org", "example.net"})
+    def test_rules_cover_the_traps(self) -> None:
+        text = read(HARD_RULES)
+        needles = (
+            "navree skills:install", "navree new", "#[public]", "&Uow", "validation_failed", "422", "APP_*",
+            "config/app.toml", ".env", "#[model(workspace)]", "RlsPolicy", "SQLite", "MySQL", "AuditModule",
+            "navree check", "navree migrate", "navree dock up", "Navree UI gaps", "migrate_on_boot", "openapi:export",
+            "Idempotency-Key", "pg_advisory_xact_lock", "send_stream()", "adb", "base_commit",
+        )
+        for needle in needles:
+            self.assertIn(needle, text, f"hard-rules.md must cover {needle}")
+
+    def test_rule_ids_are_defined_once_and_every_citation_is_defined(self) -> None:
+        prefixes = "|".join(RULE_PREFIXES)
+        defined: dict[str, list[str]] = {}
+        text_by_file = {rel(p): read(p) for p in plugin_text_files()}
+        for name, text in text_by_file.items():
+            for m in re.finditer(rf"\*\*({prefixes})-(\d+)\*\*", text):
+                defined.setdefault(f"{m.group(1)}-{m.group(2)}", []).append(name)
+        self.assertEqual({}, {k: v for k, v in defined.items() if len(v) != 1}, "each rule id is defined exactly once")
+        cited = {(m.group(0), name) for name, text in text_by_file.items() for m in re.finditer(rf"\b(?:{prefixes})-\d+\b", text)}
+        self.assertEqual([], sorted(f"{name}: {rule_id}" for rule_id, name in cited if rule_id not in defined))
+        count = len(hard_rules())
+        too_high = []
+        for name, text in text_by_file.items():
+            for m in re.finditer(r"hard rules? (\d+(?:(?:,| and| or| to|, and)? \d+)*)", text, re.I):
+                too_high += [f"{name}: {n}" for n in map(int, re.findall(r"\d+", m.group(1))) if n > count]
+        self.assertEqual([], too_high, "a cited hard rule does not exist")
 
 
-class ClientsSecurityQaTests(unittest.TestCase):
-    """v2.1: Tauri clients, the build-time security layer, and the release QA gate."""
+class BuildSkillTests(unittest.TestCase):
+    def test_superdev_build_has_ten_steps_in_order_and_names_the_key_commands(self) -> None:
+        text = read(SKILLS / "superdev-build" / "SKILL.md")
+        self.assertEqual(list(range(1, 11)), [int(n) for n in re.findall(r"^## Step (\d+)\. ", text, re.M)])
+        for needle in ("navree skills:install", "STACK.md", "contracts/", "navree migrate:fresh --seed",
+                       "verify-done.mjs --suites --strict", "${CLAUDE_PLUGIN_ROOT}"):
+            self.assertIn(needle, text)
 
-    NEW_SKILLS = ("design-to-tauri", "security-foundation", "release-qa-gate")
-    NEW_AGENTS = ("mobile-qa-tester", "a11y-contrast-auditor", "role-matrix-tester",
-                  "money-integrity-prober", "realtime-prober", "link-crawler")
-
-    def test_new_skills_and_agents_exist(self) -> None:
-        for name in self.NEW_SKILLS:
-            with self.subTest(skill=name):
-                fm = frontmatter(SKILLS / name / "SKILL.md")
-                self.assertTrue(fm["description"].startswith("Use when"),
-                                f"{name}: description must state when to use it")
-        for name in self.NEW_AGENTS:
-            with self.subTest(agent=name):
-                self.assertTrue((AGENTS / f"{name}.md").exists())
-
-    def test_build_skill_wires_clients_security_and_qa(self) -> None:
-        build = read(SKILLS / "superdev-build" / "SKILL.md")
-        for needle in ("design-to-tauri", "security-foundation", "release-qa-gate", "clients", "--suites"):
-            self.assertIn(needle, build, f"superdev-build must reference {needle}")
-
-    def test_security_foundation_covers_the_controls(self) -> None:
-        refs = SKILLS / "security-foundation" / "references"
-        text = "\n".join(read(p) for p in refs.glob("*.md"))
-        for needle in ("every request", "reuse", "recovery codes", "WebAuthn", "masked",
-                       "escalation", "pg_advisory_xact_lock", "Idempotency-Key", "pg_notify",
-                       "test:security"):
-            self.assertIn(needle, text, f"security-foundation must cover: {needle}")
-
-    def test_release_gate_requires_cited_evidence(self) -> None:
-        gate = read(SKILLS / "release-qa-gate" / "SKILL.md")
-        for needle in ("QA_COVERAGE.md", "NOT RUN", "contrast", "dead", "role", "device", "--strict", "db:fresh"):
+    def test_the_qa_gate_names_its_owners_and_its_statuses(self) -> None:
+        gate = read(SKILLS / "product-qa" / "SKILL.md")
+        for needle in ("QA_COVERAGE.md", "NOT RUN"):
             self.assertIn(needle, gate)
-
-    def test_release_gate_names_an_owner_for_every_dimension(self) -> None:
-        gate = read(SKILLS / "release-qa-gate" / "SKILL.md")
-        for agent in (*self.NEW_AGENTS, "qa-flow-tester", "qa-consistency-checker", "qa-performance-prober"):
+        for agent in GATE_AGENTS:
             with self.subTest(agent=agent):
                 self.assertIn(f"`{agent}`", gate)
-                self.assertTrue((AGENTS / f"{agent}.md").exists())
+                self.assertTrue((AGENTS / f"{agent}.md").is_file())
 
-    def test_build_defines_the_fresh_seed_the_gate_uses(self) -> None:
-        build = read(SKILLS / "superdev-build" / "SKILL.md")
-        for needle in ("db:seed", "db:fresh", "--strict"):
-            self.assertIn(needle, build)
+    def test_security_foundation_names_the_committed_suites(self) -> None:
+        folder = SKILLS / "security-foundation"
+        text = "\n".join(read(p) for p in [folder / "SKILL.md", *sorted((folder / "references").glob("*.md"))])
+        for suite in ("tests/security.rs", "tests/access.rs", "tests/isolation.rs", "tests/money.rs", "tests/live.rs"):
+            self.assertIn(suite, text)
 
-    def test_stack_recipes_defer_identity_to_security_foundation(self) -> None:
-        for path in (SKILLS / "nestjs-enterprise-backend" / "references" / "auth-casl.md",
-                     SKILLS / "nestjs-enterprise-backend" / "SKILL.md",
-                     SKILLS / "laravel-enterprise-backend" / "SKILL.md",
-                     SKILLS / "design-to-nextjs" / "SKILL.md"):
-            with self.subTest(path=str(path.relative_to(ROOT))):
-                self.assertIn("security-foundation", read(path))
+    def test_navree_skill_names_are_real_and_every_skill_uses_one(self) -> None:
+        agent_names = {p.stem for p in agent_files()}
+        unknown = []
+        for path in plugin_text_files():
+            for token in re.findall(r"`(navree-[a-z0-9-]+)`", read(path)):
+                if token not in NAVREE_SKILLS and token not in agent_names:
+                    unknown.append(f"{rel(path)}: {token}")
+        self.assertEqual([], unknown, "a backticked navree-* name is neither a Navree skill nor a superdev agent")
+        for d in skill_dirs():
+            if d.name in OUTSIDE_NAVREE_SKILLS:
+                continue
+            with self.subTest(skill=d.name):
+                used = {t for p in d.rglob("*.md") for t in re.findall(r"`(navree(?:-[a-z0-9-]+)?)`", read(p)) if t in NAVREE_SKILLS}
+                self.assertTrue(used, "the skill names no Navree skill")
 
 
-@unittest.skipUnless(shutil.which("node"), "node not on PATH in this environment")
-class VerifyDoneTauriTests(unittest.TestCase):
-    """Behavioural: the shell checks fail an open Tauri config and pass a locked-down one."""
+class VocabularyTests(unittest.TestCase):
+    def test_status_and_severity_words(self) -> None:
+        severity = "Critical|High|Medium|Low|Info"
+        banned = [
+            ("[SKIP]", re.compile(r"\[SKIP\]")), ("[WARN]", re.compile(r"\[WARN\]")), ("N/A", re.compile(r"N/A")),
+            ("P0 to P3", re.compile(r"\bP[0-3]\b")), ("old status word", re.compile(r"\b(?:GRACEFUL|DEGRADED|BROKEN)\b")),
+            ("old severity in a table cell", re.compile(rf"\|\s*(?:{severity})\s*\|")),
+            ("old severity after the word severity", re.compile(rf"(?i:severity).{{0,40}}\b(?:{severity})\b")),
+        ]
+        found = [f"{rel(p)}: {name}" for p in scanned() for name, pattern in banned if pattern.search(read(p))]
+        self.assertEqual([], found)
 
-    LOCKED_CONF = {"app": {"security": {"csp": {"default-src": "'self'"}}}}
-    STRIPPED_CARGO = '[dependencies]\ntauri = { version = "2", features = [] }\n\n[profile.release]\nstrip = true\n'
+    def test_no_filler(self) -> None:
+        insensitive = re.compile(r"brutal|holy grail|iron law|world-class|non-negotiable|no exceptions", re.I)
+        exact = re.compile(r"CRITICAL|MANDATORY")
+        role_play = re.compile(r"^You are\b", re.M)
+        symbols = re.compile("[☀-➿\U0001f300-\U0001faff]")
+        found = []
+        for p in scanned():
+            text = read(p)
+            for name, pattern in (("filler word", insensitive), ("capital filler", exact), ("role-play opening", role_play), ("emoji or symbol", symbols)):
+                m = pattern.search(text)
+                if m:
+                    found.append(f"{rel(p)}: {name}: {m.group(0)!r}")
+        self.assertEqual([], found)
 
-    def run_on(self, conf: dict, capability: dict, cargo: str, *extra: str) -> subprocess.CompletedProcess[str]:
-        import tempfile
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        app = Path(tmp.name) / "apps" / "mobile"
-        tauri = app / "src-tauri"
-        (tauri / "capabilities").mkdir(parents=True)
-        (app / "package.json").write_text('{"name": "mobile", "scripts": {}}', encoding="utf-8")
-        (tauri / "tauri.conf.json").write_text(json.dumps(conf), encoding="utf-8")
-        (tauri / "capabilities" / "default.json").write_text(json.dumps(capability), encoding="utf-8")
-        (tauri / "Cargo.toml").write_text(cargo, encoding="utf-8")
-        return subprocess.run(["node", str(PLUGIN / "scripts" / "verify-done.mjs"), "--root", tmp.name,
-                               "--skip-build", "--skip-boot", *extra],
-                              capture_output=True, text=True, encoding="utf-8", timeout=120)
+    def test_removed_names_appear_nowhere_in_the_plugin_or_its_documents(self) -> None:
+        patterns = [(n, name_pattern(n)) for n in REMOVED_SKILLS + REMOVED_AGENTS + OLD_ARTIFACTS]
+        patterns.append(("db:seed as a package script", OLD_PACKAGE_SEED))
+        found = []
+        for p in scanned():
+            text = read(p)
+            found += [f"{rel(p)}: {name}" for name, pattern in patterns if pattern.search(text)]
+        self.assertEqual([], found)
 
-    @staticmethod
-    def http(*urls: str) -> dict:
-        return {"identifier": "default",
-                "permissions": [{"identifier": "http:default", "allow": [{"url": u} for u in urls]}]}
+    def test_old_stack_names_appear_only_where_version_2_1_0_is_named(self) -> None:
+        found = []
+        for p in scanned():
+            lines = read(p).split("\n")
+            for i, line in enumerate(lines):
+                if not OLD_STACK.search(line):
+                    continue
+                allowed = False
+                if p.name in {"README.md", "INSTALL.md"} and p.parent == ROOT:
+                    next_line = next((n for n in lines[i + 1:] if n.strip()), "")
+                    allowed = "2.1.0" in line or (line.startswith("#") and "2.1.0" in next_line)
+                if not allowed:
+                    found.append(f"{rel(p)}:{i + 1}: {line.strip()[:80]}")
+        self.assertEqual([], found)
 
-    def test_open_shell_fails(self) -> None:
-        res = self.run_on({"app": {"security": {"csp": None}}},
-                          {"permissions": [{"identifier": "http:default", "allow": [{"url": "https://*"}]}]},
-                          '[dependencies]\ntauri = { version = "2", features = ["devtools"] }\n')
-        self.assertEqual(1, res.returncode, res.stdout)
-        for needle in ("CSP", "HTTP capability scope", "devtools"):
-            self.assertIn(needle, res.stdout)
 
-    def test_locked_down_shell_passes(self) -> None:
-        res = self.run_on({"app": {"security": {"csp": {"default-src": "'self'"}}}},
-                          {"permissions": [{"identifier": "http:default", "allow": [{"url": "https://api.example.com/*"}]}]},
-                          '[dependencies]\ntauri = { version = "2", features = [] }\n')
-        self.assertEqual(0, res.returncode, res.stdout)
-        self.assertIn("CSP set", res.stdout)
-
-    def test_host_wildcards_and_remote_cleartext_fail(self) -> None:
-        for url in ("https://*.example.com/*", "http://*:4100/*", "*"):
-            with self.subTest(url=url):
-                res = self.run_on(self.LOCKED_CONF, self.http(url), self.STRIPPED_CARGO)
-                self.assertEqual(1, res.returncode, res.stdout)
-                self.assertIn("[FAIL]", res.stdout)
-        res = self.run_on(self.LOCKED_CONF, self.http("http://api.example.com/*"), self.STRIPPED_CARGO)
-        self.assertEqual(1, res.returncode, res.stdout)
-        self.assertIn("cleartext API origin", res.stdout)
-
-    def test_opener_scope_may_use_https_wildcard(self) -> None:
-        cap = self.http("https://api.example.com/*")
-        cap["permissions"].append({"identifier": "opener:allow-open-url", "allow": [{"url": "https://*"}]})
-        res = self.run_on(self.LOCKED_CONF, cap, self.STRIPPED_CARGO)
-        self.assertEqual(0, res.returncode, res.stdout)
-
-    def test_csp_without_default_src_or_with_any_origin_fails(self) -> None:
-        for csp in ({}, {"script-src": "'self'"}, "default-src 'self'; connect-src 'self' https:"):
-            with self.subTest(csp=csp):
-                res = self.run_on({"app": {"security": {"csp": csp}}}, self.http("https://api.example.com/*"),
-                                  self.STRIPPED_CARGO)
-                self.assertEqual(1, res.returncode, res.stdout)
-                self.assertIn("CSP", res.stdout)
-
-    def test_devtools_in_a_dependency_table_fails(self) -> None:
-        res = self.run_on(self.LOCKED_CONF, self.http("https://api.example.com/*"),
-                          '[dependencies.tauri]\nversion = "2"\nfeatures = ["devtools"]\n')
-        self.assertEqual(1, res.returncode, res.stdout)
-        self.assertIn("devtools", res.stdout)
-
-    def test_debug_origins_in_release_warn_and_fail_strict(self) -> None:
-        cap = self.http("https://api.example.com/*", "http://10.0.2.2:4100/*")
-        res = self.run_on(self.LOCKED_CONF, cap, self.STRIPPED_CARGO)
-        self.assertEqual(0, res.returncode, res.stdout)
-        self.assertIn("[WARN]", res.stdout)
-        self.assertIn("not a release claim", res.stdout)
-        strict = self.run_on(self.LOCKED_CONF, cap, self.STRIPPED_CARGO, "--strict")
-        self.assertEqual(1, strict.returncode, strict.stdout)
-        self.assertIn("NOT DONE (--strict)", strict.stdout)
-
-    def test_debug_origins_outside_the_release_set_are_fine(self) -> None:
-        conf = {"app": {"security": {"csp": {"default-src": "'self'"}, "capabilities": ["release-only"]}}}
-        cap = self.http("http://10.0.2.2:4100/*")  # identifier "default" is not in the release list
-        res = self.run_on(conf, cap, self.STRIPPED_CARGO)
-        self.assertEqual(0, res.returncode, res.stdout)
-        self.assertNotIn("debug origins", res.stdout)
+class PackageTests(unittest.TestCase):
+    def test_the_committed_archive_matches_the_tree(self) -> None:
+        tool = ROOT / "tools" / "build_zip.py"
+        self.assertTrue(tool.is_file())
+        res = subprocess.run([sys.executable, str(tool), "--check"], capture_output=True, text=True, encoding="utf-8",
+                             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertEqual(0, res.returncode, res.stdout + res.stderr)
 
 
 if __name__ == "__main__":

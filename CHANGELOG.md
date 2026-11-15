@@ -2,6 +2,56 @@
 
 All notable changes to Superdev are documented here. Releases are annotated git tags (`vX.Y.Z`) on `main`; from v2.0.0 they are also published as GitHub Releases with the packaged `superdev.zip` attached.
 
+## v3.0.0 — 2026-11-15
+
+Superdev now builds products on Navree, a Rust application framework, with Navree UI screens or a Next.js front end on the Navree API, and optional Tauri clients. Navree's own skills hold the framework facts; superdev keeps the order of work, the files on disk, the rules and the proofs, and names the Navree skill and command for each fact. NestJS and Laravel are no longer supported; version 2.1.0 stays available for them, and a project already on 2.1.0 pins its marketplace to `v2.1.0` (below) so an update does not bring 3.0.0.
+
+Status: 3.0.0 has been checked by its tests and by reading against Navree's documentation and source, and its done check has been tested against stand-ins of the Navree CLI; it has not yet been used to build an app end to end.
+
+### Changed
+
+- `superdev-build` runs ten steps: Navree and the app, digests, plan, foundation, contracts, modules, audits, QA gate, deployment, done. The app is created with `navree new` (or an existing Navree app is taken as it is) and Navree's skills are installed before any other file; `STACK.md` records the exact `navree new` line, the front end, the database and `base_commit`.
+- A module's contract is `contracts/<module>.md`, agreed by the operator, and then the module's first commit: models, request types with their validation, list specs, and every route with its access declaration. For a Next.js front end it adds the generated OpenAPI document and TypeScript types. The shared contracts package is gone.
+- Every step has a proof; each module's proofs are quoted in the `## Build order` table of `EXECUTION_PLAN.md`. `AUDIT.md` is now `GAPS.md`.
+- The hard rules are rewritten for Navree: 25 rules, each with its scope and the check that proves it.
+- One severity scale (`Blocker`, `Major`, `Minor`, `Note`), one set of check results (`PASS`, `FAIL`, `NOT RUN`), one list of artifact names and one order of steps across every skill and agent, defined in `superdev-build/references/artifacts.md`.
+- `security-foundation` says, for each control, what Navree provides, what the app still builds and the committed test that proves it. Sign-out and revocation follow the client: a Navree UI browser session ends at once, a token client's refresh is refused at once and its access token ends within its lifetime; staff are global roles, not a separate user table.
+- `verify-done.mjs` runs Navree's checks: `navree --version` against `STACK.md`, the installed skills, `cargo fmt`, `cargo clippy`, `cargo test`, `navree check`, `navree config:check`, the release build and its health routes. It checks the Next.js front end only when `STACK.md` says so (a missing `lint` or `test` script is `NOT RUN`), keeps the Tauri checks, and adds the checks `Navree UI raw markup`, `Navree UI gap rows` and `public routes`. Its suppression sweep diffs against `base_commit` instead of `HEAD`, so a committed suppression now fails, and it also reads lint settings in configuration files. Suite lines in `STACK.md` must be `cargo test` commands, and a missing `STACK.md` or an empty `test_database_url` for a server database fails. It has `--help`, `--base`, exit code 2 for usage errors, and the labels `PASS`, `FAIL` and `NOT RUN`.
+- Agents have four frontmatter keys (`name`, `description`, `tools`, `model`) and receive absolute paths from the skill that dispatches them. Renamed: `data-flow-real-vs-mock` to `data-source-auditor`, `learn-from-frustration` to `lesson-writer`, `module-conversion-planner` to `refactor-planner`, `design-fidelity-auditor` to `visual-diff-auditor`.
+- The tests read counts from disk and are written to pass on Linux and Windows (run on Windows so far); text files are stored with LF line endings.
+- `superdev.zip` is built by `tools/build_zip.py`.
+- The installer's `--verify` looks for the plugin id `superdev@superdev`.
+
+### Added
+
+- Skills `backend-on-navree`, `design-to-navree-ui`, `product-audit` (inventory, completeness and score modes), `product-qa` (explore and gate modes), `frontend-structure` and `prototype-to-navree`.
+- Agents `navree-app-bootstrapper`, `navree-module-builder`, `navree-ui-screen-builder` and `nextjs-module-builder`.
+- The gap rule for Navree UI: a missing component is composed from Navree UI components or proposed to Navree, never drawn with hand-written markup, a stylesheet or a script; Navree UI's raw building blocks serve only stored rich text, the app's own fixed images and icons, and token-only stylesheets, each named in a gap row and checked by `verify-done.mjs`.
+- The deploy checklist, `superdev-build/references/deploy-checklist.md`, for Harbor, a container image or processes set up by hand.
+
+### Removed
+
+- `nestjs-enterprise-backend`.
+- `laravel-enterprise-backend`, `design-to-laravel`, `laravel-bref-deploy`, the Inertia variants, and the builders `laravel-module-builder` and `inertia-module-builder`.
+- `brutal-exhaustive-audit`, `product-completeness-audit` and `production-readiness-audit`, merged into `product-audit`; `exploratory-qa` and `release-qa-gate`, merged into `product-qa`; `frontend-modular-architecture` and `frontend-refactoring`, merged into `frontend-structure`; `prototype-to-saas`, replaced by `prototype-to-navree`.
+- 23 agents, merged into others or no longer dispatched: `atomic-module-converter`, `audit-synthesizer`, `backend-extractor`, `backend-module-builder`, `contracts-author`, `conversion-verifier`, `data-flow-tracer`, `design-source-mirror`, `edge-case-prober`, `flow-walker`, `frontend-module-builder`, `frontend-rewirer`, `integration-tester`, `module-behavior-snapshotter`, `monorepo-bootstrapper`, `portal-correctness-auditor`, `route-completeness-checker`, `route-walker`, `security-fixer`, `security-inventory`, `wiring-auditor`, and the two Laravel builders.
+- The dual-mode demo adapter and mock routes: demos run on the real app with the seed.
+- The `db:seed` and `db:fresh` package scripts: `navree migrate:fresh --seed` resets the data.
+- `docs/superpowers/`, the plans and specs of earlier versions.
+- The installer's `--enable-teams` flag.
+- The hard rules for NestJS, Drizzle and the shadcn backing library; the shadcn check lives in `design-to-nextjs`.
+
+### Staying on 2.1.0
+
+NestJS and Laravel projects keep version 2.1.0. Install it in such a project with:
+
+```shell
+claude plugin marketplace add boparaiamrit/superdev#v2.1.0 --scope project
+claude plugin install superdev@superdev --scope project
+```
+
+A project already on 2.1.0 added the marketplace without the pin: uninstall superdev from the project (`claude plugin uninstall superdev@superdev --scope project`, as the helper's `--uninstall` does), then run the two lines above. `INSTALL.md` has the steps.
+
 ## v2.1.0 — 2026-10-25
 
 Native clients, security built in from bootstrap, and a release QA gate where every coverage cell cites evidence.

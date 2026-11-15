@@ -12,8 +12,8 @@ PROJECT_ROOT=""
 SETTINGS_FILE=""
 
 log_info() { printf '[*] %s\n' "$*"; }
-log_success() { printf '[✓] %s\n' "$*"; }
-log_error() { printf '[✗] %s\n' "$*" >&2; }
+log_success() { printf '[ok] %s\n' "$*"; }
+log_error() { printf '[error] %s\n' "$*" >&2; }
 
 fail() {
   log_error "$*"
@@ -99,9 +99,17 @@ except json.JSONDecodeError as error:
     print(f"Claude returned invalid plugin JSON: {error}", file=sys.stderr)
     raise SystemExit(1)
 
-serialized = json.dumps(payload)
-if plugin_id not in serialized and "superdev" not in serialized:
-    print("Claude did not report Superdev in the project plugin list.", file=sys.stderr)
+
+def has_plugin_id(node):
+    if isinstance(node, dict):
+        return any(has_plugin_id(value) for value in node.values())
+    if isinstance(node, list):
+        return any(has_plugin_id(item) for item in node)
+    return node == plugin_id
+
+
+if not has_plugin_id(payload):
+    print(f"Claude did not report {plugin_id} in the project plugin list.", file=sys.stderr)
     raise SystemExit(1)
 PY
 }
@@ -136,39 +144,6 @@ uninstall_plugin() {
 
   claude plugin uninstall "$PLUGIN_ID" --scope project
   log_success "Superdev was removed from project scope: $PROJECT_ROOT"
-}
-
-enable_agent_teams() {
-  require_python
-  validate_existing_settings
-  mkdir -p "$(dirname "$SETTINGS_FILE")"
-
-  python3 - "$SETTINGS_FILE" <<'PY'
-import json
-import os
-import sys
-from pathlib import Path
-
-settings_path = Path(sys.argv[1])
-if settings_path.exists():
-    settings = json.loads(settings_path.read_text(encoding="utf-8"))
-else:
-    settings = {}
-
-env = settings.get("env", {})
-if not isinstance(env, dict):
-    print("Project settings key 'env' must be a JSON object.", file=sys.stderr)
-    raise SystemExit(1)
-
-env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = "1"
-settings["env"] = env
-
-temporary_path = settings_path.with_suffix(".json.tmp")
-temporary_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
-os.replace(temporary_path, settings_path)
-PY
-
-  log_success "Agent teams were enabled in project settings: $SETTINGS_FILE"
 }
 
 inventory() {
@@ -207,23 +182,21 @@ Settings: ${SETTINGS_FILE}
 $(inventory)
 
 Start Claude Code from this project and run /plugin list to inspect Superdev.
-Use --enable-teams to store the optional agent-teams flag in project settings.
 EOF
 }
 
 show_help() {
   cat <<'EOF'
-install-superdev.sh — manage Superdev for the current Claude Code project
+install-superdev.sh: manage Superdev for the current Claude Code project
 
 USAGE
   bash install-superdev.sh [option]
 
 OPTIONS
-  (none)          Add the marketplace and install at project scope
-  --verify        Verify the project-scoped installation
-  --enable-teams  Enable agent teams in .claude/settings.json
-  --uninstall     Uninstall from project scope
-  --help          Show this help
+  (none)       Add the marketplace and install at project scope
+  --verify     Verify the project-scoped installation
+  --uninstall  Uninstall from project scope
+  --help       Show this help
 
 The command must run from inside the target Git project. It never writes
 Superdev configuration to user or personal settings.
@@ -253,9 +226,6 @@ main() {
       ;;
     --verify|verify)
       verify_install
-      ;;
-    --enable-teams|enable-teams)
-      enable_agent_teams
       ;;
     --uninstall|uninstall)
       uninstall_plugin
