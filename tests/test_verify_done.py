@@ -274,7 +274,7 @@ class UsageTests(unittest.TestCase):
     def test_help_says_that_exit_0_is_not_done(self) -> None:
         out = " ".join(run_script("--help").stdout.split())
         self.assertIn("exits 0 (no check failed), 1 (a check failed) or 2 (usage error)", out)
-        self.assertIn("Exit 0 is not done: only a --strict run whose last line is DONE means the build is done.", out)
+        self.assertIn("Exit 0 is not done: only a --suites --strict run whose last line is DONE means the build is done.", out)
 
     def test_help_names_the_release_binary_and_both_directions_of_the_public_routes_check(self) -> None:
         out = " ".join(run_script("--help").stdout.split())
@@ -426,10 +426,13 @@ class GreenTests(unittest.TestCase):
                     "Navree UI raw markup", "Navree UI gap rows", "no new suppressions since", "no placeholder content",
                     "plan confirmed", "contracts agreed", "Cargo.lock committed")
     STRICT_LABELS = ("SECURITY_REPORT.md", "AUDIT_REPORT.md", "QA_COVERAGE.md", "acceptances")
+    SUITE = "cargo test --test security"
 
     def green_app(self, **stack: str) -> Project:
         # serve.js and routes.js are the release binary's scripts: they are in the base, not loose scripts the build added.
-        p, _ = repo(self, {"serve.js": HEALTH_SERVER, "routes.js": routes_js(*PLAN_ROUTES)}, database="sqlite", test_database_url="", **stack)
+        p, _ = repo(self, {"serve.js": HEALTH_SERVER, "routes.js": routes_js(*PLAN_ROUTES)}, database="sqlite", test_database_url="",
+                    suites=(self.SUITE,), **stack)
+        p.tools = {**GREEN, self.SUITE: {}}
         p.copy_node_as_binary(HEALTH_SERVER, routes_js(*PLAN_ROUTES))
         return p
 
@@ -442,11 +445,20 @@ class GreenTests(unittest.TestCase):
     def last_line(res: subprocess.CompletedProcess[str]) -> str:
         return res.stdout.strip().splitlines()[-1]
 
-    def test_a_finished_app_ends_done_under_strict(self) -> None:
-        res = self.finished_app().run("--strict")
+    def test_a_finished_app_ends_done_under_strict_with_its_suites(self) -> None:
+        res = self.finished_app().run("--suites", "--strict")
         self.assertEqual(0, res.returncode, res.stdout)
-        self.assertTrue(self.last_line(res).startswith("DONE — all live checks green under --strict;"), res.stdout)
-        self.assertIn("(the committed suites were not run: --suites runs them). Browser, role and device evidence", self.last_line(res))
+        self.assertTrue(self.last_line(res).startswith("DONE — all live checks and committed suites green under --strict;"), res.stdout)
+        for label in self.GREEN_LABELS + self.STRICT_LABELS + (f"suite: {self.SUITE}",):
+            self.assertEqual("PASS", status_of(res.stdout, label), label)
+
+    def test_a_strict_run_without_the_suites_does_not_end_done(self) -> None:
+        res = self.finished_app().run("--strict")
+        self.assertEqual(1, res.returncode, res.stdout)
+        self.assertEqual("NOT RUN", status_of(res.stdout, "suites"))
+        self.assertIn("were not run: --suites runs them", detail_of(res.stdout, "suites"))
+        self.assertEqual("NOT DONE (--strict) — 0 warning(s) and 1 check(s) not run. A release claim needs every check run and clean.", self.last_line(res))
+        self.assertNotRegex(res.stdout, r"(?m)^DONE")
         for label in self.GREEN_LABELS + self.STRICT_LABELS:
             self.assertEqual("PASS", status_of(res.stdout, label), label)
 
@@ -456,7 +468,7 @@ class GreenTests(unittest.TestCase):
         last = self.last_line(res)
         self.assertTrue(last.startswith("NOT DONE (no check failed, so the exit code is 0, and exit 0 is not done) — passed: STACK.md, navree CLI,"), last)
         self.assertNotRegex(res.stdout, r"(?m)^DONE")
-        self.assertIn("Not run: SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md, acceptances.", last)
+        self.assertIn("Not run: SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md, acceptances, suites.", last)
         self.assertIn("Steps 7 and 8 were not checked: SECURITY_REPORT.md, AUDIT_REPORT.md and QA_COVERAGE.md are read under --strict.", last)
         self.assertTrue(last.endswith("Only a --strict run that ends DONE means the build is done."), last)
         for label in self.STRICT_LABELS:
@@ -480,7 +492,7 @@ class GreenTests(unittest.TestCase):
         loose = p.run()
         self.assertEqual(0, loose.returncode, loose.stdout)
         self.assertIn("; 1 warning(s). Steps 7 and 8 were not checked", self.last_line(loose))
-        strict = p.run("--strict")
+        strict = p.run("--suites", "--strict")
         self.assertEqual(1, strict.returncode, strict.stdout)
         self.assertIn("NOT DONE (--strict) — 1 warning(s) and 0 check(s) not run.", strict.stdout)
         no_plan = self.finished_app()
@@ -1849,6 +1861,38 @@ class ReportTests(unittest.TestCase):
         p.write("AUDIT_REPORT.md", "# Audit Report\n\n## Findings\nNone.\n")
         self.assertEqual("PASS", status_of(self.strict(p), "AUDIT_REPORT.md"))
 
+    def test_a_findings_section_holds_the_table_or_none_and_nothing_else(self) -> None:
+        p = self.app(**{"AUDIT_REPORT.md": "# Audit Report\n\n## Findings\nThree things are open; see the notes.\n"})
+        out = self.strict(p)
+        self.assertEqual("FAIL", status_of(out, "AUDIT_REPORT.md"))
+        self.assertIn("the ## Findings section holds neither the findings table nor None.", detail_of(out, "AUDIT_REPORT.md"))
+        p.write("AUDIT_REPORT.md", "# Audit Report\n\n## Findings\n- None.\n")
+        self.assertEqual("PASS", status_of(self.strict(p), "AUDIT_REPORT.md"))
+
+    def test_a_findings_table_without_its_severity_or_state_column_fails(self) -> None:
+        for head, missing in (("| ID | Sev | Where | Status |\n|---|---|---|---|\n| S-1 | Blocker | src/a.rs:1 | open |\n", "no Severity and no State column"),
+                              ("| ID | Severity | Where |\n|---|---|---|\n| S-1 | Blocker | src/a.rs:1 |\n", "no State column")):
+            with self.subTest(missing=missing):
+                p = self.app(**{"SECURITY_REPORT.md": f"# Security Report\n\n## Findings\n{head}\n## Probes not run\nNone.\n"})
+                out = self.strict(p)
+                self.assertEqual("FAIL", status_of(out, "SECURITY_REPORT.md"), out)
+                self.assertIn(f"Findings: the table has {missing}, so its findings cannot be read", detail_of(out, "SECURITY_REPORT.md"))
+
+    def test_a_findings_table_under_a_sub_heading_is_read_too(self) -> None:
+        name = "SECURITY_REPORT.md"
+        table = FINDINGS_HEAD[name] + finding_row(name, "S-9", "Blocker", "open")
+        p = self.app(**{name: f"# Security Report\n\n## Findings\nNone.\n\n### Found later\n{table}\n## Probes not run\nNone.\n"})
+        out = self.strict(p)
+        self.assertEqual("FAIL", status_of(out, name), out)
+        self.assertIn("Found later, S-9: Blocker is open", detail_of(out, name))
+
+    def test_a_severity_with_words_after_it_still_blocks(self) -> None:
+        name = "AUDIT_REPORT.md"
+        p = self.app(**{name: report_text(name, finding_row(name, "A-4", "Major (money)", "open"))})
+        out = self.strict(p)
+        self.assertEqual("FAIL", status_of(out, name), out)
+        self.assertIn("A-4: Major (money) is open", detail_of(out, name))
+
 
 @needs_node
 @needs_git
@@ -1953,6 +1997,41 @@ class AcceptanceTests(unittest.TestCase):
         p.write("ACCEPTANCES.md", "# Acceptances\n\n## ACC-1\nAccepts: S-3\n")
         self.commit_only(p, "ACCEPTANCES.md")
         self.assertIn("ACC-1 lacks Date, Operator, Words", self.status(p)[1])
+
+    def test_two_entries_with_one_number_fail(self) -> None:
+        p = self.app()
+        self.write_entries(p, "ACC-1", "ACC-1")
+        self.commit_only(p, "ACCEPTANCES.md")
+        status, detail = self.status(p)
+        self.assertEqual("FAIL", status, detail)
+        self.assertIn("ACCEPTANCES.md: ACC-1 is the heading of two entries: a number is never used twice", detail)
+
+    def test_an_app_in_a_sub_folder_of_its_repository_is_held_to_the_same_rule(self) -> None:
+        outer = Project(self)
+        outer.init_git()
+        outer.write("README.md", "a repository that holds the app and other code\n")
+        outer.commit("base")
+        p = Project(self)
+        p.root = outer.root / "udhaar"
+        p.tools = GREEN
+        for rel, text in {"EXECUTION_PLAN.md": PLAN, "Cargo.lock": LOCK, "contracts/customers.md": CONTRACT, "src/main.rs": "fn main() {}\n", **SKILL_FILES}.items():
+            p.write(rel, text)
+        p.write("STACK.md", stack_text(base_commit=outer.git("rev-parse", "--short", "HEAD")))
+        p.make_strict_ready()
+        outer.commit("the app")
+        self.write_entries(p, "ACC-1")
+        self.commit_only(p, "ACCEPTANCES.md")
+        status, detail = self.status(p)
+        self.assertEqual("PASS", status, detail)
+        self.assertIn("1 acceptance(s) in ACCEPTANCES.md, each in a commit of its own", detail)
+        self.write_entries(p, "ACC-1", "ACC-2")
+        outer.write("other/notes.md", "code beside the app\n")
+        outer.git("add", "udhaar/ACCEPTANCES.md", "other/notes.md")
+        outer.git("commit", "-q", "-m", "an acceptance with a file outside the app")
+        mixed = outer.git("rev-parse", "--short", "HEAD")
+        status, detail = self.status(p)
+        self.assertEqual("FAIL", status, detail)
+        self.assertIn(f"commit {mixed} changes ACCEPTANCES.md together with 1 other file(s)", detail)
 
     def test_outside_a_git_repository_the_history_cannot_be_read(self) -> None:
         p = Project(self)

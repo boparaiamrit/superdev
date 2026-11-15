@@ -27,7 +27,7 @@ const FLAGS = [
   ["--skip-boot", "do not boot the release binary (NOT RUN)"],
   ["--suites", "run the committed suites listed in STACK.md under ## Suites (each line must start with cargo test and boots its own app, so no app needs to be running)"],
   ["--base REF", "base commit for the suppression and raw-markup sweeps (default: base_commit in STACK.md)"],
-  ["--strict", "every warning and every NOT RUN fails, and SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md and ACCEPTANCES.md are read; only a --strict run that ends DONE means the build is done"],
+  ["--strict", "every warning and every NOT RUN fails, and SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md and ACCEPTANCES.md are read; only a --strict run that ends DONE means the build is done, and without --suites it cannot: the suites are then NOT RUN"],
   ["--help", "print this text and exit 0"],
 ];
 const VALUE_FLAGS = new Set(["--root", "--base"]);
@@ -57,9 +57,9 @@ const CHECKS = [
   "plan confirmed (STACK.md valid): EXECUTION_PLAN.md has the line `Status: CONFIRMED by <name> on <YYYY-MM-DD>` (NOT RUN without the plan or while it is a draft)",
   "contracts agreed (STACK.md valid): every module of the plan's ## Modules has contracts/<module>.md with `Status: AGREED by <name> on <YYYY-MM-DD>` (NOT RUN for a missing or draft contract)",
   "Cargo.lock committed (STACK.md valid, a git repository): Cargo.lock is tracked by git and not ignored (NOT RUN before cargo has written it)",
-  "SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md (STACK.md valid): read under --strict only (NOT RUN without it): each exists; no finding of its ## Findings table is an open Blocker or Major, and a state `accepted ACC-n` names an entry of ACCEPTANCES.md; no table cell is NOT RUN, or PASS (server), without an ACC-n of ACCEPTANCES.md, nor a row of a Not run section; QA_COVERAGE.md has no FAIL cell",
-  "acceptances (STACK.md valid): read under --strict only (NOT RUN without it): every module row of EXECUTION_PLAN.md ## Build order is PASS, or PASS (6.5 NOT RUN, ACC-n) with an ACC-n of ACCEPTANCES.md; ACCEPTANCES.md is committed, and no commit changes it together with another file (git log --name-only)",
-  "suite: <command> (--suites): each command under ## Suites runs as written (each boots its own app, so no running app is needed); a line must start with cargo test and holds no shell syntax",
+  "SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md (STACK.md valid): read under --strict only (NOT RUN without it): each exists; its ## Findings section holds a table with the columns Severity and State, or None.; no finding of a table with those columns is an open Blocker or Major, and a state `accepted ACC-n` names an entry of ACCEPTANCES.md; no table cell is NOT RUN, or PASS (server), without an ACC-n of ACCEPTANCES.md, nor a row of a Not run section; QA_COVERAGE.md has no FAIL cell",
+  "acceptances (STACK.md valid): read under --strict only (NOT RUN without it): every module row of EXECUTION_PLAN.md ## Build order is PASS, or PASS (6.5 NOT RUN, ACC-n) with an ACC-n of ACCEPTANCES.md; each entry of ACCEPTANCES.md has its own number; the file is committed, and no commit changes it together with another file (git log --name-only, also for an app in a sub-folder of its repository)",
+  "suite: <command> (--suites): each command under ## Suites runs as written (each boots its own app, so no running app is needed); a line must start with cargo test and holds no shell syntax; without --suites the one line `suites` is NOT RUN, so a --strict run does not end DONE",
 ];
 
 const helpText = () => [
@@ -68,7 +68,7 @@ const helpText = () => [
   "Usage: node verify-done.mjs [flags]",
   "Runs every check now against the real tree and the real release binary of a Navree app, prints [PASS],",
   "[FAIL] or [NOT RUN] for each, and exits 0 (no check failed), 1 (a check failed) or 2 (usage error).",
-  "Exit 0 is not done: only a --strict run whose last line is DONE means the build is done.",
+  "Exit 0 is not done: only a --suites --strict run whose last line is DONE means the build is done.",
   "",
   "Flags:",
   ...FLAGS.map(([flag, text]) => `  ${flag.padEnd(18)}${text}`),
@@ -923,6 +923,7 @@ function acceptanceEntries() {
   const incomplete = [];
   for (const block of blocks) {
     const id = block.match(/^#{2,3}\s+(ACC-\d+)\b/)[1];
+    if (ids.has(id)) incomplete.push(`${id} is the heading of two entries: a number is never used twice`);
     ids.add(id);
     const missing = [["Date", /^[-*\s]*Date:\s*\d{4}-\d{2}-\d{2}/m], ["Operator", /^[-*\s]*Operator:\s*\S/m], ["Accepts", /^[-*\s]*Accepts:\s*\S/m], ["Words", /^[-*\s]*Words:\s*\S/m]]
       .filter(([, re]) => !re.test(block)).map(([name]) => name);
@@ -936,10 +937,16 @@ function acceptanceEntries() {
 function reportProblems(name, text, ids) {
   const problems = [];
   const unknown = (where, cellText) => cited(cellText).filter((id) => !ids.has(id)).forEach((id) => problems.push(`${where}: ${id} is not an entry of ${ACCEPTANCES}`));
+  let findingsTables = 0;
   for (const table of tables(text)) {
     const col = (word) => table.header.indexOf(word);
-    const findings = /^findings$/i.test(table.heading) && col("severity") >= 0 && col("state") >= 0;
+    // Any table with both columns is read as findings, so one under a sub-heading is not skipped.
+    const findings = col("severity") >= 0 && col("state") >= 0;
     const notRunSection = /not run/i.test(table.heading);
+    if (/^findings$/i.test(table.heading)) {
+      findingsTables += 1;
+      if (!findings) problems.push(`${table.heading}: the table has no ${["severity", "state"].filter((c) => col(c) < 0).map((c) => c[0].toUpperCase() + c.slice(1)).join(" and no ")} column, so its findings cannot be read`);
+    }
     for (const cells of table.rows) {
       const row = `${table.heading}, ${(findings ? cells[col("id")] : cells[0]) || cells.join(" | ").slice(0, 60)}`;
       if (findings) {
@@ -948,7 +955,7 @@ function reportProblems(name, text, ids) {
         if (/^accepted\b/i.test(state)) {
           if (!cited(state).length) problems.push(`${row}: accepted with no ACC-n (the state reads \`accepted ACC-n\`, naming an entry of ${ACCEPTANCES})`);
           unknown(row, state);
-        } else if (/^(blocker|major)$/i.test(severity) && !/^fixed\b/i.test(state)) {
+        } else if (/^(blocker|major)\b/i.test(severity) && !/^fixed\b/i.test(state)) {
           problems.push(`${row}: ${severity} is ${state || "without a state"}: fix it, or the operator accepts it in ${ACCEPTANCES}`);
         }
       }
@@ -965,17 +972,24 @@ function reportProblems(name, text, ids) {
       }
     }
   }
-  // A Not run section written as a list.
+  // A Not run section written as a list, and what the Findings section holds when it has no table.
   let heading = "";
+  let hasFindings = false;
+  let findingsSayNone = false;
   for (const line of text.split(/\r?\n/)) {
     heading = headingOf(line) ?? heading;
+    if (/^findings$/i.test(heading)) {
+      hasFindings = true;
+      if (/^\s*(?:[-*+]\s+)?none\.?\s*$/i.test(line)) findingsSayNone = true;
+    }
     if (headingOf(line) === null && /not run/i.test(heading) && /^\s*(?:[-*+]|\d+\.)\s+\S/.test(line) && !/^\s*[-*+]\s+none\.?\s*$/i.test(line)) {
       const row = `${heading}, ${line.trim().slice(0, 60)}`;
       if (!cited(line).length) problems.push(`${row}: a Not run entry with no ACC-n`);
       unknown(row, line);
     }
   }
-  if (!/^#{1,6}\s+Findings\s*$/im.test(text)) problems.push("no ## Findings section: it holds the findings table, or None.");
+  if (!hasFindings) problems.push("no ## Findings section: it holds the findings table, or None.");
+  else if (!findingsTables && !findingsSayNone) problems.push("the ## Findings section holds neither the findings table nor None.");
   return [...new Set(problems)];
 }
 
@@ -988,13 +1002,15 @@ function reportCheck(name, ids) {
   pass(name, `no open Blocker or Major finding, and every NOT RUN accepted by an entry of ${ACCEPTANCES}`);
 }
 
-// The commits that change `file`, with every file each of them changes.
+// The commits that change `file` of the app root, with every file each of them changes. git log names files from the
+// top folder of the repository, so for an app in a sub-folder the file is looked up by its path from there.
 function commitsChanging(file) {
+  const name = `${git(["rev-parse", "--show-prefix"]).out.trim()}${file}`;
   const log = git(["log", "--name-only", "--no-renames", "--format=%x01%h"]);
   if (!log.ok) return [];
   return log.out.split("\x01").slice(1)
     .map((chunk) => { const [hash, ...files] = chunk.split("\n").map((l) => l.trim()).filter(Boolean); return { hash, files }; })
-    .filter((c) => c.files.includes(file));
+    .filter((c) => c.files.includes(name));
 }
 
 function acceptanceCheck(plan, entries) {
@@ -1036,7 +1052,7 @@ function acceptanceCheck(plan, entries) {
 }
 
 // ------------------------------------------------------------------ report
-function report(stack, withSuites) {
+function report(stack) {
   const lines = [
     `superdev verify-done ${VERSION} — root: ${ROOT}`,
     !stack.present ? "stack: not read"
@@ -1062,7 +1078,7 @@ function report(stack, withSuites) {
     code = 1;
     lines.push(`NOT DONE (--strict) — ${warned} warning(s) and ${skipped} check(s) not run. A release claim needs every check run and clean.`);
   } else if (STRICT) {
-    lines.push(`DONE — all live checks${withSuites ? " and committed suites" : ""} green under --strict; SECURITY_REPORT.md, AUDIT_REPORT.md and QA_COVERAGE.md hold no open Blocker or Major finding and no NOT RUN without an acceptance in ${ACCEPTANCES}${withSuites ? "" : " (the committed suites were not run: --suites runs them)"}. Browser, role and device evidence is the product-qa gate's QA_COVERAGE.md.`);
+    lines.push(`DONE — all live checks and committed suites green under --strict; SECURITY_REPORT.md, AUDIT_REPORT.md and QA_COVERAGE.md hold no open Blocker or Major finding and no NOT RUN without an acceptance in ${ACCEPTANCES}. Browser, role and device evidence is the product-qa gate's QA_COVERAGE.md.`);
   } else {
     lines.push(`NOT DONE (no check failed, so the exit code is 0, and exit 0 is not done) — passed: ${passed.join(", ") || "none"}. Not run: ${notRunLabels.join(", ") || "none"}${warned ? `; ${warned} warning(s)` : ""}. Steps 7 and 8 were not checked: SECURITY_REPORT.md, AUDIT_REPORT.md and QA_COVERAGE.md are read under --strict. Only a --strict run that ends DONE means the build is done.`);
   }
@@ -1129,7 +1145,8 @@ async function main(argv) {
     acceptanceCheck(plan, entries);
   }
   if (o["--suites"]) suiteChecks(stack);
-  return report(stack, Boolean(o["--suites"]));
+  else if (stackOk) notRun("suites", FAST ? SKIPPED_BY_FAST : "the committed suites of STACK.md ## Suites were not run: --suites runs them");
+  return report(stack);
 }
 
 const result = await main(process.argv.slice(2));
