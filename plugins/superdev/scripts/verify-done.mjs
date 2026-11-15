@@ -4,8 +4,10 @@
 // Every check runs now, against the real tree and the real release binary; nothing is read
 // from a file that grades itself. Plain Node 18 or newer, no dependencies, the same on Windows,
 // Linux and macOS. Run it from the app root (or pass --root); --help lists the flags and
-// every check. Exit 0: done as far as machines can tell. Exit 1: not done, the report names
-// the failing checks. Exit 2: a usage error. Fix at the root cause: suppressions fail here.
+// every check. Exit 0: no check failed, which is not done: only a --strict run whose last line
+// is DONE means the build is done. Exit 1: a check failed (--strict also fails a warning and a
+// NOT RUN); the report names the failing checks. Exit 2: a usage error. Fix at the root cause:
+// suppressions fail here.
 
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -17,21 +19,19 @@ const MINUTE = 60_000;
 const TIMEOUT = { cargo: 30 * MINUTE, navree: 10 * MINUTE, web: 10 * MINUTE, suite: 15 * MINUTE };
 const MAX_BUFFER = 64 * 1024 * 1024;
 const BOOT_WAIT_MS = 60_000;
-const DEFAULT_API_URL = "http://127.0.0.1:8080";
 
 const FLAGS = [
   ["--root DIR", "app root (default: the current directory)"],
+  ["--fast", "only the checks that build nothing (STACK.md, navree CLI, skills, cargo fmt, the flow's files, the sweeps over source); the others print NOT RUN, so a fast run never ends DONE; not with --suites"],
   ["--skip-build", "do not run cargo build --release or the web build script (those checks print NOT RUN)"],
   ["--skip-boot", "do not boot the release binary (NOT RUN)"],
-  ["--health-url URL", "for --suites: poll this URL instead of <api-url>/health/ready (the boot check always probes the binary it started)"],
-  ["--suites", "run the committed suites listed in STACK.md under ## Suites (each line must start with cargo test)"],
-  ["--api-url URL", `base URL of the running app for --suites (default ${DEFAULT_API_URL})`],
+  ["--suites", "run the committed suites listed in STACK.md under ## Suites (each line must start with cargo test and boots its own app, so no app needs to be running)"],
   ["--base REF", "base commit for the suppression and raw-markup sweeps (default: base_commit in STACK.md)"],
-  ["--strict", "every warning and every NOT RUN fails; release claims use it"],
+  ["--strict", "every warning and every NOT RUN fails, and SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md and ACCEPTANCES.md are read; only a --strict run that ends DONE means the build is done"],
   ["--help", "print this text and exit 0"],
 ];
-const VALUE_FLAGS = new Set(["--root", "--health-url", "--api-url", "--base"]);
-const BOOL_FLAGS = new Set(["--skip-build", "--skip-boot", "--suites", "--strict"]);
+const VALUE_FLAGS = new Set(["--root", "--base"]);
+const BOOL_FLAGS = new Set(["--fast", "--skip-build", "--skip-boot", "--suites", "--strict"]);
 
 // The one list of checks in the plugin, in run order: label (when it runs): what it runs.
 const CHECKS = [
@@ -39,21 +39,27 @@ const CHECKS = [
   "navree CLI (STACK.md valid): navree --version prints navree <navree_version>",
   "navree skills installed (STACK.md valid): .claude/skills/navree/SKILL.md and .agents/skills/navree/SKILL.md exist",
   "cargo fmt (STACK.md valid): cargo fmt --all -- --check",
-  "cargo clippy (STACK.md valid): cargo clippy --workspace --all-targets -- -D warnings",
-  "cargo test (STACK.md valid): cargo test --workspace",
-  "navree check (STACK.md valid): navree check, which needs config and a migrated database",
-  "navree config:check (STACK.md valid): navree config:check",
-  "public routes (STACK.md valid): navree routes --json; every public route is named as `METHOD path` in backticks in EXECUTION_PLAN.md ## Access (NOT RUN without the plan)",
-  "release build (STACK.md valid): cargo build --release; NOT RUN with --skip-build",
-  "boot (release binary + health) (STACK.md valid): target/release/<binary> serve on a free port of its own; /health/live says up, /health/ready answers 200",
-  "web typecheck, web lint, web test, web build (front_end: next): the package scripts of web_dir; a missing lint, test or build script and build with --skip-build are NOT RUN",
-  "API contract drift (front_end: next): navree openapi:export and openapi:client REWRITE the document and the types in the working tree, then git diff --exit-code HEAD on both",
+  "cargo clippy (STACK.md valid; not with --fast): cargo clippy --workspace --all-targets -- -D warnings",
+  "cargo test (STACK.md valid; not with --fast): cargo test --workspace",
+  "navree check (STACK.md valid; not with --fast): navree check, which needs config and a migrated database",
+  "navree config:check (STACK.md valid; not with --fast): navree config:check",
+  "release build (STACK.md valid; not with --fast): cargo build --release; NOT RUN with --skip-build",
+  "public routes (STACK.md valid; not with --fast): <target>/release/<binary> routes --json, the binary the boot check starts (CARGO_TARGET_DIR is honoured), compared both ways with the plan: every public route is named as `METHOD path` in backticks in EXECUTION_PLAN.md ## Access, and every route listed in the bullet that starts Public routes is a public route of the binary (NOT RUN without the plan or the binary)",
+  "boot (release binary + health) (STACK.md valid; not with --fast): <target>/release/<binary> serve on a free port of its own; /health/live says up, /health/ready answers 200",
+  "first address (GET /) (STACK.md valid; not with --fast): GET / on that binary answers anything but 404 or a 5xx (a redirect or a 200 passes)",
+  "web typecheck, web lint, web test, web build (front_end: next; not with --fast): the package scripts of web_dir; a missing lint, test or build script and build with --skip-build are NOT RUN",
+  "API contract drift (front_end: next; not with --fast): navree openapi:export and openapi:client REWRITE the document and the types in the working tree, then git diff --exit-code HEAD on both",
   "Navree UI raw markup (front_end: navree): no script or style element and no style, class or on* attribute in a tag (quoted or not) in the src/*.rs lines added since the base, mail and tests folders excluded (all of src/ without a base); no loose script file added since the base",
   "Navree UI gap rows (front_end: navree): every Rust file of the app (outside target/, plugins/, .claude/, .agents/ and tests/ folders, mail folders and other crates included) in which a line added since the base uses SafeHtml, Node::Raw, Node::Static, el or AppSheet, and every .css file added or changed since the base, is named in the Files of a table row of EXECUTION_PLAN.md ## Navree UI gaps; prose does not name a file (NOT RUN without a base)",
   "<dir> CSP, HTTP capability scope, devtools and the other Tauri labels (a Tauri config within 4 levels): the Tauri shell checks",
   "no new suppressions since <base> (a git repository and a base): lines added since the base, committed or not, with allow, expect, cfg_attr(allow), eslint-disable, oxlint-disable, ts-ignore or as any in .ts and .tsx code, and lints turned off in Cargo.toml [lints], .cargo/config.toml rustflags, a clippy.toml allow-* or *-threshold key, an ESLint or oxlint rule set to off or 0, \"strict\": false in tsconfig; plugins/, design/source/ and docs/brief/ are left out, and so is #![allow(dead_code)] as the first attribute of tests/support/mod.rs",
   "no placeholder content (always, over the folders that exist): placeholder text and todo!() in src/*.rs, web/ and clients/*/src, tests excluded; any file in a mocks or fixtures folder of the front end",
-  "suites: app running, suite: <command> (--suites): GET /health/ready (or --health-url), then each command under ## Suites; a line must start with cargo test and holds no shell syntax",
+  "plan confirmed (STACK.md valid): EXECUTION_PLAN.md has the line `Status: CONFIRMED by <name> on <YYYY-MM-DD>` (NOT RUN without the plan or while it is a draft)",
+  "contracts agreed (STACK.md valid): every module of the plan's ## Modules has contracts/<module>.md with `Status: AGREED by <name> on <YYYY-MM-DD>` (NOT RUN for a missing or draft contract)",
+  "Cargo.lock committed (STACK.md valid, a git repository): Cargo.lock is tracked by git and not ignored (NOT RUN before cargo has written it)",
+  "SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md (STACK.md valid): read under --strict only (NOT RUN without it): each exists; no finding of its ## Findings table is an open Blocker or Major, and a state `accepted ACC-n` names an entry of ACCEPTANCES.md; no table cell is NOT RUN, or PASS (server), without an ACC-n of ACCEPTANCES.md, nor a row of a Not run section; QA_COVERAGE.md has no FAIL cell",
+  "acceptances (STACK.md valid): read under --strict only (NOT RUN without it): every module row of EXECUTION_PLAN.md ## Build order is PASS, or PASS (6.5 NOT RUN, ACC-n) with an ACC-n of ACCEPTANCES.md; ACCEPTANCES.md is committed, and no commit changes it together with another file (git log --name-only)",
+  "suite: <command> (--suites): each command under ## Suites runs as written (each boots its own app, so no running app is needed); a line must start with cargo test and holds no shell syntax",
 ];
 
 const helpText = () => [
@@ -61,7 +67,8 @@ const helpText = () => [
   "",
   "Usage: node verify-done.mjs [flags]",
   "Runs every check now against the real tree and the real release binary of a Navree app, prints [PASS],",
-  "[FAIL] or [NOT RUN] for each, and exits 0 (done), 1 (not done) or 2 (usage error).",
+  "[FAIL] or [NOT RUN] for each, and exits 0 (no check failed), 1 (a check failed) or 2 (usage error).",
+  "Exit 0 is not done: only a --strict run whose last line is DONE means the build is done.",
   "",
   "Flags:",
   ...FLAGS.map(([flag, text]) => `  ${flag.padEnd(18)}${text}`),
@@ -70,8 +77,8 @@ const helpText = () => [
   ...CHECKS.map((c, i) => `  ${String(i + 1).padStart(2)}. ${c}`),
   "",
   "A check that passes for development but would not pass a release claim prints PASS with a detail line",
-  "starting warning:; --strict turns every warning and every NOT RUN into a failure. An unknown flag, or a",
-  "flag missing its value, prints the usage to stderr and exits 2.",
+  "starting warning:; --strict turns every warning and every NOT RUN into a failure. An unknown flag, a",
+  "flag missing its value, or --fast with --suites prints the usage to stderr and exits 2.",
   "",
 ].join("\n");
 
@@ -92,6 +99,7 @@ function parseArgs(argv) {
       return { error: `${arg.startsWith("-") ? "unknown flag" : "unexpected argument"}: ${arg}` };
     }
   }
+  if (opts["--fast"] && opts["--suites"]) return { error: "--fast and --suites contradict: a suite builds the app, and --fast runs only what builds nothing" };
   return { opts };
 }
 
@@ -99,7 +107,7 @@ function parseArgs(argv) {
 let ROOT = process.cwd();
 let SKIP_BUILD = false;
 let SKIP_BOOT = false;
-let HEALTH_URL;
+let FAST = false;
 let STRICT = false;
 
 const results = []; // {status: "PASS" | "FAIL" | "NOT RUN", label, detail?}
@@ -310,22 +318,42 @@ const freePort = () => new Promise((done) => {
   srv.listen(0, "127.0.0.1", () => { const { port } = srv.address(); srv.close(() => done(port)); });
 });
 
-async function probe(url, timeout = 2000) {
+async function probe(url, timeout = 2000, init = {}) {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(timeout) });
+    const res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeout) });
     return { status: res.status, body: await res.text(), text: `HTTP ${res.status}` };
   } catch (error) {
     return { status: 0, body: "", text: `no answer (${error?.cause?.code ?? error?.name ?? error})` };
   }
 }
 
+// The release binary of the app: <target>/release/<binary>, where cargo's target folder is CARGO_TARGET_DIR when it is set.
+const releaseExe = (stack) => join(resolve(ROOT, process.env.CARGO_TARGET_DIR || "target"), "release", stack.keys.binary + (process.platform === "win32" ? ".exe" : ""));
+const SKIPPED_BY_FAST = "skipped by --fast: it builds or boots the app";
+const notRunByFlag = () => (FAST && !SKIP_BOOT ? SKIPPED_BY_FAST : "skipped by flag");
+
+// GET / on the booted binary: the product's first address is owned, so it answers anything but 404 or a 5xx.
+async function firstAddress(port) {
+  const answer = await probe(`http://127.0.0.1:${port}/`, 5000, { redirect: "manual" });
+  if (answer.status === 0) return { ok: false, detail: `GET / got ${answer.text}` };
+  if (answer.status === 404 || answer.status >= 500) {
+    return { ok: false, detail: `GET / answered HTTP ${answer.status}: no route owns the product's first address. Add a GET !/ route that lands on the product's first screen, or redirects to it, and name it in EXECUTION_PLAN.md ## Access (step 4 of superdev-build)` };
+  }
+  return { ok: true, detail: `GET / answered HTTP ${answer.status}` };
+}
+
 async function bootCheck(stack) {
   const label = "boot (release binary + health)";
-  if (SKIP_BOOT) return notRun(label, "skipped by flag");
-  const exe = join(ROOT, "target", "release", stack.keys.binary + (process.platform === "win32" ? ".exe" : ""));
+  const homeLabel = "first address (GET /)";
+  if (SKIP_BOOT || FAST) {
+    notRun(label, notRunByFlag());
+    return notRun(homeLabel, FAST && !SKIP_BOOT ? SKIPPED_BY_FAST : "skipped with the boot check");
+  }
+  const exe = releaseExe(stack);
   if (!existsSync(exe)) {
-    if (SKIP_BUILD) return notRun(label, `skipped: --skip-build was given and ${toRel(exe)} does not exist`);
-    return fail(label, `${toRel(exe)} not found after the release build; check the binary key in STACK.md`);
+    if (SKIP_BUILD) notRun(label, `skipped: --skip-build was given and ${toRel(exe)} does not exist`);
+    else fail(label, `${toRel(exe)} not found after the release build; check the binary key in STACK.md`);
+    return notRun(homeLabel, "the release binary was not started");
   }
   const port = await freePort();
   const liveUrl = `http://127.0.0.1:${port}/health/live`;
@@ -360,6 +388,7 @@ async function bootCheck(stack) {
     }
     if (!verdict) await sleep(1000);
   }
+  const home = verdict.ok && !ended ? await firstAddress(port) : null;
   if (!ended) {
     child.kill();
     await Promise.race([gone, sleep(3000)]);
@@ -367,10 +396,13 @@ async function bootCheck(stack) {
   child.stdout.destroy();
   child.stderr.destroy();
   record(verdict.ok ? "PASS" : "FAIL", label, verdict.detail);
+  if (home) record(home.ok ? "PASS" : "FAIL", homeLabel, home.detail);
+  else notRun(homeLabel, "the release binary did not boot, so GET / was not asked");
 }
 
 // ------------------------------------------------------------------ Next.js front end
 function webChecks(stack) {
+  if (FAST) return ["typecheck", "lint", "test", "build"].forEach((name) => notRun(`web ${name}`, SKIPPED_BY_FAST));
   const dir = join(ROOT, stack.keys.web_dir);
   const pkgPath = toRel(join(dir, "package.json"));
   const pkg = readJson(join(dir, "package.json"));
@@ -394,6 +426,7 @@ function webChecks(stack) {
 
 function contractDrift(stack) {
   const label = "API contract drift";
+  if (FAST) return notRun(label, SKIPPED_BY_FAST);
   if (!isGitRepo()) return notRun(label, "not a git repository");
   if (!git(["rev-parse", "--verify", "--quiet", "HEAD"]).ok) return notRun(label, "the repository has no commit yet");
   const openapi = posixPath(stack.keys.openapi);
@@ -708,20 +741,14 @@ function placeholderSweep(webDir, apiTypes) {
 }
 
 // ------------------------------------------------------------------ committed suites (--suites)
-async function suiteChecks(stack, apiUrl) {
+// Each suite line is a cargo test command, which boots its own app: no running app is needed.
+function suiteChecks(stack) {
   if (!stack.present || stack.problems.length) {
     return fail("suites", "--suites needs a valid STACK.md with a ## Suites section (superdev-build/references/artifacts.md).");
   }
   if (!stack.suites.length) {
     return fail("suites", "STACK.md lists no command under ## Suites; each committed suite is added there when it is created (security-foundation/references/security-suites.md).");
   }
-  const healthUrl = HEALTH_URL ?? `${apiUrl.replace(/\/$/, "")}/health/ready`;
-  progress(`GET ${healthUrl}`);
-  const health = await probe(healthUrl, 5000);
-  if (health.status !== 200) {
-    return fail("suites: app running", `${healthUrl}: ${health.text}. Start the app on a freshly seeded database (navree migrate:fresh --seed), or pass --api-url or --health-url.`);
-  }
-  pass("suites: app running", `${healthUrl} answered 200`);
   const env = { ...process.env };
   const { database, test_database_url: url } = stack.keys;
   if (url && ["timescaledb", "postgres"].includes(database)) env.NAVREE_TEST_POSTGRES_URL = url;
@@ -740,25 +767,53 @@ async function suiteChecks(stack, apiUrl) {
   }
 }
 
-// Hard rule 6: the public routes of navree routes --json are the plan's list.
-function publicRoutes() {
-  const label = "public routes";
-  const plan = readText(join(ROOT, "EXECUTION_PLAN.md"));
-  if (plan === null) return notRun(label, "no EXECUTION_PLAN.md: the public routes are compared with its ## Access section (hard rule 6)");
-  const r = run("navree", ["routes", "--json"], { timeout: TIMEOUT.navree });
-  if (!r.ok) return fail(label, `navree routes --json failed:\n${failureDetail("navree", r)}`);
-  const routes = routeList(r.stdout);
-  if (!routes) return fail(label, `navree routes --json did not print a JSON list:\n${tail(r.out)}`);
-  const access = sectionOf(plan, "Access");
-  const open = routes.filter((x) => String(x.access ?? "").split(/\s+/).includes("public"));
-  const unnamed = open.filter((x) => !new RegExp(`\`${escapeRe(String(x.method))}\\s+${escapeRe(String(x.path))}\``).test(access));
-  if (unnamed.length) {
-    return fail(label, `${capped(unnamed.map((x) => `${x.method} ${x.path}`))}\nnot named in EXECUTION_PLAN.md ## Access as \`METHOD path\` in backticks: list each public route there that way, or remove #[public] (hard rule 6)`);
+// ------------------------------------------------------------------ public routes (hard rule 6)
+const isPublicRoute = (x) => String(x.access ?? "").split(/\s+/).includes("public");
+
+// The routes the plan lists as public: the `METHOD path` names in backticks of the bullet of ## Access that starts with
+// "Public routes" (a wrapped line of that bullet belongs to it).
+function listedPublicRoutes(access) {
+  const listed = new Set();
+  let inBullet = false;
+  for (const line of access.split("\n")) {
+    if (/^\s*[-*+]\s/.test(line)) inBullet = /^\s*[-*+]\s+public routes\b/i.test(line);
+    if (inBullet) for (const m of line.matchAll(/`([A-Z]+)\s+(\/[^`\s]*)`/g)) listed.add(`${m[1]} ${m[2]}`);
   }
-  pass(label, `${open.length} public route(s), each named in EXECUTION_PLAN.md ## Access`);
+  return listed;
 }
 
-// The route list of navree routes --json: it starts at a line beginning with [ and ends at the first line that is exactly ]
+// The public routes of the release binary, which is what ships, compared both ways with the plan's list.
+function publicRoutes(stack) {
+  const label = "public routes";
+  if (FAST) return notRun(label, SKIPPED_BY_FAST);
+  const plan = readText(join(ROOT, "EXECUTION_PLAN.md"));
+  if (plan === null) return notRun(label, "no EXECUTION_PLAN.md: the public routes of the release binary are compared with its ## Access section (hard rule 6)");
+  const exe = releaseExe(stack);
+  if (!existsSync(exe)) {
+    if (SKIP_BUILD) return notRun(label, `skipped: --skip-build was given and ${toRel(exe)} does not exist`);
+    return fail(label, `${toRel(exe)} not found after the release build: the public routes are read from the release binary, the one that ships (hard rule 6); check the binary key in STACK.md`);
+  }
+  const r = run(exe, ["routes", "--json"], { timeout: TIMEOUT.navree });
+  if (!r.ok) return fail(label, `${toRel(exe)} routes --json failed:\n${failureDetail(toRel(exe), r)}`);
+  const routes = routeList(r.stdout);
+  if (!routes) return fail(label, `${toRel(exe)} routes --json did not print a JSON list:\n${tail(r.out)}`);
+  const access = sectionOf(plan, "Access");
+  const open = routes.filter(isPublicRoute);
+  const unnamed = open.filter((x) => !new RegExp(`\`${escapeRe(String(x.method))}\\s+${escapeRe(String(x.path))}\``).test(access));
+  const have = new Set(open.map((x) => `${x.method} ${x.path}`));
+  const stale = [...listedPublicRoutes(access)].filter((name) => !have.has(name));
+  const problems = [];
+  if (unnamed.length) {
+    problems.push(`${capped(unnamed.map((x) => `${x.method} ${x.path}`))}\nnot named in EXECUTION_PLAN.md ## Access as \`METHOD path\` in backticks: list each public route there that way, or remove #[public] (hard rule 6)`);
+  }
+  if (stale.length) {
+    problems.push(`${capped(stale)}\nlisted as public routes in EXECUTION_PLAN.md ## Access, but the release binary does not have them as public routes: remove them from the plan, or make the route public on purpose (hard rule 6)`);
+  }
+  if (problems.length) return fail(label, problems.join("\n"));
+  pass(label, `${open.length} public route(s) of ${toRel(exe)}, each named in EXECUTION_PLAN.md ## Access, and every public route the plan lists is there`);
+}
+
+// The route list of <binary> routes --json: it starts at a line beginning with [ and ends at the first line that is exactly ]
 // (or is that one line); a log line before or after it is skipped.
 function routeList(stdout) {
   const lines = stdout.split(/\r?\n/);
@@ -773,6 +828,211 @@ function routeList(stdout) {
     }
   }
   return null;
+}
+
+// ------------------------------------------------------------------ the flow's files (steps 3, 4 and 5)
+const statusOf = (text) => text.match(/^Status:\s*(.*?)\s*$/m)?.[1] ?? null;
+const signedStatus = (word, line) => new RegExp(`^${word} by\\s+\\S.*?\\s+on\\s+\\d{4}-\\d{2}-\\d{2}$`).test(line ?? "");
+const isDraft = (line) => /^DRAFT\b/.test(line ?? "");
+
+// Every Markdown table of a text: {heading, header (lower-cased cells), rows}, each cell trimmed.
+function tables(text) {
+  const found = [];
+  const cellsOf = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+  let heading = "";
+  let current = null;
+  for (const line of text.split(/\r?\n/)) {
+    const h = line.match(/^#{1,6}\s+(.*?)\s*$/);
+    if (h) {
+      heading = h[1];
+      current = null;
+    } else if (!line.trim().startsWith("|")) {
+      current = null;
+    } else if (!current) {
+      current = { heading, header: cellsOf(line).map((c) => c.toLowerCase()), rows: [], separated: false };
+      found.push(current);
+    } else if (!current.separated) {
+      current.separated = true;
+      if (!/^[\s|:-]+$/.test(line)) current.rows.push(cellsOf(line));
+    } else {
+      current.rows.push(cellsOf(line));
+    }
+  }
+  return found;
+}
+
+// The modules of the plan: the Module column of the table under ## Modules.
+function moduleNames(plan) {
+  const table = tables(sectionOf(plan, "Modules"))[0];
+  const col = table ? table.header.indexOf("module") : -1;
+  return col < 0 ? [] : table.rows.map((cells) => (cells[col] ?? "").replace(/[`*]/g, "").trim()).filter(Boolean);
+}
+
+function planConfirmed(plan) {
+  const label = "plan confirmed";
+  if (plan === null) return notRun(label, "no EXECUTION_PLAN.md: step 3 writes it, and the operator confirms it (hard rule 2)");
+  const line = statusOf(plan);
+  if (signedStatus("CONFIRMED", line)) return pass(label, `Status: ${line}`);
+  if (isDraft(line)) return notRun(label, "Status: DRAFT: the operator has not confirmed the plan yet (hard rule 2)");
+  fail(label, `${line === null ? "EXECUTION_PLAN.md has no Status line" : `Status: ${line}`}; the line must read \`Status: CONFIRMED by <name> on <YYYY-MM-DD>\`, written after the operator said so (hard rule 2)`);
+}
+
+function contractsAgreed(plan) {
+  const label = "contracts agreed";
+  if (plan === null) return notRun(label, "no EXECUTION_PLAN.md, so no module is known (step 3 writes it)");
+  const modules = moduleNames(plan);
+  if (!modules.length) return notRun(label, "EXECUTION_PLAN.md ## Modules lists no module");
+  const unwritten = [];
+  const wrong = [];
+  for (const module of modules) {
+    const file = `contracts/${module}.md`;
+    const text = readText(join(ROOT, file));
+    const line = text === null ? null : statusOf(text);
+    if (text === null) unwritten.push(`${file} does not exist (step 5 writes it before the module's code, hard rule 3)`);
+    else if (signedStatus("AGREED", line)) continue;
+    else if (isDraft(line)) unwritten.push(`${file}: Status: DRAFT, the operator has not agreed it`);
+    else wrong.push(`${file}: ${line === null ? "no Status line" : `Status: ${line}`}; the line must read \`Status: AGREED by <name> on <YYYY-MM-DD>\``);
+  }
+  if (wrong.length) return fail(label, [...wrong, ...unwritten].join("\n"));
+  if (unwritten.length) return notRun(label, unwritten.join("\n"));
+  pass(label, `${modules.length} contract(s): ${modules.join(", ")}`);
+}
+
+function cargoLockCommitted() {
+  const label = "Cargo.lock committed";
+  if (!isGitRepo()) return notRun(label, "not a git repository");
+  if (!existsSync(join(ROOT, "Cargo.lock"))) return notRun(label, "no Cargo.lock yet: cargo writes it at the first build, and step 4 commits it");
+  if (git(["ls-files", "--error-unmatch", "--", "Cargo.lock"]).ok) return pass(label);
+  const ignored = git(["check-ignore", "-q", "--", "Cargo.lock"]).ok;
+  fail(label, `Cargo.lock is ${ignored ? "ignored by git" : "not tracked by git"}: an application commits its lock file, so that builds and the dependency audit read the same versions (git add Cargo.lock, step 4)`);
+}
+
+// ------------------------------------------------------------------ reports and acceptances (--strict)
+const REPORT_FILES = { "SECURITY_REPORT.md": "step 7 (security-review-and-fix)", "AUDIT_REPORT.md": "step 7 (product-audit)", "QA_COVERAGE.md": "step 8 (product-qa)" };
+const ACCEPTANCES = "ACCEPTANCES.md";
+const cited = (text) => text.match(/\bACC-\d+\b/g) ?? [];
+const headingOf = (line) => line.match(/^#{1,6}\s+(.*?)\s*$/)?.[1] ?? null;
+const isNotRunCell = (cell) => /^NOT RUN\b/i.test(cell) || /^PASS\s*\([^)]*\bserver\b/i.test(cell);
+
+// The entries of ACCEPTANCES.md: a heading `## ACC-n` and, under it, the date, the operator's name, what is accepted and the operator's words.
+function acceptanceEntries() {
+  const text = readText(join(ROOT, ACCEPTANCES));
+  if (text === null) return { ids: new Set(), incomplete: [] };
+  const blocks = text.split(/^(?=#{2,3}\s+ACC-\d+\b)/m).filter((b) => /^#{2,3}\s+ACC-\d+\b/.test(b));
+  const ids = new Set();
+  const incomplete = [];
+  for (const block of blocks) {
+    const id = block.match(/^#{2,3}\s+(ACC-\d+)\b/)[1];
+    ids.add(id);
+    const missing = [["Date", /^[-*\s]*Date:\s*\d{4}-\d{2}-\d{2}/m], ["Operator", /^[-*\s]*Operator:\s*\S/m], ["Accepts", /^[-*\s]*Accepts:\s*\S/m], ["Words", /^[-*\s]*Words:\s*\S/m]]
+      .filter(([, re]) => !re.test(block)).map(([name]) => name);
+    if (missing.length) incomplete.push(`${id} lacks ${missing.join(", ")}`);
+  }
+  return { ids, incomplete };
+}
+
+// What a report holds that blocks a release claim: an open Blocker or Major, an accepted state with no entry behind it,
+// a NOT RUN with no acceptance, and in the coverage matrix a FAIL cell.
+function reportProblems(name, text, ids) {
+  const problems = [];
+  const unknown = (where, cellText) => cited(cellText).filter((id) => !ids.has(id)).forEach((id) => problems.push(`${where}: ${id} is not an entry of ${ACCEPTANCES}`));
+  for (const table of tables(text)) {
+    const col = (word) => table.header.indexOf(word);
+    const findings = /^findings$/i.test(table.heading) && col("severity") >= 0 && col("state") >= 0;
+    const notRunSection = /not run/i.test(table.heading);
+    for (const cells of table.rows) {
+      const row = `${table.heading}, ${(findings ? cells[col("id")] : cells[0]) || cells.join(" | ").slice(0, 60)}`;
+      if (findings) {
+        const severity = (cells[col("severity")] ?? "").replace(/[`*]/g, "").trim();
+        const state = cells[col("state")] ?? "";
+        if (/^accepted\b/i.test(state)) {
+          if (!cited(state).length) problems.push(`${row}: accepted with no ACC-n (the state reads \`accepted ACC-n\`, naming an entry of ${ACCEPTANCES})`);
+          unknown(row, state);
+        } else if (/^(blocker|major)$/i.test(severity) && !/^fixed\b/i.test(state)) {
+          problems.push(`${row}: ${severity} is ${state || "without a state"}: fix it, or the operator accepts it in ${ACCEPTANCES}`);
+        }
+      }
+      for (const cell of cells) {
+        if (isNotRunCell(cell)) {
+          if (!cited(cell).length) problems.push(`${row}: ${cell.startsWith("PASS") ? "PASS (server) leaves the browser half NOT RUN" : "NOT RUN"} with no ACC-n`);
+          unknown(row, cell);
+        }
+        if (name === "QA_COVERAGE.md" && /^FAIL\b/i.test(cell)) problems.push(`${row}: a FAIL cell: fix it at the root cause and run the cell again`);
+      }
+      if (notRunSection) {
+        if (!cited(cells.join(" ")).length) problems.push(`${row}: a Not run row with no ACC-n`);
+        unknown(row, cells.join(" "));
+      }
+    }
+  }
+  // A Not run section written as a list.
+  let heading = "";
+  for (const line of text.split(/\r?\n/)) {
+    heading = headingOf(line) ?? heading;
+    if (headingOf(line) === null && /not run/i.test(heading) && /^\s*(?:[-*+]|\d+\.)\s+\S/.test(line) && !/^\s*[-*+]\s+none\.?\s*$/i.test(line)) {
+      const row = `${heading}, ${line.trim().slice(0, 60)}`;
+      if (!cited(line).length) problems.push(`${row}: a Not run entry with no ACC-n`);
+      unknown(row, line);
+    }
+  }
+  if (!/^#{1,6}\s+Findings\s*$/im.test(text)) problems.push("no ## Findings section: it holds the findings table, or None.");
+  return [...new Set(problems)];
+}
+
+function reportCheck(name, ids) {
+  if (!STRICT) return notRun(name, "checked under --strict only: this run does not read it");
+  const text = readText(join(ROOT, name));
+  if (text === null) return fail(name, `${name} does not exist: ${REPORT_FILES[name]} writes it`);
+  const problems = reportProblems(name, text, ids);
+  if (problems.length) return fail(name, `${capped(problems)}\nA release claim needs no open Blocker or Major finding, no NOT RUN without an acceptance, and every acceptance an entry of ${ACCEPTANCES}.`);
+  pass(name, `no open Blocker or Major finding, and every NOT RUN accepted by an entry of ${ACCEPTANCES}`);
+}
+
+// The commits that change `file`, with every file each of them changes.
+function commitsChanging(file) {
+  const log = git(["log", "--name-only", "--no-renames", "--format=%x01%h"]);
+  if (!log.ok) return [];
+  return log.out.split("\x01").slice(1)
+    .map((chunk) => { const [hash, ...files] = chunk.split("\n").map((l) => l.trim()).filter(Boolean); return { hash, files }; })
+    .filter((c) => c.files.includes(file));
+}
+
+function acceptanceCheck(plan, entries) {
+  const label = "acceptances";
+  if (!STRICT) return notRun(label, "checked under --strict only: this run does not read the build order's proofs or ACCEPTANCES.md");
+  const problems = [...entries.incomplete.map((p) => `${ACCEPTANCES}: ${p}`)];
+  let rows = 0;
+  if (plan !== null) {
+    for (const table of tables(plan).filter((t) => /^build order$/i.test(t.heading))) {
+      const status = table.header.indexOf("status");
+      for (const cells of table.rows) {
+        rows += 1;
+        const cell = (cells[status] ?? "").replace(/[`*]/g, "").trim();
+        const m = cell.match(/^PASS(?:\s*\((.*)\))?$/);
+        if (!m) problems.push(`${cells[0]}: Status ${cell || "is empty"}: a built module reads PASS, or PASS (6.5 NOT RUN, ACC-n)`);
+        else if (m[1] !== undefined && !cited(m[1]).length) problems.push(`${cells[0]}: Status ${cell} has no ACC-n`);
+        else if (m[1] !== undefined) cited(m[1]).filter((id) => !entries.ids.has(id)).forEach((id) => problems.push(`${cells[0]}: ${id} is not an entry of ${ACCEPTANCES}`));
+      }
+    }
+    if (!rows) problems.push("EXECUTION_PLAN.md ## Build order has no module row");
+  }
+  let unreadable = null;
+  if (existsSync(join(ROOT, ACCEPTANCES))) {
+    if (!isGitRepo()) {
+      unreadable = `not a git repository: the history of ${ACCEPTANCES} cannot be read`;
+    } else {
+      const tracked = git(["ls-files", "--error-unmatch", "--", ACCEPTANCES]).ok;
+      if (!tracked || git(["status", "--porcelain", "--", ACCEPTANCES]).out.trim()) {
+        problems.push(`${ACCEPTANCES} ${tracked ? "has uncommitted changes" : "is not committed"}: the operator's entry is a commit of its own`);
+      }
+      for (const c of commitsChanging(ACCEPTANCES)) {
+        if (c.files.length > 1) problems.push(`commit ${c.hash} changes ${ACCEPTANCES} together with ${c.files.length - 1} other file(s): an acceptance is a commit of its own`);
+      }
+    }
+  }
+  if (problems.length) return fail(label, capped(problems));
+  if (unreadable) return notRun(label, unreadable);
+  pass(label, `${rows} module row(s) PASS; ${entries.ids.size} acceptance(s) in ${ACCEPTANCES}${entries.ids.size ? ", each in a commit of its own" : ""}`);
 }
 
 // ------------------------------------------------------------------ report
@@ -791,7 +1051,8 @@ function report(stack, withSuites) {
   const failed = results.filter((r) => r.status === "FAIL").length;
   const warned = results.filter(isWarning).length;
   const skipped = results.filter((r) => r.status === "NOT RUN").length;
-  const caveat = warned || skipped ? ` — with ${warned} warning(s) and ${skipped} check(s) not run, so not a release claim (re-run with --strict)` : "";
+  const passed = results.filter((r) => r.status === "PASS").map((r) => r.label);
+  const notRunLabels = results.filter((r) => r.status === "NOT RUN").map((r) => r.label);
   lines.push("");
   let code = 0;
   if (failed) {
@@ -800,8 +1061,10 @@ function report(stack, withSuites) {
   } else if (STRICT && (warned || skipped)) {
     code = 1;
     lines.push(`NOT DONE (--strict) — ${warned} warning(s) and ${skipped} check(s) not run. A release claim needs every check run and clean.`);
+  } else if (STRICT) {
+    lines.push(`DONE — all live checks${withSuites ? " and committed suites" : ""} green under --strict; SECURITY_REPORT.md, AUDIT_REPORT.md and QA_COVERAGE.md hold no open Blocker or Major finding and no NOT RUN without an acceptance in ${ACCEPTANCES}${withSuites ? "" : " (the committed suites were not run: --suites runs them)"}. Browser, role and device evidence is the product-qa gate's QA_COVERAGE.md.`);
   } else {
-    lines.push(`DONE — all live checks${withSuites ? " and committed suites" : ""} green${caveat}. Browser, role and device evidence is the product-qa gate's QA_COVERAGE.md.`);
+    lines.push(`NOT DONE (no check failed, so the exit code is 0, and exit 0 is not done) — passed: ${passed.join(", ") || "none"}. Not run: ${notRunLabels.join(", ") || "none"}${warned ? `; ${warned} warning(s)` : ""}. Steps 7 and 8 were not checked: SECURITY_REPORT.md, AUDIT_REPORT.md and QA_COVERAGE.md are read under --strict. Only a --strict run that ends DONE means the build is done.`);
   }
   return { code, stdout: `${lines.join("\n")}\n`, stderr: "" };
 }
@@ -815,7 +1078,7 @@ async function main(argv) {
   if (!isDir(ROOT)) return { code: 2, stdout: "", stderr: `verify-done: --root is not a directory: ${ROOT}\n` };
   SKIP_BUILD = Boolean(o["--skip-build"]);
   SKIP_BOOT = Boolean(o["--skip-boot"]);
-  HEALTH_URL = o["--health-url"];
+  FAST = Boolean(o["--fast"]);
   STRICT = Boolean(o["--strict"]);
 
   const stack = readStack();
@@ -824,20 +1087,25 @@ async function main(argv) {
   else pass("STACK.md");
   const keys = stack.keys;
   const base = o["--base"] ?? (keys.base_commit || undefined);
+  const stackOk = stack.present && !stack.problems.length;
 
-  if (stack.present && !stack.problems.length) {
+  if (stackOk) {
     navreeCli(stack);
     skillsInstalled();
     programCheck("cargo fmt", "cargo", ["fmt", "--all", "--", "--check"], TIMEOUT.cargo);
-    programCheck("cargo clippy", "cargo", ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"], TIMEOUT.cargo);
-    cargoTest();
-    programCheck("navree check", "navree", ["check"], TIMEOUT.navree, {
-      extraFailure: "navree check needs config and a migrated database: start the database (navree dock up for TimescaleDB and PostgreSQL; MySQL runs on a server you provide at database.url; SQLite needs nothing), then run navree migrate (hard rule 13).",
-    });
-    programCheck("navree config:check", "navree", ["config:check"], TIMEOUT.navree);
-    publicRoutes();
-    if (SKIP_BUILD) notRun("release build", "skipped by flag");
-    else programCheck("release build", "cargo", ["build", "--release"], TIMEOUT.cargo);
+    if (FAST) {
+      for (const label of ["cargo clippy", "cargo test", "navree check", "navree config:check", "release build"]) notRun(label, SKIPPED_BY_FAST);
+    } else {
+      programCheck("cargo clippy", "cargo", ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"], TIMEOUT.cargo);
+      cargoTest();
+      programCheck("navree check", "navree", ["check"], TIMEOUT.navree, {
+        extraFailure: "navree check needs config and a migrated database: start the database (navree dock up for TimescaleDB and PostgreSQL; MySQL runs on a server you provide at database.url; SQLite needs nothing), then run navree migrate (hard rule 13).",
+      });
+      programCheck("navree config:check", "navree", ["config:check"], TIMEOUT.navree);
+      if (SKIP_BUILD) notRun("release build", "skipped by flag");
+      else programCheck("release build", "cargo", ["build", "--release"], TIMEOUT.cargo);
+    }
+    publicRoutes(stack);
     await bootCheck(stack);
     if (keys.front_end === "next") {
       webChecks(stack);
@@ -851,7 +1119,16 @@ async function main(argv) {
   tauriChecks();
   suppressionSweep(base, keys.api_types);
   placeholderSweep(keys.web_dir, keys.api_types);
-  if (o["--suites"]) await suiteChecks(stack, o["--api-url"] ?? DEFAULT_API_URL);
+  if (stackOk) {
+    const plan = readText(join(ROOT, "EXECUTION_PLAN.md"));
+    planConfirmed(plan);
+    contractsAgreed(plan);
+    cargoLockCommitted();
+    const entries = acceptanceEntries();
+    for (const name of Object.keys(REPORT_FILES)) reportCheck(name, entries.ids);
+    acceptanceCheck(plan, entries);
+  }
+  if (o["--suites"]) suiteChecks(stack);
   return report(stack, Boolean(o["--suites"]));
 }
 
