@@ -13,6 +13,7 @@ Writes the plan that drives the build, from the digests and the operator's decis
 
 - `PRD_DIGEST.md`, `DESIGN_DIGEST.md` (when there is a design), `GAPS.md` with its `## Decisions` written by the operator, and `STACK.md`.
 - For a prototype source, `prototype/MIGRATION_PLAN.md` with `Status: APPROVED`: its module order and seed plan are taken as they are, and the draft contracts in `contracts/`.
+- The list of what the starter brought and the operator's answers to keep, rename or remove each (step 1, item 6 of `superdev-build`): record it as one item under `## Open items`.
 - The absolute paths of `superdev-build/references/artifacts.md` (the format of `EXECUTION_PLAN.md`) and `security-foundation/SKILL.md` (its controls table).
 - A missing input: stop and return its name.
 
@@ -26,7 +27,7 @@ Writes the plan that drives the build, from the digests and the operator's decis
    - Money fields are integers in paise (rule BE-9); enum values are strings (rule BE-8).
    - Time-ordered, write-heavy, append-only data is a candidate for TimescaleDB's hypertables when `database` is `timescaledb`; check `navree-database` and record chunk and retention choices you cannot settle as `O-n`.
 4. Build order: modules in dependency order. A module comes after everything it depends on, and modules are built one at a time (rule BLD-1). Write the table with the columns `Module | Status | Commit | Proof` (rule BLD-5), the status `NOT RUN` for each.
-5. Access: the global roles (the super-admin role is `admin`), the workspace roles (`owner`, `admin`, `member`, `viewer`) and any added, the permission keys per module as `<module>.<verb>`, and every public route (hard rule 6).
+5. Access: the global roles (the super-admin role is `admin`), the workspace roles (`owner`, `admin`, `member`, `viewer`) and any added, the permission keys per module as `<module>.<verb>`, and the bullet `Public routes`, which step 4 fills from the release binary (hard rule 6).
 6. Jobs and schedules (names `<module>.<verb>`, rule BE-10), integrations with their auth model, and the webhooks each needs.
 7. Security: the rows of the `security-foundation` controls table that apply, the personal-data fields to mask, the balances, the live topics, and which staff roles need two-factor (rule SEC-5). A PRD that needs access to end at once is met by browser sessions (Navree UI), which end at once; for a token client (Next.js, Tauri, an API client) it is an `O-n` gap (rule SEC-2, hard rule 21).
 8. When `front_end` is `navree`: list each component in `DESIGN_DIGEST.md` that the installed `navree-ui` skill has no component for as an `N-n` row under `## Navree UI gaps`, with the resolution `open` (hard rule 14).

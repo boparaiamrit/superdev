@@ -18,7 +18,7 @@ Install the CLI (`cargo install navree-cli`), create the app with the `navree ne
 
 Write the digests, `GAPS.md` and `EXECUTION_PLAN.md`, show the summary, and wait for the operator. A revision edits `GAPS.md` `## Decisions` first.
 
-**Verify:** `EXECUTION_PLAN.md` holds `Status: CONFIRMED by <name> on <date>`, and `git log --format=%h -- EXECUTION_PLAN.md src/modules` shows the commit adding that line before the first commit that touches `src/modules/` after `base_commit`.
+**Verify:** `EXECUTION_PLAN.md` holds `Status: CONFIRMED by <name> on <date>` (the `verify-done.mjs` check `plan confirmed`), and `git log --format=%h -- EXECUTION_PLAN.md src/modules` shows the commit adding that line before the first commit that touches `src/modules/` after `base_commit`.
 
 ### 3. Agree each module's contract before its code; one owner
 
@@ -26,7 +26,7 @@ Write the digests, `GAPS.md` and `EXECUTION_PLAN.md`, show the summary, and wait
 
 The main agent writes `contracts/<module>.md`; the operator agrees; the contract in code is the module's first commit; a new shape goes into the contract first. Screens use only the contract's types (generated TypeScript types for Next.js). In a Navree UI module the routes are pages and form posts whose handlers are screen code, so they are filled at step 6.4 and the module's route-level tests and runtime proof follow them; with JSON routes they come before the screens (step 6 of `superdev-build`).
 
-**Verify:** the commit that sets `Status: AGREED` is older than the module's first handler-body commit; `navree routes --json` lists exactly the contract's routes with the same access; with `front_end: next`, the `verify-done.mjs` API contract drift check is `PASS`.
+**Verify:** each module's contract holds `Status: AGREED by <name> on <date>` (the `verify-done.mjs` check `contracts agreed`), and the commit that sets it is older than the module's first handler-body commit; `navree routes --json` lists exactly the contract's routes with the same access; with `front_end: next`, the `verify-done.mjs` API contract drift check is `PASS`.
 
 ## Every module
 
@@ -54,7 +54,7 @@ An attribute, a config line or a guard shows intent. A test that performs the ac
 
 Every route carries an access declaration; a route without one does not compile. Which declarations a superdev build uses is rule BE-5 of [backend-on-navree](../../backend-on-navree/SKILL.md): abilities and permission keys, never role names. Never make a route `#[public]` to get past a 401 or 403. Public routes are listed in the plan. Read `navree-access-control`.
 
-**Verify:** `cargo build` passes; in `navree routes --json`, the routes with public access are exactly the plan's `## Access` list of public routes (the `verify-done.mjs` check `public routes` fails on, and prints, a public route whose method and path, written together in backticks, the list does not name).
+**Verify:** `cargo build` passes; in `<target>/release/<binary> routes --json`, the release binary, which ships, the routes with public access are exactly the plan's `## Access` list of public routes: the `verify-done.mjs` check `public routes` fails on, and prints, a public route whose method and path, written together in backticks, the list does not name, and a route of the list's bullet that the binary does not have as public.
 
 ### 7. Write inside the request's unit of work; make jobs safe to run twice
 
@@ -78,7 +78,7 @@ The API answers input errors with 400 (`validation_failed`, `bad_request`) and C
 
 Later sources win: `config/app.toml`, `config/<section>.toml`, `config/env/<env>.toml`, `.env`, then the process's `APP_*` variables. Only `APP_*` variables are read (`APP_DATABASE__URL`, never `DATABASE_URL`); `RUST_LOG` is not read. Secrets live only in `.env` or the environment, wrapped in `Secret<T>`, never in TOML, never with a default. `APP_KEY` is the same in every process. Demo accounts and demo data never reach production. Read `navree-config`.
 
-**Verify:** `git ls-files .env` prints nothing; `navree config:check --env production` exits 0 on the deploy configuration; `navree config:show --origin` shows every secret coming from `.env` or the environment; a search of `config/` for quoted values of keys named `key`, `secret`, `password` or `token` finds none.
+**Verify:** `git ls-files .env` prints nothing; `APP_ENV=production navree config:check --env production` exits 0 on the deploy configuration (an app on SQLite cannot pass: rule 16); `navree config:show --origin` shows every secret coming from `.env` or the environment; a search of `config/` for quoted values of keys named `key`, `secret`, `password` or `token` finds none.
 
 ### 10. Models are global until marked for a workspace
 
@@ -136,9 +136,9 @@ No `#[allow(..)]`, `#![allow(..)]`, `#[expect(..)]`, `#[cfg_attr(.., allow(..))]
 
 **Scope:** migrations; the production configuration.
 
-A migration that has run anywhere but your machine is never edited; add a new one. In production, `database.migrate_on_boot = false` and migrations run as a release step; `navree deploy:rollback` does not undo them, so a release's migrations are additive. Also `session.secure = true` and a mail transport other than `log`. Read `navree-migrations` and `navree-deployment`.
+A migration that has run anywhere but your machine is never edited; add a new one. In production, `database.migrate_on_boot = false` and migrations run as a release step; `navree deploy:rollback` does not undo them, so a release's migrations are additive. Also `session.secure = true` and a mail transport other than `log`. These settings live in `config/env/production.toml`, which Navree reads only when `APP_ENV=production` is set. Read `navree-migrations`, `navree-config` and `navree-deployment`.
 
-**Verify:** `git diff --name-status <last released commit> -- src` lists migration files only as added (`A`); `navree config:check --env production` exits 0.
+**Verify:** `git diff --name-status <last released commit> -- src` lists migration files only as added (`A`); before a first release there is no such commit, and the rule holds from the first deploy on; `APP_ENV=production navree config:check --env production` exits 0. An app on SQLite cannot pass it, because the check refuses a SQLite file in production: for a SQLite deployment the finding about the SQLite file is recorded in `DEPLOY.md` with the operator's `ACC-n`, and every other finding is fixed.
 
 ### 17. Never edit regenerated files by hand
 
@@ -194,7 +194,7 @@ Inside the request's unit of work, take a transaction-scoped lock per account be
 
 **Scope:** payments, purchases, credit adjustments, order creation, imports, refunds.
 
-JSON routes that a Next.js front end, a Tauri client or a partner calls: Navree handles no inbound `Idempotency-Key`; the app builds it. Keep the first response for 24 hours per actor, route and key (a unique index); a repeat replays it with `Idempotent-Replayed: true`; a concurrent repeat answers 409 `idempotency_in_progress`; the same key with a different body answers 409 `idempotency_key_reused` (the API never answers 422); a handler error releases the key. Clients send one key per user action and reuse it on retry. A Navree UI form sends no such header; its runtime ignores a second identical submit while the first is on its way, which does not cover a retry or a second tab. So the form carries a one-time token, drawn into it when the page is rendered (check `navree-ui` for a hidden field) and stored with the write under a unique index: a repeat post with the same token changes nothing. Re-validate time-limited discounts at payment.
+JSON routes that a Next.js front end, a Tauri client or a partner calls: Navree handles no inbound `Idempotency-Key`; the app builds it. Keep the first response for 24 hours per actor, route and key (a unique index); a repeat replays it with `Idempotent-Replayed: true`; a concurrent repeat answers 409 `idempotency_in_progress`; the same key with a different body answers 409 `idempotency_key_reused` (the API never answers 422); a handler error releases the key. Clients send one key per user action and reuse it on retry. A Navree UI form sends no such header; its runtime ignores a second identical submit while the first is on its way, which does not cover a retry or a second tab. So the form carries a one-time token, built in three parts: a hidden field in the form struct (`#[form(widget = hidden)]`, a `token` field), given its value on each render with `FormView::with_values(..)` (declaring the field and also calling `FormView::hidden` draws the input twice), and the token stored with the write under a unique index. A repeat post with the same token answers like the first and changes nothing. Re-validate time-limited discounts at payment.
 
 **Verify:** JSON routes: a test sends the same keyed request twice at once and once later: one effect, one replay; a different body gets 409 with its code. Navree UI forms: a test posts the same form with the same token twice, as a client without the runtime would: one effect. At the QA gate, a double-click on every money button makes one effect.
 
@@ -212,4 +212,4 @@ A nudge inside a unit of work waits for the commit; a job is queued only if the 
 
 A type check and a web build do not prove that an app installs, signs in, survives a token refresh, handles the keyboard and system insets, or shows notifications. The client itself is built per [design-to-tauri](../../design-to-tauri/SKILL.md).
 
-**Verify:** the debug build installed on an emulator or phone, each module's main flow driven with `adb` (or the iOS simulator), screenshots and logcat with no app error; the `verify-done.mjs` Tauri checks `PASS`; platforms that could not be run recorded as `NOT RUN` for the operator to accept.
+**Verify:** the debug build installed on an emulator or phone, each module's main flow driven with `adb` (or the iOS simulator), screenshots and logcat with no app error; the `verify-done.mjs` Tauri checks `PASS`; platforms that could not be run recorded as `NOT RUN`, which blocks until the operator accepts it in `ACCEPTANCES.md`.
