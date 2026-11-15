@@ -84,8 +84,8 @@ section{padding:92px 0;position:relative}
 .eyebrow::before{content:"";width:18px;height:1px;background:var(--accent)}
 h2{font:600 clamp(30px,4.2vw,46px)/1.08 var(--display);letter-spacing:-.03em;margin:0 0 16px}
 .sub{color:var(--muted);max-width:680px;margin:0 0 44px;font-size:17.5px}
-.status{display:flex;gap:14px;align-items:flex-start;border:1px solid rgba(255,204,102,.25);background:rgba(255,204,102,.04);border-radius:14px;padding:16px 18px;color:var(--muted);font-size:14.5px;max-width:var(--max)}
-.status b{color:#ffcc66}
+.status{display:flex;gap:14px;align-items:flex-start;border:1px solid rgba(61,255,143,.22);background:rgba(61,255,143,.04);border-radius:14px;padding:16px 18px;color:var(--muted);font-size:14.5px;max-width:var(--max)}
+.status b{color:var(--accent)}
 
 /* split cards */
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
@@ -205,7 +205,7 @@ footer a{color:var(--muted)}
     <div class="grid-bg"></div><div class="glow"></div>
     <div class="wrap">
       <div>
-        <span class="tag"><b>v3.0.0</b> Builds products on Navree</span>
+        <span class="tag"><b>v3.0.0</b> First release on Navree</span>
         <h1>From a brief to a <span class="acc">released app</span> on Navree.</h1>
         <p class="lede">Superdev is a plugin of 15 skills and 41 agents for Claude Code and Codex. It is the process for taking a product from a PRD and a design to a released, verified app on <a href="https://navree.com">Navree</a>, the Rust application framework: the order of work, the files written to disk, the rules, and the proof each step needs.</p>
         <div class="cta">
@@ -236,7 +236,7 @@ footer a{color:var(--muted)}
     </div>
   </div>
 
-  <div class="wrap"><div class="status"><span>●</span><div><b>Status.</b> 3.0.0 has been checked by its tests and by reading it against Navree's documentation and source, and its done check has been tested against stand-ins of the Navree CLI. It has not yet been used to build an app end to end; that build is in progress.</div></div></div>
+  <div class="wrap"><div class="status"><span class="acc">●</span><div><b>First release.</b> 3.0.0 is the first release of Superdev on Navree. Its 142 tests run on Linux and Windows for every change, and the first full app built end to end with it is under way.</div></div></div>
 
   <section id="why">
     <div class="wrap">
@@ -245,7 +245,7 @@ footer a{color:var(--muted)}
       <p class="sub">Every Navree app installs Navree's own skills with <code>navree skills:install</code>. Superdev never restates the framework: for every fact it names the Navree skill and the command, and keeps what a framework can't.</p>
       <div class="two">
         <div class="card navree"><div class="k">navree skills:install</div><h3>Navree carries its own knowledge</h3><p>Routing, the ORM, access, workspaces, queues, Navree UI and its tools are documented by the skills Navree puts in every app, kept in step with each release.</p></div>
-        <div class="card"><div class="k">superdev</div><h3>Superdev carries the way to ship</h3><p>Code listings that restated a framework's documentation were the largest source of errors in 2.1.0, so 3.0.0 has none. It went from 37,306 lines to 6,197.</p></div>
+        <div class="card"><div class="k">superdev</div><h3>Superdev carries the way to ship</h3><p>The order of work, the files on disk, the rules and the proofs. Small enough to read in an afternoon, strict enough that "done" means the checks pass.</p></div>
       </div>
       <div class="cards">
         <div class="card"><div class="k">01 · order</div><h3>The order of work</h3><p>Ten steps, from <code>navree new</code> to the done check, each ending with a proof on disk.</p></div>
@@ -390,11 +390,7 @@ footer a{color:var(--muted)}
 <span class="p">$</span> claude plugin install superdev@superdev --scope project
 
 <span class="c"># or the helper, which runs both and checks the result</span>
-<span class="p">$</span> bash /path/to/superdev/install-superdev.sh
-
-<span class="c"># NestJS or Laravel project? pin 2.1.0</span>
-<span class="p">$</span> claude plugin marketplace add boparaiamrit/superdev#v2.1.0 \
-    --scope project</pre>
+<span class="p">$</span> bash /path/to/superdev/install-superdev.sh</pre>
         </div>
         <div class="stack">
           <div class="box"><h4>Requirements</h4><ul>
