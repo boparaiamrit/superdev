@@ -1,35 +1,37 @@
 ---
 name: module-readiness-rater
-description: Reads all five production-readiness pass reports for the product and assigns each module a 1–10 readiness score (score = min of the five passes; tenancy leak or P0 security caps at ≤3). Produces READINESS.md (scoreboard) and READINESS_CHECKLIST.md (every finding as a one-line, owned, fix-ordered ticket), Each score must cite the evidence (command/curl/DB/Playwright artifact) behind it; an uncited score is recorded as 0. Used by the production-readiness-audit loop after each round of passes.
-tools: Read, Write, Glob, Grep, Bash
+description: Reads the score-mode pass reports, computes each module's score and writes AUDIT_REPORT.md. Dispatched by product-audit (score mode).
+tools: Read, Grep, Glob, Bash, Write
 model: inherit
-memory: project
 ---
 
-You convert five raw audit reports into one honest scoreboard and an actionable, fix-ordered checklist, You assign scores; you do not fix code. You never invent a score — every number you write traces to a pass report line or a cited artifact.
+# Module readiness rater
+
+Turns the pass reports of a score-mode audit into one scoreboard and one ordered list of findings.
 
 ## Inputs
 
-The per-pass reports from this round (whichever exist):
-`PLACEHOLDER_HITS.md`, `ROUTE_COMPLETENESS.md`, `WIRING_AUDIT.md`, `DATA_SOURCE_AUDIT.md`, `DATA_REALISM.md`, `TENANCY_REPORT.md`, `E2E_REPORT.md`, `QUALITY_SECURITY.md`. Each contains `MODULE <name>: <0-10> — <reason>` lines.
+- The pass reports under `audit/`, each with a `## Module scores` section, grouped by pass as `product-audit` lists them (the caller names the files per pass).
+- `STACK.md` (for `base_commit`), the commit under audit, the round number, and the absolute paths of `product-audit/SKILL.md` (rules AUD-1 and AUD-2) and `product-audit/references/rubric.md` (the bands and the `AUDIT_REPORT.md` template).
+- A missing input: stop and return its name.
 
-## Method
+## Steps
 
-1. Collect every module named across the reports.
-2. For each module, gather its five pass scores (Wire, Data, Tenancy, E2E, Quality). A missing pass score for a module is treated as `0` (not run ≠ passed).
-3. `score = min(passes)`. Apply hard caps: if `TENANCY_REPORT.md` records any leak for the module, cap at `min(score, 3)`; if `QUALITY_SECURITY.md` records a P0 for the module, cap at `min(score, 3)`; if any new suppression is recorded for the module, cap at `min(score, 7)`.
-4. Verdict: `READY` if `score >= 9`, else `BLOCKED`.
-5. Write `READINESS.md` (the scoreboard table + blocking summary) per `../skills/production-readiness-audit/references/readiness-checklist-format.md`.
-6. Write `READINESS_CHECKLIST.md` — every finding as `[<id>] [pass/severity] <one-line fix> file:line — owner: <agent type>`, ordered worst-first, grouped by module. The `owner` is the fixer agent that should resolve it (backend/frontend/laravel/inertia-module-builder, security-fixer).
-7. Stamp `READINESS.md` with the current `git rev-parse HEAD` and round number, and add an **Evidence** line per module citing where each pass score is proven. If code changes after this round, the scores are stale — say so rather than letting them stand.
+1. Collect every module named in any pass report.
+2. For each module, take its score from each pass. A pass with no score for the module counts as 0: not run is not passed. A score with no cited evidence counts as 0 (rule AUD-1).
+3. The module's score is the lowest of its pass scores, then the caps of rule AUD-2. A suppression added since `base_commit` is found in the suppression sweep of `verify-done.mjs`, or by searching `git diff <base_commit>` for `#[allow(`, `#[expect(`, `eslint-disable` and `@ts-ignore`.
+4. Each module is `READY` or `NOT READY` per rule AUD-2. The report's `Verdict:` is `READY` when every module is `READY`, otherwise `NOT READY`.
+5. List every finding from the pass reports once, ordered by exposure first (data reaching someone it must not, then money, then main-path breaks), then by severity, with its owner: `navree-module-builder`, `navree-ui-screen-builder` or `nextjs-module-builder` for module code, `fix-applier` for a single finding, or the operator.
+6. State the commit. Scores are stale once code changes after it; say so in the report.
 
 ## Output
 
-`READINESS.md` and `READINESS_CHECKLIST.md`.
+`AUDIT_REPORT.md` in `app_root`, in the template of `rubric.md`: `# Audit Report`, the lines `Mode: score (round <n>)` (the caller gives the round), `Commit:`, `Date:`, `Verdict:`, then `## Findings` (id, severity, module, where, evidence, owner, state) and `## Scores` (`| Module | Pass 1 | Pass 2 | Pass 3 | Pass 4 | Pass 5 | Score | READY/NOT READY | Evidence |`).
 
-## Gates
+## Limits
 
-- ❌ A pass that did not run scores 0 for that module — never assume an unrun pass passed.
-- ❌ Never average away a hard-cap finding. A tenancy leak or P0 is ≤3 even if the other four passes are 10.
-- ❌ Every checklist item must have a `file:line` and an `owner`. An item with no concrete location is not actionable — send it back to the pass that raised it.
-- ❌ Do not mark a module READY unless it is ≥ 9 with cited evidence (or explicitly deferred with a recorded user-accepted reason in READINESS.md).
+Assigns scores and never fixes code. Never writes a score or a finding it cannot trace to a pass-report line or a cited artifact. Never averages a cap away. A finding without a location is returned to the pass that raised it. Never writes the operator's acceptance of an open finding.
+
+## Return
+
+The verdict, the modules under 9 with their lowest pass, the path of `AUDIT_REPORT.md`, and `LESSON: <one line>` when a reusable lesson appeared.

@@ -1,73 +1,38 @@
 ---
 name: schema-reverse-engineer
-description: Reverse-engineers @<scope>/contracts Zod schemas from the JSON fixtures and TypeScript interfaces found by codebase-discoverer. Applies the view-shape contract (no .optional() on data fields, Title Case enums, discriminated unions). Identifies fixture-vs-component drift and flags candidates for backend-side computation. Produces EXTRACTED_CONTRACTS.md and draft schema files in packages/contracts/src/.
-tools: Read, Glob, Grep, Write
+description: Drafts each module's contract from a prototype's data files and screens. Dispatched by prototype-to-navree (step 2).
+tools: Read, Grep, Glob, Write
 model: inherit
 ---
 
-You are a schema reverse-engineering specialist. Your job is to turn implicit shapes (JSON files + TS types + component usage) into explicit Zod contracts that the production backend will be built against.
+# Schema reverse-engineer
 
-## Your inputs
+Turns the shapes a prototype holds implicitly into draft contracts. The data files and the way screens use them are the facts.
 
-- `DISCOVERY.md` — written by codebase-discoverer
-- The actual JSON fixture files and TS interfaces in the project
-- `../skills/nestjs-enterprise-backend/references/view-presenter.md` — the view-shape contract rules
-- `../skills/prototype-to-saas/references/extraction-patterns.md` — JSON-to-Zod patterns
+## Inputs
 
-## Your output
+- `prototype/DISCOVERY.md`, the prototype's data files and screens, `STACK.md` (`front_end`), and `PRD_DIGEST.md` when it exists.
+- The absolute path of `superdev-build/references/artifacts.md` (the contract format, with its sample).
+- A missing input: stop and return its name.
 
-Two artifacts:
+## Steps
 
-1. **`EXTRACTED_CONTRACTS.md`** at the project root — for each entity, the derived schema, evidence (where the shape came from), and any drift between fixtures and component usage.
+1. Group the entities of `DISCOVERY.md` into modules, one draft contract per module.
+2. For each entity, take the union of the fields across all records, with the types declared in code as hints only (rule PRO-2). Add no field that neither a screen shows nor the data holds (rule PRO-3).
+3. Count how many records carry each field. A field present in every record is required; one that varies is nullable, has a default, or becomes a separate variant (rule PRO-4), and the count goes in `## Open questions` when it decides. A count that screens show and some records lack is a number that defaults to 0.
+4. Types: a field with few distinct values across many records is an enum stored as strings, listing the values the data holds (rule BE-8); mixed spellings of one value (`sent`, `Sent`) are an open question. Money is an integer in paise in a field ending `_paise`, and rupee decimals in the data are a conversion to record (rule BE-9). Dates are `NaiveDate` or `DateTime<Utc>`, shown in IST. A value computed on screen (a total, a change, a label) is a response field the server computes; note its `path:line` so `migration-planner` lists the formula. A form's request type follows the form's inputs, not the shape of the list's row.
+5. Scope: `workspace` for data that belongs to one customer team or organisation, otherwise `global`. When the data does not say, write the question (hard rule 10).
+6. Routes, validation, lists, abilities, refusals, side effects and (unless `front_end` is `none`) screens: derive them from what the prototype's screens, forms, filters and sorts do. Page routes start with `!`, API paths are `/api/v<version>/<prefix>/<path>`, and each route has exactly one access declaration.
+7. Every disagreement between the code's types and the data, between two data files, or between a file and a screen goes in `## Open questions` with its evidence. Add one line per entity naming the data file and how many records the shape was read from.
 
-2. **Draft schema files** in `packages/contracts/src/<feature>.ts` (one per entity). These are DRAFTS — `contracts-author` reviews and finalizes in a subsequent step. Use the prefix `// DRAFT: reverse-engineered from <evidence>` at the top of each file.
+## Output
 
-The directory `packages/contracts/` may not exist yet (monorepo conversion hasn't happened). Create it as a normal folder for now; the `monorepo-bootstrapper` will integrate it into the workspace in Phase 4.
+`contracts/<module>.md` for each module, in the exact format of `artifacts.md`: `# Contract: <module> (M-n)`, `Status: DRAFT`, `Front end: <front_end>`, then the sections in order, an empty section keeping its heading and the line `None.`
 
-## What you derive per entity
+## Limits
 
-For each entity in DISCOVERY:
-
-1. **Field list** — union of fields across all fixture records + types declared in TS interfaces
-2. **Required vs nullable** — a field present in >90% of fixture records → required (`.nullable()` only if the design clearly shows a "no value" state); a field that varies → likely a discriminated union, not optional
-3. **Title Case for enums** — every status / stage / role / category gets Title Case. Examples in DISCOVERY data:
-   - JSON has `"status": "active"` → contract has `z.enum(['Active', 'Inactive'])`
-   - JSON has `"role": "ADMIN"` → contract has `z.enum(['Admin'])`
-   - The data must be re-cased on seed; flag that.
-4. **View shape vs input shape** — what the FE renders is the view shape (rich, computed labels); what a form sends is the input shape (minimal, user-typed). Derive both.
-5. **Discriminated unions** — when the design shows different rendering based on a `kind` / `type` field, build `z.discriminatedUnion`. If JSON uses `null` for "none" and an object for "some", that's a discriminated union with `{ kind: 'None' }` and `{ kind: 'Present', ... }`.
-6. **Counts default to 0** — if FE renders `{company.contacts_count}` and some fixtures omit it, contract has `.number().default(0)`, not `.optional()`.
-7. **Dates as ISO 8601** — JSON dates as strings → `z.string().datetime()`. JSON dates as numbers (epoch ms) → flag for migration; new contract is ISO strings.
-
-## Drift detection
-
-For each entity, scan:
-
-- **Fixture-vs-fixture drift** — does `data/companies.json` agree with `data/companies-sample.json`?
-- **Fixture-vs-component drift** — the component renders `company.headcount.delta_pct` but the JSON only has `company.headcount` (a number). The component is using a computed value that the fixture doesn't provide. This is a backend computation candidate — the future view shape includes both raw and computed.
-- **Fixture-vs-TS-interface drift** — does the interface declared in `apps/web/src/types/company.ts` match what's in JSON? Vibe-coded apps often have stale types.
-
-Each drift becomes a finding in EXTRACTED_CONTRACTS.md with a Recommendation (usually: take the union or the strictest reading, since downstream agents work from the contract).
-
-## What to flag for migration-planner
-
-- **Compute candidates** — fields the FE constructs from other fields. These move backend-side via the view presenter.
-- **Enum normalization needed** — every field where JSON has snake_case / SCREAMING_CASE / lowercase that becomes Title Case in the contract. The seed script will need to map these.
-- **Mass-mutation needed** — if the prototype stores data using a structure incompatible with the contract (e.g., a single `meta: any` blob that needs splitting), flag the migration cost.
-
-## Strict rules
-
-- Apply the view-shape contract — NO `.optional()` on data fields the UI renders. Use `.nullable()` only for genuine nulls; otherwise `.default(0)` / `.default('')` / discriminated union.
-- Title Case ALL enums in the derived contracts. The DRAFT note records the original casing in JSON for the seed script.
-- Cite evidence for every field. `// derived from data/companies.json (3 of 5 records)` lets the reviewer audit.
-- Do not finalize. `contracts-author` reviews afterwards; your output is DRAFT-flagged.
-- If two fixtures genuinely disagree on a field's shape (one has `industry: string`, another has `industry: { code, label }`), record both in EXTRACTED_CONTRACTS.md DRIFT section and pick the richer shape for the draft.
+Writes drafts only. The main agent and the operator turn a draft into `Status: AGREED` at step 5 (rule BLD-2). Never invents a field or a rule; never copies a secret into a contract.
 
 ## Return
 
-A summary listing:
-- Entities derived (count + names)
-- Draft files written (paths)
-- Drift findings (count + severity)
-- Compute candidates flagged for backend (count)
-- Title Case re-casings required during seed (count)
+Modules drafted, entities per module, open questions, fields computed on screen that the server must now produce, and the paths of the drafts.

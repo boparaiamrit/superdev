@@ -1,126 +1,145 @@
 ---
 name: superdev-build
-description: Build a full-stack monorepo from a PRD + design handoff, directly as the main agent — no conductor, no parallel builder waves. Plan with on-disk artifacts (PRD_DIGEST, DESIGN_DIGEST, AUDIT, EXECUTION_PLAN), choose the stack (Nest.js or Laravel; Next.js or Inertia) and the clients (web, staff admin, Tauri desktop/mobile), lay the security foundation at bootstrap, author ALL shared contracts before any feature code, then build one module at a time (backend → runtime-verify → frontend → browser-verify → device-verify), finishing with the standalone audits, the release QA gate and the verify-done script. Use for greenfield full-stack builds and prototype productionizing; for single-side or single-feature work use the recipe skills directly.
+description: Use when building a product from a PRD (and a design or a prototype) as a Navree app, from an empty folder to a released, verified app, or when resuming such a build. Runs the ten steps in order, writes the plan and each module's contract to disk before code, and proves every step.
 ---
 
-# SuperDev Build — direct, sequential, verified
+# Superdev build
 
-**You build the product yourself, in this session.** Plan the work, author canonical contracts, and build dependent modules sequentially with runtime proof. The conductor, parallel builder waves, hooks, agent-copy installers, and completion ledgers remain removed.
+Superdev is the order of work, the files written to disk, the rules and the proof each step needs to take a product from a brief and a design to a released, verified Navree app. Navree's own skills hold the framework facts: when a step needs one, read the Navree skill this file names, starting with the `navree` skill, which indexes the rest. Run the steps below in order. A step is finished when its proof is on disk, and the next step starts only then.
 
-What you have instead:
+## Before you start
 
-- **Recipe skills are checklists you read and execute** (`design-to-nextjs`, `nestjs-enterprise-backend`, `laravel-enterprise-backend`, `frontend-modular-architecture`, …). Each works standalone; this skill only sequences them for a full build.
-- **`agents/*.md` are optional helpers, auto-loaded by the plugin** — no install step, no copying into the project. Read-only auditors (`ui-auditor`, `static-auditor`, `wiring-auditor`, …) may be dispatched any time for a bounded check. Builder agents (`backend-module-builder`, …) may be dispatched for **one module at a time** only when context demands it — never backend and frontend for the same new contract in parallel.
-- **Done is a script, not a claim:** [`../../scripts/verify-done.mjs`](../../scripts/verify-done.mjs) runs typecheck/lint/build, boots the built API, and sweeps for suppressions and placeholder content. Run it; do not narrate around it.
+- Read [the hard rules](references/hard-rules.md) once. The steps cite them by number.
+- If the app already exists and has `.claude/memory/superdev-learned/INDEX.md`, read it and the lessons it lists that apply to this build ([superdev-self-learning](../superdev-self-learning/SKILL.md)).
+- To resume a build, read `STACK.md` and the `## Build order` table of `EXECUTION_PLAN.md`, and continue at the first step or module that has no proof.
+- When the host supports MCP servers, you may connect Navigator, Navree's server for coding agents: `claude mcp add navree -- navree mcp`.
+- A Navree skill the host has not loaded is read from the app's `.claude/skills/<skill>/SKILL.md` (Codex: `.agents/skills/<skill>/SKILL.md`).
+- When you dispatch an agent, pass absolute paths built from `${CLAUDE_PLUGIN_ROOT}` (rule BLD-4). In Codex, `${CLAUDE_PLUGIN_ROOT}` stands for the `plugins/superdev` folder the plugin was installed from.
 
-## Before anything: read the hard rules
+## Step 1. Navree and the app
 
-Read [`references/hard-rules.md`](references/hard-rules.md) once at build start. Each rule states its applicable scope and required verification. Apply stack-specific requirements to the installed configuration, and preserve project-specific evidence in local memory rather than public guidance.
+- **Do:** confirm the Navree CLI; for a new app, agree the `navree new` line with the operator, create the app, install Navree's skills and superdev in it, and commit; for an existing Navree app, install Navree's skills and commit (items 9 and 10). Then write `STACK.md`, copy the brief and commit. For a new app, dispatch `navree-app-bootstrapper` in mode `create` with the agreed line, or run its steps yourself.
+- **Writes:** the app tree, Navree's skills in `.claude/skills/` and `.agents/skills/`, the first commit (its id is `base_commit`), then `STACK.md`, `docs/brief/` and the `.gitignore` lines in a second commit.
+- **Proof:** `navree --version` prints `navree <navree_version>` as written in `STACK.md`; `.claude/skills/navree/SKILL.md` and `.agents/skills/navree/SKILL.md` exist; `git log --oneline` shows the `base_commit` commit and the commit that adds `STACK.md`.
 
-If the target project has `.claude/memory/superdev-learned/`, skim it once now (not before every step) for project-specific constraints.
+1. When `navree --version` fails, install the CLI with `cargo install navree-cli` (hard rule 1). A project on one of the stacks superdev 2.1.0 served (it has `nest-cli.json` or `artisan` at its root) is not built here: stop and point the operator to superdev 2.1.0 (`claude plugin marketplace add boparaiamrit/superdev#v2.1.0 --scope project`).
+2. A new app: ask the operator these questions and write down the answers. Front end: `navree` (Navree UI, drawn on the server; the default), `next` (Next.js on the Navree API) or `none` (the API alone). Kit: none (the minimal app; the default), `saas` (API and Next.js front end) or `api` (API alone); a product with workspaces and a Next.js front end takes `--kit saas`, which brings the workspace routes, `X-Workspace` and a component kit. Database: `timescaledb` (the default), `postgres`, `mysql` or `sqlite`. App name: lower-case letters, digits, `-` and `_`.
+3. The CLI refuses `--ui navree` with any kit, `--ui next` with `--kit api`, and any kit with `--database mysql` or `--database sqlite`; settle these with the operator before running anything. The `micro` kit is not used. `navree-new-app` has the options.
+4. Run the line from the folder this session started in, which holds the brief: `navree new <name>` creates `<name>/` there, which must be missing or empty, and commits nothing. It runs `git init` only when `<name>/` is not already inside a repository. So when `git -C <name> rev-parse --show-toplevel` does not print the `<name>/` folder itself, the app sits in an enclosing repository. If that repository holds only the brief, make the app a repository of its own: `git init` in `<name>/`, and `<name>/` added to the enclosing `.gitignore`. If it holds other code (a team's monorepo), first ask the operator whether to track the app in it or give it its own repository, and record the answer. From then on, work in `<name>/`, the app root.
+5. Run `navree skills:install` before any other edit. Edit `AGENTS.md`, never `CLAUDE.md`, and never the Navree skill folders (hard rule 17).
+6. Superdev is installed per project, so install it in the app too, and ask the operator to open later sessions of this build in the app root. From the app root: `claude plugin marketplace add boparaiamrit/superdev --scope project`, then `claude plugin install superdev@superdev --scope project`. In Codex, copy `.agents/plugins/marketplace.json` and `plugins/superdev/` from the folder this session started in.
+7. Commit, in the app's repository (or the enclosing one, when the operator chose to track the app there), the generated app, the installed skills and what item 6 added, with `.env` left out of git (hard rule 9); this first commit's id is `base_commit`.
+8. Write `STACK.md` per [artifacts.md](references/artifacts.md) (`clients: web` until step 3), copy the PRD and the design files unchanged into `docs/brief/`, add `qa/*/`, `audit/*/` and `security/*/` to `.gitignore`, and commit. A CLI installed from a clone makes the app depend on that checkout by path; record it with the comment line that [artifacts.md](references/artifacts.md) gives.
+9. An existing Navree app: the session starts in its root, where superdev is installed; skip items 2 to 4, 6 and 7. Commit the operator's uncommitted work first, with their agreement. Run `navree skills:install` and commit what it changed; that commit, or `HEAD` when nothing changed, is `base_commit`, so the sweeps judge only what the build adds. In `STACK.md`, leave `new_command` empty and read the other keys from the app, then confirm them with the operator: `front_end` is `next` with a `web/` front end, `navree` with Navree UI screens under `src/ui/`, else `none`; `kit` is `saas` (with `web/`) or `api` (without) when `src/platform.rs` exists, else `none`; `database` from `database.url` in `config/app.toml` (`postgres://` is `timescaledb` unless `dock.toml` says `timescaledb = false`). The installed skills describe the CLI's version: when the `navree` version in the app's `Cargo.toml` differs from it, settle with the operator which one changes, before step 2.
+10. For an existing app, the PRD may cover only the change. The plan lists the modules this build adds or changes; an existing module gets a contract (step 5) when the build first changes it, and the modules it does not touch get none.
 
-## Step 1 — Plan on disk, confirm with the user
+## Step 2. Digests
 
-Produce four artifacts at the project root, in the formats defined in [`references/artifacts-format.md`](references/artifacts-format.md). Write them yourself, or dispatch the matching read-only agent one at a time (`prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`) and save its return:
+- **Do:** extract the PRD and the design into two digests, separately and without decisions. Dispatch `prd-analyst` and `design-inventory` with the files in `docs/brief/`.
+- **Writes:** `PRD_DIGEST.md`, `DESIGN_DIGEST.md` (without a design, the plan says so in one line instead).
+- **Proof:** both files have every heading of their format in [artifacts.md](references/artifacts.md).
 
-1. `PRD_DIGEST.md` — entities, features, screens, NFRs, open questions. No architecture decisions.
-2. `DESIGN_DIGEST.md` — screens, components, implicit data shapes. No implementation detail. (Skip if there is no design; say so in the plan.)
-3. `AUDIT.md` — PRD-vs-design gaps (`missing-from-design`, `missing-from-prd`, `type-mismatch`, `naming-drift`, `scope-creep`) with a `## DECISIONS` section.
-4. `EXECUTION_PLAN.md` — final module list, entity catalog with view shapes, build order, CASL abilities for resource ownership plus the staff permission-key catalog, queues/crons, and a `## Security` section per [`security-foundation`](../security-foundation/SKILL.md): identities (end users, staff, devices), the permission catalog draft, personal-data fields to mask, balances and money paths, live-update channels and notification categories.
+A digest records what its source says, with the section or screen it came from. What the source leaves open goes under `## Questions`; the digest does not choose.
 
-Show the plan summary (modules, build order, resolved gaps) and **wait for explicit user confirmation** before writing code. Revisions edit `AUDIT.md` DECISIONS, then regenerate the plan.
+## Step 3. Plan
 
-For a prototype source (existing HTML/app, not Claude Design output), first apply [`design-preservation`](../design-preservation/SKILL.md): verbatim copy + mirror + baseline screenshots before any rewiring.
+- **Do:** dispatch `gap-auditor` to list where the PRD and the design disagree; put each finding to the operator and write their decisions; dispatch `plan-architect` to write the plan; complete `clients` in `STACK.md`; show the operator the summary (modules, build order, access, open items) and wait for their answer.
+- **Writes:** `GAPS.md`, `EXECUTION_PLAN.md`, `STACK.md` (`clients`).
+- **Proof:** `EXECUTION_PLAN.md` has the line `Status: CONFIRMED by <operator> on <YYYY-MM-DD>`, written after the operator said so, committed before any module code (hard rule 2).
 
-## Step 2 — Stack choice (ask once, persist)
+- `GAPS.md` `## Decisions` holds the operator's words with their name and the date (rule BLD-6); `plan-architect` reads the decisions, not the findings. A revision of the plan follows rule BLD-3.
+- Without a design there is nothing to compare: skip `gap-auditor` and write `GAPS.md` with `None.` under `## Findings` and `## Decisions`.
+- The plan's `## Security` section lists the rows of the controls table in [security-foundation](../security-foundation/SKILL.md) that apply, the personal-data fields to mask, the balances and the live topics.
+- `clients`: `web` always; `admin` when the PRD has staff work; a Tauri client when the PRD asks for a phone or desktop app, once the questions in [design-to-tauri](../design-to-tauri/SKILL.md) are answered.
+- Screens are planned here. `front_end: navree`: phases 1 to 4 of `navree-design-to-ui` as [design-to-navree-ui](../design-to-navree-ui/SKILL.md) maps them. Every gap the design mapping finds goes into `## Navree UI gaps` now, and the operator agrees all of them once, with the plan (hard rule 14); a gap found later, during a module, is recorded and the module goes on (design-to-navree-ui, "The gap rule"). `front_end: next`: step 3 of [design-to-nextjs](../design-to-nextjs/SKILL.md), the module plan, recorded under `## Modules`.
+- A prototype or an older product as the source: run steps 1 to 3 of [prototype-to-navree](../prototype-to-navree/SKILL.md) here and, for a prototype the operator built, steps 1 to 3 of [design-preservation](../design-preservation/SKILL.md), before `plan-architect`; it then takes the modules, their order and the seed plan from the approved `prototype/MIGRATION_PLAN.md`.
 
-If the plan has backend modules, ask the operator:
+## Step 4. Foundation
 
-- **Nest.js** — Postgres 17 + TimescaleDB + Drizzle + Redis/BullMQ + CASL ([`nestjs-enterprise-backend`](../nestjs-enterprise-backend/SKILL.md)); frontend is always Next.js ([`design-to-nextjs`](../design-to-nextjs/SKILL.md)).
-- **Laravel** — Laravel 13 + PostgreSQL/TimescaleDB + DB cache/sessions + SQS + Bref ([`laravel-enterprise-backend`](../laravel-enterprise-backend/SKILL.md), [`laravel-bref-deploy`](../laravel-bref-deploy/SKILL.md)). Then ask the frontend: **Inertia monolith** (default, [`design-to-laravel`](../design-to-laravel/SKILL.md), Fortify session, typed props in `resources/js/types`) or **decoupled Next.js** (Sanctum tokens).
+- **Do:** start the local services and migrate; lay the security foundation; write the demo seed; write the first suite. Dispatch `navree-app-bootstrapper` in mode `foundation`, and `seed-data-architect`.
+- **Writes:** foundation code, seeders, `tests/security.rs` and its line under `## Suites` in `STACK.md`, the `## Demo accounts` table of `EXECUTION_PLAN.md`.
+- **Proof:** `cargo build --release`; the binary started with `serve` answers `GET /health/live` with `{"status":"up"}` and `GET /health/ready` with 200; each demo account signs in; `cargo test --test security` and `navree check` pass.
 
-Then ask which **clients** the product needs, and persist them as `clients`:
+1. Start the database (`navree dock up` for TimescaleDB and PostgreSQL; MySQL runs on a server you provide at `database.url`; SQLite needs nothing), then `navree migrate`.
+2. The foundation: [security-foundation](../security-foundation/SKILL.md), section "At step 4".
+3. The demo seed: rule BE-14 of [backend-on-navree](../backend-on-navree/SKILL.md). At this step it holds the accounts per role, the global staff roles with their grants and the staff who hold them, and the two workspaces; each module's seeder adds its rows at step 6. `seed-data-architect` returns the accounts table; copy it into `## Demo accounts` (emails, roles, workspaces; the development password stays in the seeder).
+4. `tests/security.rs`, and the line `- cargo test --test security` under `## Suites` in `STACK.md`.
+5. `test_database_url` must name a database the real-database tests may use; check `navree-testing` for whether the tests create it.
+6. The proof: the binary is the release build of hard rule 4 (the boot check of `verify-done.mjs` gives the same proof); a demo account signs in through the sign-in page or the sign-in route that `navree routes --json` lists; `navree check` needs its configuration and a migrated database (hard rule 13). Then commit.
 
-- **Web app** — always, per the frontend choice above.
-- **Staff admin** — a separate app (`apps/admin`) with its own staff identity, permission catalog and masked personal data, whenever the PRD has operators, back-office work or approvals (per [`security-foundation`](../security-foundation/references/staff-roles-and-pii.md)).
-- **Tauri desktop/mobile** — `apps/mobile` (or `apps/desktop`) per [`design-to-tauri`](../design-to-tauri/SKILL.md), when the PRD asks for an Android, iOS or desktop app. Say plainly that iOS builds need macOS and that push to a closed phone app needs FCM/APNs credentials.
+## Step 5. Contracts
 
-Persist `backend_stack`, `frontend_stack` and `clients` in `STACK.md` and `EXECUTION_PLAN.md` so every later step — and any resumed session — reads the same values.
+- **Do:** write the contract of every module, in build order, before any module code; the operator agrees each one.
+- **Writes:** `contracts/<module>.md` for every module.
+- **Proof:** each file has `Status: AGREED by <operator> on <YYYY-MM-DD>`.
 
-## Step 3 — Bootstrap, then prove it boots
+- What a contract is on Navree, and its format: [artifacts.md](references/artifacts.md), section `contracts/<module>.md`.
+- The main agent writes and changes every contract (rule BLD-2, hard rule 3). Drafts from `prototype-to-navree` (`Status: DRAFT`) are completed here, never taken as agreed.
+- Each `D-n` screen of `DESIGN_DIGEST.md` becomes a row of one contract's `## Screens`. Commit the agreed contracts.
 
-Scaffold the monorepo (the `monorepo-bootstrapper` agent file is the checklist; execute it yourself): pnpm/Turbo workspace (or the repo's existing PM), `apps/api` + `apps/web` + `packages/contracts` (single Laravel app for Inertia), root `docker-compose.yml` with healthchecks for every infra service, shadcn init + bulk primitives, `.env.example` complete.
+## Step 6. Modules
 
-Give the root `package.json` two data scripts the rest of the build relies on: `db:seed` (realistic demo data with one account per role — enough for parallel QA agents to each own theirs) and `db:fresh` (drop, migrate, `db:seed`). The committed suites and the release gate start from `db:fresh`.
+- **Do:** build the modules one at a time in the plan's build order (rule BLD-1), each through 6.1 to 6.7 below. Dispatch `navree-module-builder` for 6.1 and 6.2, `navree-ui-screen-builder` or `nextjs-module-builder` for 6.4, and `ui-auditor` (with `module-structure-auditor` for Next.js) at 6.5; who meets 6.3 and 6.6 depends on the front end (below).
+- **Writes:** module code and tests, lines under `## Suites` in `STACK.md`, the module's row in the `## Build order` table of `EXECUTION_PLAN.md`.
+- **Proof:** per module: `navree routes --json` lists exactly the contract's routes with their access; `cargo test`; the release binary boots and the module's routes answer as the contract says; one side effect observed (row, audit entry, job, live nudge); every screen opened in a real browser with zero console errors.
 
-Apply the hard rules for the selected stack: no `.default()` secrets, CommonJS contracts for the default CommonJS Nest.js consumer, compatible migration-tool configuration and client libraries, and sanitized, demo-gated mock routes.
+Who proves what. Whoever writes a route's handler writes its route tests. With `front_end: next` or `none`, the module's routes are JSON routes: `navree-module-builder` does 6.1 to 6.3 and the module's suites, and the screens follow. With `front_end: navree`, they are pages and form posts, whose handlers are screen code: `navree-module-builder` does 6.1 and 6.2 at the service layer (models, migrations, queries, validation, ability rules, services and their tests, workspace scoping and audit entries included); `navree-ui-screen-builder` then writes the page and form handlers with their route tests and the module's route-level suites (6.4, 6.6) and runs 6.3 after them; the browser proof (6.5) comes last.
 
-Lay the **security foundation** in the skeleton, before any feature module ([`security-foundation`](../security-foundation/SKILL.md)): sessions checked on every request, rotating refresh tokens with theft detection, blocking with a reason, rate limits, hardening and the audit log; the staff identity and permission guard when `clients` includes an admin; the idempotency interceptor and per-account lock helper when the plan has balances; the event outbox and stream endpoints when it has live updates. Generate every secret (JWT, encryption key, VAPID keys) into the gitignored env file — no defaults.
+- **6.1 Contract in code:** the module's first commit, `feat(<module>): contract in code`, made by `navree-module-builder` before any handler body or screen code (hard rule 3); a Navree UI module's page and form routes carry their access declarations and stub handlers. Proof: `cargo build`; `navree routes --json` matches the contract's route table; with `front_end: next`, `openapi.json` and the TypeScript types regenerated and committed (hard rule 17).
+- **6.2 Backend:** [backend-on-navree](../backend-on-navree/SKILL.md), section "A module, in order". Proof: `cargo test`.
+- **6.3 Runtime proof:** start the release binary (hard rule 4), call each route of the module once as a demo account (for a Navree UI module, after 6.4: open each page and post each form), and observe one side effect (hard rule 5).
+- **6.4 Screens:** `front_end: navree`: [design-to-navree-ui](../design-to-navree-ui/SKILL.md); `front_end: next`: [design-to-nextjs](../design-to-nextjs/SKILL.md), laid out per [frontend-structure](../frontend-structure/SKILL.md), and with `--ui next` and no kit the main agent adds shadcn/ui at the first module (rule NX-8); `front_end: none`: no screens. When `clients` has a Tauri client, its screens for the module follow [design-to-tauri](../design-to-tauri/SKILL.md).
+- **6.5 Browser proof:** every screen of the module in a real browser at 1440 and 390 px wide with zero console errors (hard rule 18); `ui-auditor` (`out_dir: audit`) in mode `navree` or `next` reports no `Blocker` or `Major`; with `front_end: next`, `module-structure-auditor` per [frontend-structure](../frontend-structure/SKILL.md) leaves no finding open; a preserved prototype is compared per step 4 of [design-preservation](../design-preservation/SKILL.md); Tauri screens on a device (hard rule 25).
+- **6.6 Suites:** the module's share of the committed suites, per section "In every module" of [security-foundation](../security-foundation/SKILL.md) (`tests/access.rs`, and `tests/isolation.rs`, `tests/money.rs` and `tests/live.rs` when they apply). `navree-module-builder` writes the module's seeder (rule BE-14) and the cases that need no route (balance locks, a job run twice); the cases that go through a route are written by whoever writes the route's handler, as above. A new suite file adds its `cargo test --test <name>` line under `## Suites`. Proof: `cargo test` after the screens.
+- **6.7 Commit and lessons:** the main agent makes the module's last commit (backend, screens, suites); write the module's row in `## Build order` (rule BLD-5); write a lesson when a correction or a failed check taught one.
 
-Then prove the skeleton: infra up and healthy, API boots, web boots, `/health` + `/health/ready` answer, sign-in works against the real session table, and the first committed suite (`test:security`) runs green. Do not proceed on "it typechecks."
+Anything that fails goes to [systematic-debugging](../systematic-debugging/SKILL.md): fix the cause and add no suppression (hard rule 15).
 
-## Step 4 — Contracts first, all of them, one owner
+## Step 7. Audits
 
-Author **every** module's view shapes in `packages/contracts` before any feature code (Laravel+Next.js: Eloquent API Resources + hand-written TS types guarded by a contract test; Inertia: typed props). One owner — you. Enforce the view-shape contract (backend returns render-ready data; no `.optional()` on data fields) and Title-Case enums (DB value = wire value = UI label).
+- **Do:** run [security-review-and-fix](../security-review-and-fix/SKILL.md) when the product has sign-in, staff, personal data or money (that is, nearly always), then [product-audit](../product-audit/SKILL.md) in `completeness` mode; add `score` mode when the operator asks for readiness scores, and `inventory` mode on request.
+- **Writes:** `SECURITY_REPORT.md`, `AUDIT_REPORT.md`, the agents' reports under `security/` and `audit/`.
+- **Proof:** no open `Blocker` or `Major` finding without the operator's written acceptance.
 
-Build the contracts package and reach a checkpoint the user can commit. This ordering is what makes later steps safe: backend and frontend both consume a contract that already exists, so neither invents a local schema. **A frontend local `z.object` mirroring a server view is a defect** (form-input schemas are fine).
+Both audits run against the current commit; a fix goes through the skill that found the problem, which runs its check again. Commit the reports.
 
-If a later module genuinely needs a new shape, add it to contracts first, rebuild, then build the module against it.
+## Step 8. QA gate
 
-## Step 5 — Build loop: one module, verified, then the next
+- **Do:** run [product-qa](../product-qa/SKILL.md) in gate mode on a fresh seed (`navree migrate:fresh --seed`). Its explore mode may run before the gate.
+- **Writes:** `QA_COVERAGE.md`, the agents' reports under `qa/`.
+- **Proof:** `QA_COVERAGE.md` has no `FAIL` and no `NOT RUN` without the operator's acceptance.
 
-For each module in `EXECUTION_PLAN.md` order:
+The gate is the last check before deployment. Only the operator accepts a `NOT RUN`. Commit `QA_COVERAGE.md`.
 
-1. **Backend** per the stack recipe (module structure, presenter/view, CASL/`#[Authorize]`, audit, tests). Cross-cutting decorators go where the framework actually reads them (hard-rules #5).
-2. **Verify backend at runtime:** typecheck + unit/e2e + build the dist + boot it (`node apps/api/dist/main.js`) + `curl` health and one real endpoint of this module + prove one side effect (row written, job enqueued, audit row present).
-3. **Frontend** against the canonical contract, per [`frontend-modular-architecture`](../frontend-modular-architecture/SKILL.md) (module folders, stores, Portal primitives, file-size laws) and the design recipe. Before writing components, confirm which shadcn backing library is installed (hard-rules #7) and mirror an existing usage.
-4. **Verify frontend in a browser:** typecheck + open the route(s) in production mode against the running API; client-mounted surfaces (canvas/WebGL, charts) must actually mount with zero console errors.
-5. **Admin and device clients:** build the module's staff screens (masked personal data, permission-gated actions) and, when `clients` includes Tauri, its app screens per [`design-to-tauri`](../design-to-tauri/SKILL.md) — verified on an emulator or phone with `adb`, not in a browser tab (hard-rules #18).
-6. **Extend the committed suites** for what the module added: contract checks for its responses, its permission keys in the role matrix, its money paths in the money suite, its events in the live-update suite ([`security-foundation/references/security-test-suites.md`](../security-foundation/references/security-test-suites.md)).
-7. Record anything surprising as a lesson (Step 7) while it is fresh.
+## Step 9. Deployment
 
-No parallel backend+frontend work on a contract created in the same step. Sequential feels slower and is faster: every rework loop in the old wave model came from two agents building against shapes the other had not seen.
+- **Do:** only when the operator asks, deploy with Navree's `navree-deployment` skill (and `navree-harbor` for `navree deploy`), item by item through [the deploy checklist](references/deploy-checklist.md).
+- **Writes:** `DEPLOY.md`.
+- **Proof:** `navree deploy` printed `Released <id>` (Harbor), or the documented processes are up; the public `GET /health/ready` answers 200; the post-deploy checks in `DEPLOY.md` are `PASS`.
 
-Existing fat frontend module (>300-line files) in the way? Run [`frontend-refactoring`](../frontend-refactoring/SKILL.md) on that one module first; never rewire a god-file. A bug surfaces mid-build? Switch to [`systematic-debugging`](../systematic-debugging/SKILL.md) and fix at the verified root cause — no suppressions (`eslint-disable`, `@ts-ignore`, `as any`) as a substitute.
+## Step 10. Done
 
-## Step 6 — Cross-cutting audits (pick by risk), then the release gate (always)
+- **Do:** run the done check on the final commit and record the build's lessons.
+- **Writes:** `qa/verify-done.txt`, lessons in `.claude/memory/superdev-learned/`.
+- **Proof:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/verify-done.mjs --suites --strict` exits 0 on the final commit, and steps 7 and 8 are clean on that commit.
 
-Run these as their own skills; each may dispatch its read-only auditors:
+- Before the run, start the database and the app and reset the data with `navree migrate:fresh --seed` ([superdev-done](../superdev-done/SKILL.md)). Save the output as `qa/verify-done.txt`.
+- A code change after the gate re-opens steps 8 and 10.
 
-- Integration + tenancy: cross-workspace isolation, permission enforcement, audit coverage, view-shape compliance against live responses.
-- [`security-review-and-fix`](../security-review-and-fix/SKILL.md) — inventory → static → dynamic → dependency → fix.
-- [`exploratory-qa`](../exploratory-qa/SKILL.md) — Playwright flows, consistency, performance (stack must be up first).
-- [`product-completeness-audit`](../product-completeness-audit/SKILL.md) — demo-vs-product: placeholders, HYBRID screens, mocked data, in production mode.
-- [`production-readiness-audit`](../production-readiness-audit/SKILL.md) / [`brutal-exhaustive-audit`](../brutal-exhaustive-audit/SKILL.md) — whole-product passes before a ship claim. Every score must cite its command/browser/DB evidence; an uncited score counts as not run.
+## Rules of the flow
 
-Then, always, the **[`release-qa-gate`](../release-qa-gate/SKILL.md)** on a fresh seed: every committed suite, route × role × viewport × theme, every form and link, accessibility and contrast in every interactive state, security behaviours in the browser, money races, live updates across clients, and the device pass for native clients. Its `QA_COVERAGE.md` must have no `FAIL` and no unaccepted `NOT RUN`.
+- **BLD-1** One module at a time. Never build the backend and the screens of a contract made in the same step in parallel; a builder agent gets one module per dispatch.
+- **BLD-2** One owner of contracts: the main agent writes and changes `contracts/*.md`; an agent that needs a change says so in its return and stops.
+- **BLD-3** A plan revision edits `GAPS.md` `## Decisions` first, then regenerates `EXECUTION_PLAN.md`, then asks for confirmation again.
+- **BLD-4** Agents receive absolute paths (plugin root, app root, files) and their `out_dir`; if the host cannot dispatch an agent type (Codex), the main agent reads the agent file and runs its procedure itself.
+- **BLD-5** A module's proofs are recorded in `EXECUTION_PLAN.md` `## Build order`, columns `Module | Status | Commit | Proof`, where `Proof` quotes the result lines (for example `cargo test: 41 passed; 0 failed`, `GET /health/ready 200`). `Status` is `PASS` only when 6.1 to 6.6 all have a proof.
+- **BLD-6** Operator answers and acceptances are written with the operator's name and the date, quoted, never paraphrased into a decision the operator did not make.
+- **BLD-7** Code generated by `navree new` and `navree make:*` is the app's own code: keep the generator markers (`// navree:modules`, `// navree:wire`, `// navree:policies`) and prefer the generator over hand-writing a file it makes (`navree-cli-generators`).
 
-## Step 7 — Prove done, capture lessons
+## Reference files
 
-Run the gate from the target repo root and read its verdict:
-
-```bash
-node <superdev-plugin>/scripts/verify-done.mjs --suites --strict
-```
-
-The release gate's step-2 run is this proof when it ran on the final commit (`qa/verify-done.txt`); if code changed since, run it again now, before the gate's closing `db:fresh`. `--suites` runs every committed `test:*` script (and `smoke`) against the running stack after the build and boot checks, so start the stack and reset the demo data first; `--strict` turns skipped checks and warnings into failures. Exit 0 is required alongside the Step-6 audits you chose, each clean; a `QA_COVERAGE.md` with no `FAIL` and no unaccepted `NOT RUN`; and recorded verification of every applicable hard rule. The script's default Nest.js boot check does not establish Laravel runtime readiness or replace browser, database, and security evidence. Fix failed checks at their root cause and re-run them.
-
-If a correction or failed check reveals a reusable lesson, record redacted evidence in `.claude/memory/superdev-learned/<topic>.md` using [`superdev-self-learning`](../superdev-self-learning/SKILL.md). Propose only the generic rule, scope, corrective action, and verification check for `hard-rules.md`. Keep project names, domains, incident details, and private metrics out of public documentation and bundles.
-
-## Conventions every step enforces
-
-- **Monorepo + shared contracts** — one source of truth for wire shapes.
-- **View-shape contract** — the API returns render-ready data; the UI renders without `?.`/`??` chains on contract fields.
-- **Title-Case enums** — DB = wire = UI label; no label maps.
-- **shadcn/ui only** for visual primitives (`ui-auditor` enforces); check Radix vs Base UI before composing.
-- **Docker for all infrastructure**, workspace-prefixed containers, healthchecks on every service.
-- **Permissions + audit on every mutation**, proven by side-effect checks, not decorator presence.
-- **Security built in from bootstrap** — sessions checked per request, two-factor/passkeys where accounts matter, masked personal data with audited reveal, idempotent money paths, per-account balance locks, live updates only after commit — each proven by a committed suite.
-- **Every client proven where it runs** — browser for web and admin, emulator or phone for Tauri.
-- **Dual-mode frontend** (demo fixtures vs production API) where the design recipe calls for it; demo/mock routes never ship ungated.
-- **Operator UI is for operators** — structured controls with plain-language labels; never raw JSON editors or magic-number sentinels.
-- **One canonical public origin** for every public-facing URL, identical across apps.
-
-## What replaced what (v1 → v2)
-
-The old conductor skill, the agent-extractor install scripts (which installed stale, abridged agent copies), the bash hook machinery (done-gate sentinels, frustration detection, per-dispatch lesson threading), and self-graded completion ledgers were removed. Their durable parts live on here (planning artifacts, stack gates), in `hard-rules.md` (the lessons), in `verify-done.mjs` (the checks, run live), and in the standalone skills (everything else).
+| File | Read it |
+|---|---|
+| [references/hard-rules.md](references/hard-rules.md) | once at the start of a build, and when a step cites a rule |
+| [references/artifacts.md](references/artifacts.md) | before writing `STACK.md`, a digest, `GAPS.md`, `EXECUTION_PLAN.md` or a contract; for the severity scale, ids, status words and output folders every skill uses |
+| [references/deploy-checklist.md](references/deploy-checklist.md) | at step 9 |

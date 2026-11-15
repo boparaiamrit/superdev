@@ -1,125 +1,42 @@
-# Superdev
+# Superdev plugin
 
-A Claude Code + Codex plugin bundling **21 skills + 60 agents** for full-stack monorepo builds: direct sequential building by the main agent, recipe skills for each stack layer, read-only auditor agents, design preservation, atomic frontend refactoring, and live runtime verification.
+Superdev's 15 skills, 41 agents and 25 hard rules take a product from a PRD and a design to a released, verified Navree app. The skills hold the order of work, the files written to disk, the rules and the proofs; Navree's own skills, installed into every app with `navree skills:install`, hold the framework facts. The build itself is [superdev-build](skills/superdev-build/SKILL.md); its [hard rules](skills/superdev-build/references/hard-rules.md) say where each applies and how it is checked.
 
-> **v2.0.1** uses [`superdev-build`](skills/superdev-build/SKILL.md) for direct sequential builds and [`scripts/verify-done.mjs`](scripts/verify-done.mjs) for automated checks. The conductor, hooks, agent-copy installers, and completion ledgers remain removed. Each of the 12 [`hard rules`](skills/superdev-build/references/hard-rules.md) states its scope and required verification.
+## Skills
 
-## Host support
+By the step of a build that uses them; each also runs on its own when a request matches its description.
 
-- **Claude Code:** loads `.claude-plugin/plugin.json`; skills and all 60 agents are auto-discovered from `skills/` and `agents/`. There are no hooks — verification is explicit (`verify-done.mjs`, per-module runtime checks).
-- **Codex:** loads the 21 skills through `.codex-plugin/plugin.json`. Treat `agents/*.md` as role-prompt references/checklists unless the user explicitly asks for delegated work. See [`../../CODEX.md`](../../CODEX.md).
-
-## The 21 skills
-
-| Skill | Purpose |
+| Step | Skills |
 |---|---|
-| `superdev-build` 🆕 v2.0.0 | Full-stack build SOP for the main agent: plan artifacts → stack choice → bootstrap → **contracts first** → one module at a time (backend → boot-verify → frontend → browser-verify) → audits → verify-done |
-| `design-to-nextjs` | Translate **Claude Design** handoffs into production Next.js (shadcn-everywhere, view-shape contract, dual-mode adapter; checks Radix vs **Base UI** before composing) |
-| `design-to-laravel` | Translate **Claude Design** → **Laravel + Inertia 3 + React 19** monolith (typed props, Wayfinder, `useForm`, Fortify + spatie/permission). Default Laravel frontend |
-| `design-preservation` | When source is a **prototype**, copy verbatim into `design-source/`, mirror at `/__design-source/`, pixel-diff at ≤ 1% drift. Holy-grail rule: no restyling |
-| `nestjs-enterprise-backend` | Nest.js + PG17/TimescaleDB + Drizzle + CASL + BullMQ + `@Audit` (on controller handlers, side-effect-proven) + view-shape contract |
-| `laravel-enterprise-backend` | **Laravel 13** alternative — PostgreSQL + TimescaleDB, DB cache/sessions, SQS, Eloquent API Resources + hand-written TS contract, `#[Audit]` → hypertable, global-scope tenancy, Title-Case enums, Boost |
-| `laravel-bref-deploy` | Serverless deploy of the Laravel backend on AWS Lambda via **Bref 3.x** (web/SQS-worker/console, EventBridge scheduler, S3/CloudFront, SSM, no VPC) |
-| `frontend-modular-architecture` | Structure law: page ≤ 100 / component ≤ 200 lines, dedicated Zustand stores per module, wizards split per-step, overlays in `parts/<name>/` with shadcn Portal primitives |
-| `frontend-refactoring` | **Atomic one-module conversion** of a fat module — plan → review → behavior baseline → atomic execute → zero-drift verify, hard rollback on drift |
-| `prototype-to-saas` | Convert a single-user Next.js prototype (JSON-as-backend) into a multi-tenant SaaS without breaking the working UI |
-| `security-review-and-fix` | Six-phase security audit (inventory, static, dynamic, dependency, triage, fix) |
-| `exploratory-qa` | Playwright-driven QA: happy + edge cases, consistency audit, performance probing |
-| `systematic-debugging` | 5-phase root-cause debugging; refuses fixes without a verified `ROOT_CAUSE.md` |
-| `product-completeness-audit` | "A beautiful UI with hardcoded data is a demo" — REAL / MOCKED / HYBRID detection in production mode |
-| `production-readiness-audit` | Five passes score every module 1–10 (min wins, hard caps), **each score cited with command/browser/DB evidence**; fix → re-audit until all ≥ 9 |
-| `brutal-exhaustive-audit` | Every file / route / flow / data path / edge case — disk-tracked checklists, final ship gate |
-| `superdev-self-learning` | Deliberate lesson capture into the target project's `.claude/memory/superdev-learned/`; stack-general lessons are promoted into `hard-rules.md` |
-| `superdev-done` | Runs `scripts/verify-done.mjs` — live Definition-of-Done (typecheck/lint/build per package, dist boot + health on a free port, contracts format, Tauri shell checks, suppression + placeholder sweeps; `--suites` runs every committed runtime suite) |
-| `design-to-tauri` 🆕 v2.1.0 | Tauri 2 desktop/Android/iOS clients on the shared contracts: locked-down shell, mobile token auth, live updates and phone alerts, emulator QA with `adb`, store release |
-| `security-foundation` 🆕 v2.1.0 | Security built at bootstrap: sessions checked per request, refresh theft detection, blocking with a reason, TOTP/recovery codes/passkeys/devices/QR sign-in, staff permission keys with masked personal data and audited reveal, balance locks, idempotency, reconciliation, transactional live updates and notifications — each proven by a committed suite |
-| `release-qa-gate` 🆕 v2.1.0 | Final QA on a fresh seed: committed suites, route × role × viewport × theme, forms and links, axe + contrast in every state, security behaviours, money races, live updates across clients, the phone app on a device; evidence in every `QA_COVERAGE.md` cell |
+| Steps 1 to 10, in order | [superdev-build](skills/superdev-build/SKILL.md) |
+| Step 3, when the source is a prototype or an older product | [prototype-to-navree](skills/prototype-to-navree/SKILL.md), [design-preservation](skills/design-preservation/SKILL.md) |
+| Step 4. Foundation | [security-foundation](skills/security-foundation/SKILL.md); the demo seed in [backend-on-navree](skills/backend-on-navree/SKILL.md) |
+| Step 6. Modules | [backend-on-navree](skills/backend-on-navree/SKILL.md); [design-to-navree-ui](skills/design-to-navree-ui/SKILL.md), or [design-to-nextjs](skills/design-to-nextjs/SKILL.md) with [frontend-structure](skills/frontend-structure/SKILL.md); [design-to-tauri](skills/design-to-tauri/SKILL.md) for Tauri clients; [design-preservation](skills/design-preservation/SKILL.md) for a preserved prototype |
+| Step 7. Audits | [security-review-and-fix](skills/security-review-and-fix/SKILL.md), then [product-audit](skills/product-audit/SKILL.md) |
+| Step 8. QA gate | [product-qa](skills/product-qa/SKILL.md) |
+| Step 10. Done | [superdev-done](skills/superdev-done/SKILL.md), [superdev-self-learning](skills/superdev-self-learning/SKILL.md) |
+| Any step, when something fails | [systematic-debugging](skills/systematic-debugging/SKILL.md) |
 
-> 🔀 **Stack choice** — `superdev-build` Step 2 asks **Laravel or Nest.js**. Laravel then asks the frontend: **Inertia monolith** (default) or **decoupled Next.js**. Nest.js always pairs with Next.js. The choice persists in `STACK.md`.
+## Agents
 
-**Every skill works standalone.** `superdev-build` is only the sequencing for a full greenfield build; asking for "a security audit" runs `security-review-and-fix` alone, with no pipeline overhead.
+The skills dispatch these agents, one module or one task per dispatch. Each agent file says what it reads, what it writes and what it returns.
 
-## The 60 agents
+- **Planning:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`.
+- **Building:** `navree-app-bootstrapper`, `navree-module-builder`, `navree-ui-screen-builder`, `nextjs-module-builder`, `seed-data-architect`.
+- **Prototypes and refactors:** `codebase-discoverer`, `schema-reverse-engineer`, `migration-planner`, `refactor-planner`, `visual-diff-auditor`.
+- **Security review:** `repo-cartographer`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`.
+- **Audit:** `placeholder-hunter`, `data-source-auditor`, `journey-walker`, `tenancy-isolation-tester`, `module-readiness-rater`, `module-structure-auditor`, `ui-auditor`.
+- **QA:** `qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`, `link-crawler`, `a11y-contrast-auditor`, `role-matrix-tester`, `money-integrity-prober`, `realtime-prober`, `mobile-qa-tester`.
+- **Debugging:** `bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `regression-verifier`.
+- **Fixing:** `fix-applier`.
+- **Lessons:** `lesson-writer`.
 
-Auto-loaded by the plugin (single source in `agents/`; nothing is copied into target projects). Roles:
+## Hosts
 
-- **Planning/extraction (read-mostly):** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`, `codebase-discoverer`, `schema-reverse-engineer`, `repo-cartographer`
-- **Builders (optional, one module at a time):** `monorepo-bootstrapper`, `contracts-author`, `backend-module-builder`, `laravel-module-builder`, `frontend-module-builder`, `inertia-module-builder`, `backend-extractor`, `frontend-rewirer`, `atomic-module-converter`, `seed-data-architect`, `design-source-mirror`, fixers (`security-fixer`, `fix-applier`)
-- **Auditors/testers (read-only):** `ui-auditor`, `module-structure-auditor`, `portal-correctness-auditor`, `integration-tester`, `tenancy-isolation-tester`, security five (`security-inventory`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`, + `security-fixer`), QA four (`qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`), completeness/brutal walkers and hunters (`placeholder-hunter`, `wiring-auditor`, `route-completeness-checker`, `data-flow-real-vs-mock`, `journey-walker`, `route-walker`, `flow-walker`, `data-flow-tracer`, `edge-case-prober`, `audit-synthesizer`, `design-fidelity-auditor`, `module-readiness-rater`), release QA six (`mobile-qa-tester`, `a11y-contrast-auditor`, `role-matrix-tester`, `money-integrity-prober`, `realtime-prober`, `link-crawler`), debugging (`bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `regression-verifier`), migration/conversion (`migration-planner`, `module-conversion-planner`, `module-behavior-snapshotter`, `conversion-verifier`), and `learn-from-frustration`
-
-The default build path executes builder checklists in the main session; dispatch a builder subagent only for a single bounded module, never backend+frontend against a same-step contract in parallel (hard-rules #4).
-
-## Verification model (no hooks, no ledger)
-
-| Check | When | How |
-|---|---|---|
-| Typecheck + tests + **boot the dist + curl health** + one real endpoint + one side effect | After every backend module | `superdev-build` Step 5 (hard-rules #1, #5) |
-| Typecheck + browser-open the route in production mode | After every frontend module | Step 5 (hard-rules #9) |
-| Device: install the build on an emulator or phone, drive the module, logcat clean | After every Tauri client module | Step 5 (hard-rules #18, `design-to-tauri`) |
-| Automated gate: per-package typecheck/lint/build, default Nest.js boot, contracts format, Swagger landmine, Tauri shell, suppression + placeholder sweeps; committed runtime suites with `--suites`; no skips or warnings with `--strict` | Before any "done" claim | `node <superdev-plugin>/scripts/verify-done.mjs --suites --strict` (see `superdev-done`) |
-| Security / QA / completeness / readiness | Step 6, by risk | Standalone audit skills above |
-| Release coverage: every route × role × viewport × theme, contrast, links, money, live updates, device | Always, last | `release-qa-gate` → `QA_COVERAGE.md` |
-
-The script does not prove all hard rules or Laravel runtime readiness. Record the remaining stack-specific, browser, database, and security checks separately.
-
-## Public documentation and lessons
-
-Public READMEs, release notes, and bundled guidance contain no real project names, customer domains, incident anecdotes, or private metrics. Private provenance stays in project-local memory. Promote only a generic rule, its scope, corrective action, and verification check.
-
-## Placeholder convention
-
-Workspace-scope agnostic — substitute placeholders with your project's values: `<scope>` (npm scope from root `package.json`), `<workspace>` (monorepo dir), `<app>` (lowercase prefix), `<APP_NAME>` (brand), `<feature>`, `<pm>` (package manager from lockfile: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `bun.lock*` → bun, else npm). Examples default to pnpm + Turborepo; existing lockfiles are honored.
-
-## Installation
-
-**Claude Code:**
-
-```bash
-claude plugin marketplace add boparaiamrit/superdev --scope project
-claude plugin install superdev@superdev --scope project
-# local development:
-claude --plugin-dir ~/superdev/plugins/superdev
-# or from the bundled zip:
-bash /path/to/superdev/install-superdev.sh   # project-scoped helper (delegates to the commands above)
-```
-
-**Codex:** use the repo-local marketplace `.agents/plugins/marketplace.json`, then invoke skills directly:
-
-```text
-Use $superdev-build with docs/PRD.md and design/.
-Use $security-review-and-fix to audit this codebase.
-Use $prototype-to-saas to productionize this prototype.
-```
-
-## Quick start
-
-```text
-I have a PRD at docs/PRD.md and a design at design/. Build the full-stack app.
-```
-
-`superdev-build` produces the plan artifacts, confirms with you, asks the stack question, then builds module by module with runtime proof at each step.
-
-## Architectural commitments (all skills)
-
-1. **Monorepo + shared contracts** — one source of truth for wire shapes (CommonJS exports for the default CommonJS Nest.js consumer, hard-rules #3)
-2. **View-shape contract** — API returns render-ready data; UI renders without `?.`/`??` on contract fields
-3. **Title-Case enums** — DB = wire = UI label
-4. **shadcn/ui only** — every visual primitive from `@/components/ui/*`; confirm Radix vs Base UI first
-5. **Docker for all infrastructure** (Laravel serverless target: managed Postgres/Timescale instead)
-6. **Permissions + audit on every mutation** — proven by side-effect checks, not decorator presence
-7. **Dual-mode adapter** — demo fixtures vs production API; mock routes sanitized and demo-gated
-8. **No default secrets, no raw-JSON operator UI, one canonical public origin** — the operator-facing hard rules
+- **Claude Code** reads `.claude-plugin/plugin.json` and finds the skills in `skills/` and the agents in `agents/` by folder.
+- **Codex** reads `.codex-plugin/plugin.json`, which registers `skills/`. It does not load the agent files: the main agent reads an agent file and runs its steps itself, unless the operator asks for delegated work (rule BLD-4 of `superdev-build`).
+- Skills reach the plugin's own files, such as `scripts/verify-done.mjs`, through `${CLAUDE_PLUGIN_ROOT}` in Claude Code, and through the path of the installed `plugins/superdev` folder in Codex.
 
 ## Development
 
-```bash
-python -m unittest discover -s tests -v   # plugin integrity: frontmatter, links, counts, no stale machinery, zip parity
-```
-
-After changing `skills/`, `agents/`, or `scripts/`, refresh `superdev.zip` (zip the `plugins/superdev/` tree under a `superdev/` prefix) and run the tests — they fail on zip drift. In Claude Code, `/reload-plugins` picks up changes.
-
-On Windows, run the full Python suite inside WSL. If Node is available only on Windows, run `node --check plugins/superdev/scripts/verify-done.mjs` separately from the repository root.
-
-## License
-
-MIT — see [LICENSE](../../LICENSE).
+From the repository root, `python -m unittest discover -s tests -v` runs the tests, and `python tools/build_zip.py` rebuilds `superdev.zip` from this folder (`--check` compares it with the committed archive). Rebuild the archive after any change here.

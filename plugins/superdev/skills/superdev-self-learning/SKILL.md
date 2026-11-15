@@ -1,68 +1,48 @@
 ---
 name: superdev-self-learning
-description: Capture hard lessons from corrections, reverts, verifier rejections, and runtime-check failures as structured feedback entries in the target project's `.claude/memory/superdev-learned/`, and read them once at the start of a build (and before dispatching an agent the lesson names). Manual and deliberate — there are no frustration-detection hooks. Invoke when the user corrects superdev's approach, reverts its code, a verifier rejects work, or the user says "remember this". Stack-general lessons belong in the superdev-build hard-rules, not siloed in one project.
+description: Use when the operator corrects superdev's approach, reverts its code, a verifier rejects work, a runtime check catches what tests missed, or someone says remember this. Writes one lesson file in the project's .claude/memory/superdev-learned and reads the index at the start of a build.
 ---
 
-# SuperDev Self-Learning — lessons, written down once
+# Superdev self-learning
 
-When a correction or failed verification reveals an actionable rule, write it deliberately to project-local memory. Read relevant lessons **once at build start**, and before a dispatch explicitly named by a lesson. Keep the evidence local and redact credentials and customer payloads.
-
-## The rule
-
-```
-A REAL FAILURE BECOMES A WRITTEN LESSON, OR IT WILL HAPPEN AGAIN.
-PROJECT LESSONS LIVE IN .claude/memory/superdev-learned/.
-TRANSFERABLE RULES MAY BE PROMOTED TO superdev-build/references/hard-rules.md.
-PRIVATE PROVENANCE STAYS IN PROJECT-LOCAL MEMORY.
-```
-
-Before promotion, identify the failure mechanism, applicable conditions, corrective action, and reproducible check. Public READMEs, release notes, and bundled guidance must contain no real project names, customer domains, local paths, incident dates, private metrics, commit anecdotes, or copied customer evidence. Preserve those details only in the originating project's memory when needed, with secrets and personal data redacted.
+A lesson is a rule a build learned from a real failure, written into the app so the next session and the next agent follow it. Lessons live in the app's `.claude/memory/superdev-learned/`, one file each, listed in `INDEX.md` in the same folder. Codex uses the same folder.
 
 ## When to write a lesson
 
-- The user corrects an approach, not just a detail ("don't do X here", repeated correction, sharp dissatisfaction) — see [`references/frustration-patterns.md`](references/frustration-patterns.md) for the signal list. Normal iteration ("change the color to blue") is not a lesson.
-- The user reverts generated code.
-- A verifier/auditor rejects work (`regression-verifier` REJECT, design drift FAIL, completeness audit finds mocked data) or a runtime check (dist boot, browser smoke, side-effect probe) catches what tests missed.
-- A fixing agent returns a `LESSON:` line (see `fix-applier`).
-- The user says "remember that…", "learn from this", "from now on, always…".
+Write one when:
 
-Do NOT write lessons for bugs in user-written code, correct refusals, or one-off typos with no transferable pattern. False positives cost every future reader tokens; when unsure, don't write.
+- the operator corrects superdev's approach (not a detail such as a colour or a word);
+- the operator reverts code superdev wrote;
+- a verifier rejects work: `regression-verifier` returns `REJECT`, `visual-diff-auditor` finds a region over the drift threshold, `product-audit` finds a `MOCKED` screen;
+- a runtime check catches what the tests missed: the release binary does not start, a page logs a console error, a side effect is missing;
+- someone says "remember this".
 
-## Entry format
+An agent's return line `LESSON: <rule>` is a candidate; write it when it matches one of the cases above. Do not write a lesson for a typo, a bug in code the operator wrote, or a correct refusal.
 
-One file per lesson at `.claude/memory/superdev-learned/<topic>.md` in the **target project** (never in the plugin repo itself):
+## How to write it
 
-```markdown
----
-name: <kebab-case-topic>
-description: <one line: what to do / not do>
-metadata:
-  type: feedback
-  source: superdev-self-learning
-  triggered_by: <user-correction | git-revert | verifier-rejected | runtime-check | audit-pattern>
-  date: <YYYY-MM-DD>
-  applies_to_agents: [<agent names this lesson must reach, if dispatched>]
----
+1. Look in `INDEX.md` for a lesson about the same rule; if there is one, update that file (rule LRN-1).
+2. Write `.claude/memory/superdev-learned/<name>.md` in the format of [references/memory-entry-format.md](references/memory-entry-format.md), or dispatch `lesson-writer` with the raw evidence (the operator's words, the command and its result line, file:line) and the app root.
+3. Add or update the lesson's line in `INDEX.md`.
+4. Check it against rules LRN-2 and LRN-3 before saving.
 
-<The rule>
+## How lessons are used
 
-**Why:** <the concrete failure and redacted local evidence; never credentials or customer payloads>
+- [superdev-build](../superdev-build/SKILL.md) reads `INDEX.md` before step 1 of a build it resumes, and opens the lessons whose description applies.
+- Before dispatching an agent named in a lesson's `applies_to_agents`, append the lesson (the rule, **Why:** and **How to apply:**) to the agent's prompt under `## Lessons for this project`.
 
-**How to apply:** <when/where the rule kicks in; the exact check that proves compliance>
+## Proposing a rule for superdev
 
-**Related:** [[other-topic]] (if applicable)
-```
+A lesson that would hold in any Navree build may become a superdev rule. Propose it to the operator as the generic rule, its scope, the fix and the check, with no project names, domains, dates or metrics. The build never writes into the plugin.
 
-Full template and field rules: [`references/memory-entry-format.md`](references/memory-entry-format.md). To synthesize an entry from a messy correction sequence, dispatch the `learn-from-frustration` agent with the raw evidence (dispatch prompt: [`references/agent-definitions.md`](references/agent-definitions.md)), or write the entry directly when the lesson is already crisp — most are.
+## Rules
 
-## How lessons get used
-
-1. **Build start:** `superdev-build` Step 0 — the main agent skims `.claude/memory/superdev-learned/` once and keeps relevant constraints in working memory for the build.
-2. **Before a named dispatch:** if an entry's `applies_to_agents` includes the agent about to be dispatched, append the entry (rule + why) to its prompt under `## Lessons learned in this project`.
-3. **Promotion:** propose the generic rule, applicable scope, corrective action, and verification check for [`../superdev-build/references/hard-rules.md`](../superdev-build/references/hard-rules.md). Keep project/date provenance local; do not copy it into the plugin, public documentation, package, or release notes. Do not write global/personal memory without an explicit user instruction.
+- **LRN-1** One lesson per file, updated, not duplicated.
+- **LRN-2** No credentials, tokens, personal data or customer payloads in a lesson.
+- **LRN-3** A lesson names the check that proves it is followed.
 
 ## Reference files
 
-- [`references/memory-entry-format.md`](references/memory-entry-format.md) — entry template and field rules
-- [`references/frustration-patterns.md`](references/frustration-patterns.md) — correction signals worth capturing (and what to ignore)
-- [`references/agent-definitions.md`](references/agent-definitions.md) — dispatch prompt for `learn-from-frustration`
+| File | Read it |
+|---|---|
+| [references/memory-entry-format.md](references/memory-entry-format.md) | before writing or updating a lesson |

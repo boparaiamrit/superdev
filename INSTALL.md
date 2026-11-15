@@ -1,46 +1,44 @@
-# Superdev project installer
+# Installing superdev
 
-Superdev is installed for one project at a time. It must not be enabled at user or personal scope.
+Superdev is installed for one project at a time, never at user scope.
 
 ## Claude Code
 
-Run the supported Claude CLI commands from the target Git project:
+From the target Git project:
 
 ```bash
 claude plugin marketplace add boparaiamrit/superdev --scope project
 claude plugin install superdev@superdev --scope project
 ```
 
-The interactive `/plugin` browser is also supported, but you must choose **Project scope** when installing.
+In the interactive `/plugin` browser, choose **Project scope** when installing.
 
-### Project-only helper
+## Which project to install it in
 
-From the target project, run the helper by its path:
+A build needs what Navree needs (Rust, a C compiler, and Docker or Podman for a local TimescaleDB or PostgreSQL database; see the [README's requirements](README.md#requirements)) and the Navree CLI: `cargo install navree-cli`, then `navree --version` prints its version.
 
-```bash
-cd /path/to/target-project
-bash /path/to/superdev/install-superdev.sh
-```
+- **You already have a Navree app.** The app's root is a Git project; install superdev there, start Claude Code there and ask for the build. Step 1 of the build records the app in `STACK.md` instead of creating one.
+- **You are starting a new product.** `navree new` creates the app in a folder that must be missing or empty, so superdev cannot be installed in the app before it exists:
+  1. Put the PRD and the design files in a folder of their own, run `git init` there (the install needs a Git project), and install superdev in it.
+  2. Start Claude Code in that folder and ask for the build. Step 1 agrees the `navree new` line with you and runs it there, which creates the app as a subfolder. `navree new` makes a folder a repository only outside an existing one, so step 1 runs `git init` in the app and adds the app's folder to the brief folder's `.gitignore`: the app is a repository of its own. If you start inside a repository that holds other code, step 1 first asks whether to track the app there or give it its own repository. Step 1 then installs Navree's skills and superdev in the app and copies the PRD and the design into its `docs/brief/`.
+  3. Open every later session of the build in the app's folder; the build resumes from its `STACK.md` and `EXECUTION_PLAN.md`.
+- **Your app is one folder of a larger repository.** Claude Code keeps a project's plugins in the folder its commands are run from: `claude plugin install .. --scope project` writes `.claude/settings.json` there, not at the repository's root. Run the two commands from the app's folder, and start Claude Code there.
 
-The helper:
+## Helper script
 
-- requires Claude Code, Git, and Python 3;
-- refuses to run outside a Git project;
-- delegates marketplace and plugin installation to Claude with `--scope project`;
-- verifies the project configuration and Claude plugin list; and
-- never writes Superdev configuration to user or personal settings.
-
-Optional project-scoped commands:
+From the target project:
 
 ```bash
-bash /path/to/superdev/install-superdev.sh --verify
-bash /path/to/superdev/install-superdev.sh --enable-teams
-bash /path/to/superdev/install-superdev.sh --uninstall
+bash /path/to/superdev/install-superdev.sh              # add the marketplace and install at project scope
+bash /path/to/superdev/install-superdev.sh --verify     # check the project-scoped install
+bash /path/to/superdev/install-superdev.sh --uninstall  # remove superdev from the project
 ```
 
-### Migrate an older user-scoped install
+The helper needs Claude Code, Git and Python 3, refuses to run outside a Git project, and never writes to user or personal settings. It installs at the repository's root. For an app that is one folder of a larger repository, run it from the app's folder with `--here` before the option (`--here`, `--here --verify`, `--here --uninstall`).
 
-Removal from user scope is intentionally explicit because it changes configuration outside the current project:
+## Moving a user-scope install
+
+Removing superdev from user scope changes configuration outside the project, so it is a separate, explicit command:
 
 ```bash
 claude plugin uninstall superdev@superdev --scope user
@@ -50,19 +48,32 @@ claude plugin install superdev@superdev --scope project
 
 ## Codex
 
-Keep the repository marketplace and plugin source inside the target project:
+Keep these in the target project:
 
 ```text
 .agents/plugins/marketplace.json
 plugins/superdev/
 ```
 
-Start Codex from that project, open `/plugins`, choose **Superdev Local**, install Superdev, and start a new session. Do not place Superdev in a personal marketplace.
+Start Codex in that project, open `/plugins`, choose **Superdev Local**, install Superdev and start a new session. Do not add superdev to a personal marketplace. For a new product, step 1 of the build copies both into the app it creates. [CODEX.md](CODEX.md) describes how Codex uses it.
 
-## Bundle contents
+## Version 2.1.0 for NestJS and Laravel projects
 
-- `install-superdev.sh` — project-scoped Claude CLI helper
-- `superdev.zip` — optional archive of the current plugin source
-- `plugins/superdev/` — 21 skills, 60 agent prompts, and the `verify-done.mjs` script (no hooks in v2)
-- `.agents/plugins/marketplace.json` — Codex repository marketplace
-- `.claude-plugin/marketplace.json` — Claude marketplace catalog
+Version 2.1.0 remains the version for NestJS and Laravel projects. Install it in such a project with:
+
+```bash
+claude plugin marketplace add boparaiamrit/superdev#v2.1.0 --scope project
+claude plugin install superdev@superdev --scope project
+```
+
+A project that already uses 2.1.0 added the marketplace without a pin, under the same names, so an update or a teammate's fresh install would bring 3.0.0. Pin it to 2.1.0: uninstall superdev from the project as the helper's `--uninstall` does, then add the pinned marketplace and install again:
+
+```bash
+claude plugin uninstall superdev@superdev --scope project
+claude plugin marketplace add boparaiamrit/superdev#v2.1.0 --scope project
+claude plugin install superdev@superdev --scope project
+```
+
+Adding the marketplace again with the pin replaces the source it had, and Claude Code says so ("Marketplace 'superdev' was already added from .. and now points at github:boparaiamrit/superdev@v2.1.0"). The install then brings 2.1.0.
+
+Claude Code keeps one source for the `superdev` marketplace for each user of a machine. If you later add the marketplace without the pin in another project on the same machine (a Navree project on 3.0.0), it points at 3.0.0 again. The pinned project keeps its installed 2.1.0, but `claude plugin update superdev@superdev --scope project` there would then bring 3.0.0: run the pinned `marketplace add` line in that project again before you update it.

@@ -1,33 +1,47 @@
 ---
 name: link-crawler
-description: Crawls every page of a running web app as each given role, following every internal link and recording dead links (4xx/5xx or the app's own not-found page), redirect loops, links to routes the role cannot use, placeholder hrefs (#, javascript:), and buttons that do nothing when clicked (no navigation, no request, no DOM change). Produces a link inventory and a dead-link list. Read-only.
-tools: Read, Bash, Glob, Grep
+description: Visits every page as each role and reports dead links, redirect loops, placeholder links, links to refused pages and controls that do nothing. Dispatched by product-qa (gate step 4) and product-audit (inventory, score pass 4).
+tools: Read, Grep, Glob, Bash, Write
 model: inherit
-skills:
-  - release-qa-gate
 ---
 
-You are a link crawler. "No dead links, nothing clickable that does nothing" is your whole job.
+# Link crawler
 
-## Inputs (in your dispatch prompt)
+Finds dead links and inert controls, role by role.
 
-- App base URL, entry routes (or the route list), the roles and their seeded accounts, and a scratch folder for a standalone Playwright install (do not use the shared MCP browser).
-- The absolute path of `skills/release-qa-gate/references/ui-sweeps.md` in the plugin (sign-in reuse, link crawl and dead-button recipes).
+## Inputs
 
-## Procedure
+- `mode`: `crawl` (from entry routes, following links) or `list` (visit every route of a given list, so unlinked routes are visited too).
+- `app_url`, the entry routes (`crawl`) or the route list (`list`: from `<out_dir>/repo-cartographer.md` or `navree routes --json`, dynamic segments filled with seeded ids), the roles with their seeded accounts, `out_dir`, `scratch_dir`.
+- The absolute path of `product-qa/references/ui-sweeps.md` (sign-in reuse, link crawl and dead-button recipes).
+- In score mode, the absolute path of `product-audit/references/rubric.md`.
+- A missing input: stop and return its name.
 
-1. Learn the not-found page: open `/qa-not-found-<random>` and record its heading text or a stable selector. That marker, not your judgment, decides "not found".
-2. Per role: sign in once and reuse the session; start from the entry routes, breadth-first over internal links (same origin; strip hashes; keep queries; cap at the route list size × 3 to avoid infinite pagination).
-3. On each page collect `a[href]`, elements with `role="link"`, and buttons. Open each internal URL once (follow redirects; record the chain). A status ≥ 400, a page showing the not-found marker, or a redirect loop is a dead link.
-4. Flag `href="#"`, `href=""`, `javascript:` hrefs, and external links opened in a new tab without `rel="noopener"`.
-5. For buttons outside forms: click, then watch 1 s for navigation, a network request, or a DOM change. None → "inert button" finding (exclude disabled buttons; note them separately).
-6. Links that lead to pages the role cannot use should not be shown to that role — record them.
+## Steps
+
+1. In `scratch_dir`, `npm i playwright@<x.y.z>` (a release at least two weeks old, with Chromium 135 or newer); write the version in the report. Never use a shared browser.
+2. Learn the not-found page: open a random path that does not exist and record its heading or a stable selector. That marker decides "not found".
+3. For each role, sign in once and reuse the session; on a 429 wait for `Retry-After`, never sign in per page.
+4. `crawl`: breadth first over internal links (same origin, hashes stripped, queries kept, capped at three times the route list). `list`: open each listed route.
+5. Open each internal URL once and follow redirects. A status of 400 or more, the not-found marker, or a redirect loop is a dead link. Flag `href="#"`, an empty `href`, `javascript:` hrefs, and external links that open a new tab without `rel="noopener"`.
+6. For each button outside a form, click it and watch for one second for navigation, a request or a DOM change. None of those: an inert button (disabled buttons are listed separately).
+7. Record links a role sees that lead to a page that role cannot use.
+8. Skip, and list, every button whose accessible name implies a destructive or money action (delete, block, pay, unlock, adjust, refund): page, name, selector, so `role-matrix-tester` and `money-integrity-prober` take them.
 
 ## Output
 
-`qa/links/REPORT.md` and `qa/links/inventory.json`: per role, pages visited, links found, dead links (source page → target → status), inert buttons (page, accessible name, selector), links shown to roles that cannot use the target, and the skipped buttons below. Summary line: `dead links: N, inert buttons: M` — it goes into `QA_COVERAGE.md` §3.
+`<out_dir>/link-crawler.md` and `<out_dir>/link-crawler/inventory.json`.
 
-## Rules
+- Header: commit and date.
+- Per role: pages visited, links found, dead links (source page, target, status), inert buttons (page, name, selector), links shown to roles that cannot use the target, and the skipped buttons.
+- A summary line `dead links: N, inert buttons: M`, which fills `QA_COVERAGE.md` section 3.
+- Findings `Q-n` (`qa`) or `A-n` (`audit`). A dead link or an inert button on a main path is `Major`; elsewhere `Minor`.
+- Score mode: `## Module scores`.
 
-- Read-only: never submit forms that create or change data. Do not click buttons whose accessible name implies a destructive or money action (delete, block, pay, unlock, adjust); list them (page, name, selector) so the main agent hands them to `role-matrix-tester` and `money-integrity-prober`.
-- On 429, wait for `Retry-After` and retry; never sign in per page.
+## Limits
+
+Submits no form that creates or changes data. Reports only.
+
+## Return
+
+The verdict (`PASS` with no open `Blocker` or `Major` finding, else `FAIL`), the summary line, finding counts, the report path, and `LESSON: <one line>` when a reusable lesson appeared.

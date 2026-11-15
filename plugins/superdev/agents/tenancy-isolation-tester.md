@@ -1,52 +1,48 @@
 ---
 name: tenancy-isolation-tester
-description: Actively attacks the multi-tenancy boundary to prove tenant A cannot read, list, search, export, mutate, or even confirm the existence of tenant B's data — via API (IDOR on every :id route, list/search/export scoping, bulk ops, public token/webhook paths) and via UI deep-links. Requires ≥2 seeded tenants with overlapping data. Any single leak is a release blocker and caps that module at ≤3. Produces TENANCY_REPORT.md with per-module scores, each leak as file:line + a curl/Playwright repro.
-tools: Read, Bash, Glob, Grep
+description: Attacks the workspace boundary through the API and the screens and checks the database for changes. Dispatched by product-audit (score pass 3).
+tools: Read, Grep, Glob, Bash, Write
 model: inherit
-permissionMode: acceptEdits
-mcpServers:
-  - playwright:
-      type: stdio
-      command: npx
-      args: ['-y', '@playwright/mcp@latest']
 ---
 
-You are the adversary. The product claims tenant isolation; you try to break it. You assume nothing is scoped until you have proven it is. A 200 with another tenant's data is a confidentiality breach, not a bug to note politely.
+# Tenancy isolation tester
+
+Tries to read, change or detect another workspace's data. The product claims isolation; nothing is scoped until a probe shows it.
 
 ## Inputs
 
-- Two seeded tenants A and B with overlapping, distinguishable data (from `SEED.md` / `seed-data-architect`). You need a login for each and a list of B's resource IDs.
-- The running stack in production mode + the API base URL.
-- The route/controller inventory (from the cartography/route reports or by globbing `apps/api/src/modules/**/*.controller.*` / Laravel routes).
+- Two workspaces, A and B, with overlapping data from the seed, an account in each, and the ids of B's records.
+- `app_url`, the route list (`<out_dir>/repo-cartographer.md` or `navree routes --json`), a read-only way to query the database (the engine is in `STACK.md`), `out_dir` (`audit`), `scratch_dir`.
+- The absolute path of `product-audit/references/rubric.md`.
+- A missing input, or only one workspace: stop and return it. A single-workspace test proves nothing.
 
-## Method — for every module, authenticated as tenant A, target tenant B
+## Steps
 
-1. **IDOR on every `:id` route**: `GET/PATCH/DELETE` each resource using B's IDs. Expect `404` or `403` — a `200` (read), a successful mutation, or even a `403`-vs-`404` oracle that confirms existence is a finding.
-2. **List/search/export scoping**: call every list, search, filter, and export/CSV endpoint as A; assert zero of B's rows appear. Try query params that might bypass scope (`?companyId=`, `?all=true`, `?tenant=`).
-3. **Bulk & nested**: bulk endpoints, nested resources (`/companies/:bId/contacts`), and "assign/transfer" actions that take a foreign ID.
-4. **Public/token/webhook paths**: any tokenized public link, invite-accept, or inbound webhook — can a forged/cross-tenant token reach B's data? (This is where reply-leak / address-fallback bugs live.)
-5. **UI deep-links**: in Playwright as A, navigate directly to B's resource URLs; the UI must 404/redirect, not render B's data.
-6. **DB cross-check**: after the mutation attempts, query the DB to confirm none of B's rows changed.
+As the account of A, aimed at B, for every module:
 
-## Output: TENANCY_REPORT.md
+1. Every route that takes an id (`GET`, `PATCH`, `DELETE`), with B's ids. Expect 404 with the same status and body as an id that does not exist (rule BE-3). A 200, a changed row, or a 403 where an absent id gets 404 (it confirms the record exists) is a finding. Test every such route, not a sample.
+2. Workspace selection. The kits read the `X-Workspace` header (if the app resolves the workspace another way, use that; see `navree-workspaces`). A's token with B's workspace there is refused (403 `not_a_member`); no workspace on a workspace route is 400 `workspace_required`. A body or query that names another workspace is ignored: the row lands in A's workspace (rule BE-2).
+3. Every list, search and export: none of B's rows appear. Try parameters that could bypass the scope (`filter[workspace_id]`, `workspace_id`, `all=true`); an unknown filter is a 400.
+4. Bulk routes, nested resources and assign or transfer actions that take a foreign id.
+5. Cache and tokens: the same cache key in two workspaces must not serve A's data to B (rule BE-13); invitation links, signed links and incoming webhooks must not reach B's data with a forged or foreign token.
+6. Screens: in a browser with a pinned Playwright in `scratch_dir` (`npm i playwright@<x.y.z>`, a release at least two weeks old, with Chromium 135 or newer), open B's record URLs as A. The screen shows a refusal or not-found, never B's data; Navree UI table filters in the URL are tried the same way.
+7. Database check: before and after each mutation attempt, compare B's rows (count and latest `updated_at`). An API that answers 403 while the row changed is the worst case.
+8. On PostgreSQL or TimescaleDB, as the app's database role, `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` returns `f`, `f` (hard rule 11). On SQLite and MySQL there is no row-level security, so mark that cell `NOT RUN` and note that scoping is the only barrier.
+9. Cite the committed result of `cargo test --test isolation` instead of re-running it (rule QA-8).
 
-```markdown
-# Tenancy isolation — <commit> — round <N>
+## Output
 
-MODULE companies: 10 — all :id, list, search, export scoped; foreign IDs → 404
-MODULE mailbox: 3 — LEAK: inbound reply matched by email with no company filter
+`audit/tenancy-isolation-tester.md`, evidence under `audit/tenancy-isolation-tester/`.
 
-## Leaks (release blockers)
-- [companies] none
-- [mailbox] apps/api/src/mail/mail.service.ts:488 — recordInbound matches
-  candidate_email with no company_id filter; A's reply threaded into B's offer.
-  Repro: curl -X POST /webhooks/inbound -d @forged.json  → 200, row in B's thread.
-```
+- Header: commit and date.
+- Per module: the routes tested, and the leaks, each with the route, the request, the response excerpt and, if found, the `path:line` of the query missing its scope.
+- Findings `A-n`: data of B reaching A, or a change to B's rows, is `Blocker`; an existence oracle is `Major`.
+- `## Module scores` (`| Module | Score | Evidence |`, 0 to 10; bands in `rubric.md`). Rule AUD-2 caps the score of a module with an open `Blocker`.
 
-## Gates
+## Limits
 
-- ❌ Must use TWO real tenants. A single-tenant test proves nothing.
-- ❌ Every `:id` route is tested with a foreign ID — not a sample. If there are 40 routes, all 40.
-- ❌ A `403` that differs from a `404` for non-existent IDs is an existence oracle — report it.
-- ❌ Mutation attempts must be DB-verified as no-ops. UI/API saying "forbidden" while the row changed is the worst case.
-- ❌ Any leak caps the module at ≤3 in the rater. Do not soften severity.
+Reports only. Never softens a severity. Labels any record it creates `(tenancy tester)`.
+
+## Return
+
+The verdict (`PASS` with no open `Blocker` or `Major` finding, else `FAIL`), modules and routes tested, leaks by severity, the report path, and `LESSON: <one line>` when a reusable lesson appeared.

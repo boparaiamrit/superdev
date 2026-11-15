@@ -1,144 +1,106 @@
 ---
 name: design-preservation
-description: Use ONLY when the user provides a **prototype** that must be preserved — an existing HTML/Figma export, a built-and-shipping app's frontend being migrated, a hand-coded mockup the user has iterated on. Treats that prototype as a HOLY GRAIL — copies it verbatim, mirrors it inside the Next.js app, refuses to "improve" or restyle. Runs design-fidelity-auditor at every module checkpoint; flags pixel drift over 1 percent. Do NOT use this for Claude Design output (those are blueprints meant to be translated into shadcn; preservation would defeat the design-to-nextjs purpose).
+description: Use when the operator brings a prototype that must be kept as built (hand-coded HTML, a design-tool HTML export, or the front end of a product moving to Navree) rather than a design to translate. Copies it verbatim, baselines its pages, and checks every built screen against it with one drift threshold.
 ---
 
-# Design Preservation — the Holy Grail rule
+# Design preservation
 
-The single most common superdev failure mode: an agent gets a design and "improves" it — changes the spacing, swaps the typography, reinterprets the layout in shadcn primitives, makes "what they think the user really wanted." The result looks generic; the user spends hours pulling it back to the original.
+This skill keeps a prototype the operator built as the reference for every screen rebuilt from
+it. It copies the prototype unchanged into the app, captures each of its pages, and compares every
+built screen with those captures, region by region, against one drift threshold (rule PRE-3).
+Steps 1 to 3 run at step 3 (Plan) of `superdev-build`; step 4 runs at step 6.5 of every module.
 
-This skill forbids that. The original design is sacred. We **copy first, wire second, restyle never**.
+## Preserve or translate
 
-## The Iron Law
-
-```
-THE ORIGINAL DESIGN IS A HOLY GRAIL.
-WE DO NOT IMPROVE IT, RESTYLE IT, OR REINTERPRET IT.
-WE COPY VERBATIM, RENDER AS A MIRROR, AND ONLY THEN WIRE DATA.
-
-Pixel drift > 1% in any region against the source = build fails.
-```
-
-## When to use
-
-- ✅ User provides a **prototype** they've built — hand-coded HTML, Figma HTML export, a shipping app's existing frontend being migrated
-- ✅ `prototype-to-saas` is running — the prototype's UI must survive the rewire
-- ✅ User says "match this exactly" / "don't change the design" / "preserve the UI" / "don't restyle it"
-- ✅ A previous frontend build drifted from the source and the user is frustrated — recover by establishing a baseline now and gating future changes on it
-
-## When NOT to use
-
-- ❌ Claude Design output — those are blueprints meant to be **reinterpreted** into shadcn/ui by `design-to-nextjs`. Preserving them defeats the entire skill's purpose.
-- ❌ Mood-boards or "vibes" references — not implementable specs
-- ❌ Greenfield project with no design source (use `design-to-nextjs` directly)
-- ❌ User explicitly asked for a redesign or refresh
-
-## How to tell the difference
-
-| Source | Use design-preservation? | Use design-to-nextjs? |
-|---|:---:|:---:|
-| User-built HTML/CSS prototype | ✅ Yes — copy verbatim | ⚠️ Only after preservation, for data-wiring |
-| Figma HTML export of a shipping product | ✅ Yes | ⚠️ Only for data-wiring |
-| Existing Next.js prototype with JSON fixtures (prototype-to-saas migration) | ✅ Yes — preserve UI while rewiring | n/a |
-| Claude Design output (`design/index.html` from a Claude Design session) | ❌ No | ✅ Yes — translate to shadcn |
-| Screenshots only, no DOM/CSS | ❌ No | ✅ Yes |
-| Mood-board / reference images | ❌ No | ✅ Yes |
-
-## How the main agent should use this skill
-
-The main agent inspects the user's design source and routes accordingly:
-
-- **Source is a prototype** (user-built HTML, Figma export, existing app) → run `design-preservation` **before bootstrap** (superdev-build Step 3 reads its output). Subsequent groups run against the preserved mirror.
-- **Source is Claude Design output** → skip `design-preservation` entirely. Hand directly to `design-to-nextjs` for shadcn translation.
-- **`prototype-to-saas` is running** → `design-preservation` runs alongside `codebase-discoverer` so the UI baseline is captured before `frontend-rewirer` touches anything.
-
-When `design-preservation` IS active, the main agent schedules `design-fidelity-auditor` as a checkpoint at the end of every frontend module build. Any drift > 1% from the source mirror blocks the group from completing.
-
-## The 3 phases
-
-```
-┌────────────────────────┐    ┌────────────────────────────┐    ┌──────────────────────┐
-│  PHASE 0a — COPY       │───▶│  PHASE 0b — MIRROR         │───▶│  PHASE 0c — DIFF     │
-│  design-source-mirror  │    │  design-source-mirror      │    │  design-fidelity-    │
-│                        │    │                            │    │  auditor             │
-│  Byte-for-byte copy of │    │  Mount the source under    │    │  Screenshot mirror   │
-│  every HTML / CSS / JS │    │  /__design-source/ route   │    │  vs source. Pixel-   │
-│  / image / font from   │    │  inside the Next.js app    │    │  diff. Must be 100%. │
-│  the handoff           │    │                            │    │                      │
-└────────────────────────┘    └────────────────────────────┘    └──────────────────────┘
-            │                            │                                │
-            ▼                            ▼                                ▼
-      design-source/                /__design-source/                FIDELITY_BASELINE.md
-      under apps/web/             (only mounted in dev mode)
-```
-
-### Phase 0a — Verbatim copy
-
-`design-source-mirror` copies the design handoff into `apps/web/src/design-source/`:
-- Every HTML file, every CSS file, every JS file
-- Every image, every font, every SVG icon
-- **Byte-for-byte**. No formatting, no rename, no "while I'm here" cleanup.
-- Preserves directory structure exactly as the handoff has it.
-
-### Phase 0b — Mirror route
-
-`design-source-mirror` adds a Next.js dev-only route `/__design-source/` that serves the copied files statically. The mirror renders pixel-identical to the source when opened in a browser.
-
-This is the SOURCE OF TRUTH for every later auditor. When the auditor screenshots and compares, it compares **against the mirror** — not against the original handoff path. If the mirror drifts from the source, that's a preservation bug; if the componentized app drifts from the mirror, that's a build bug.
-
-### Phase 0c — Establish fidelity baseline
-
-`design-fidelity-auditor` screenshots every page of the mirror at:
-- Desktop (1280×800)
-- Tablet (768×1024)
-- Mobile (375×667)
-
-Saves to `design-baseline/<page>/<viewport>.png`. Writes `FIDELITY_BASELINE.md` recording every page+viewport pair.
-
-These baselines are what every module-checkpoint audit compares against.
-
-## Module-checkpoint audit (continuous)
-
-Every time a frontend agent finishes a feature, `design-fidelity-auditor` runs:
-
-1. For each route the agent built, screenshot at each viewport
-2. Pixel-diff against `design-baseline/<page>/<viewport>.png`
-3. Compute drift % per region
-4. **Fail the group** if any region drifts > 1%
-
-Findings go to `DESIGN_DRIFT_<feature>.md` with side-by-side images.
-
-## What "preserving" means
-
-| ✅ Allowed | ❌ Forbidden |
+| The source | What to do |
 |---|---|
-| Wrap a `<button>` in a React component that renders the SAME `<button>` markup | Replace the `<button>` with shadcn's `<Button>` (different default styling) |
-| Add `onClick` to make it interactive | Change className, padding, color, font, border-radius |
-| Add `useQuery` to source data instead of hardcoded HTML | Move text into a different element type "for semantics" |
-| Add ARIA attributes for accessibility (if missing) | Reformat HTML / change tag names "for clarity" |
-| Replace `<img src="…">` with `<Image>` from Next.js | Add new visual elements (icons, badges, etc.) the source doesn't have |
-| Convert inline `<style>` to Tailwind utility classes that produce the SAME computed CSS | Convert inline `<style>` to Tailwind utility classes that look "close enough" |
+| A prototype the operator built (hand-coded HTML and CSS, or an app they iterated on) | Preserve: this skill |
+| A design-tool HTML export of a product that ships | Preserve: this skill |
+| The front end of a product moving to Navree | Preserve: this skill, with [prototype-to-navree](../prototype-to-navree/SKILL.md) |
+| A design-tool blueprint meant to be translated, screenshots, a mood board, or a request for a redesign | Translate: [design-to-navree-ui](../design-to-navree-ui/SKILL.md) for `front_end: navree`, [design-to-nextjs](../design-to-nextjs/SKILL.md) for `front_end: next` |
 
-The rule: **if `design-fidelity-auditor` flags pixel drift, you violated the rule, period**. There is no "but it's better this way".
+When the source fits no row clearly, ask the operator and record the answer with their name and
+the date (rule BLD-6).
 
-## When the user WANTS to deviate
+## Steps
 
-If a checkpoint audit flags drift and the deviation is intentional, the user must explicitly mark it in `DESIGN_DEVIATIONS.md`:
+1. Copy the prototype byte for byte into `design/source/`, with its folder structure, leaving out
+   only OS metadata (`.DS_Store`, `Thumbs.db`, `desktop.ini`, `__MACOSX/`). Before committing,
+   add the line `design/source/** -text` to the app's `.gitattributes` so git never changes the
+   copy's line endings. Run the copy check of [references/drift-check.md](references/drift-check.md)
+   and put its result line in the commit message.
+2. Serve `design/source/` with any static file server bound to `127.0.0.1`, never through the app.
+   Open every page once; a page that does not render as the operator sees it goes to step 6.
+3. Dispatch `visual-diff-auditor` in `baseline` mode, target `design`, with the served URL, every
+   `.html` page under `design/source/` and the absolute paths of this file and
+   `references/drift-check.md` (rule BLD-4). It captures every page at the widths of rule PRE-3 into
+   `design/baseline/<page>/<width>.png`. Commit the baseline.
+4. At step 6.5 of every module, dispatch `visual-diff-auditor` in `compare` mode, target `design`,
+   with the running app's URL, the module's page routes, an account that sees them and the same
+   reference path. Each contract's `## Screens` row names, in its `Design` column, the page under
+   `design/source/` the screen rebuilds. The auditor writes `design/DRIFT.md`; the module's
+   screens are not proved while one of their regions is `FAIL` or `NOT RUN`.
+5. A region over the threshold is fixed and compared again, or the operator records it as a
+   deviation in `design/DEVIATIONS.md` (rule PRE-4). Show the operator the diff image of every
+   region you propose as a deviation, in one batch per module.
+6. A defect in the source (a missing file, a `localhost` address, a broken script, a page that
+   renders blank) is reported to the operator with the file and line, and the copy keeps it
+   (rule PRE-5); the operator fixes the source and the copy is taken again, or accepts the page.
 
-```markdown
-# Approved design deviations
+## On Navree UI
 
-## /companies — "Add company" button uses shadcn primary instead of source button
-- Reason: user requested keyboard-focus accessibility that source button lacks
-- Approved by: <user>
-- Date: 2026-05-22
-- Drift accepted: 8% on button region
-```
+The prototype is the visual reference, not the markup. `navree-design-to-ui` calls such a screen
+Keep, and Keep never means copying the design's markup: every screen is built from components
+(rule NUI-1). The prototype's exact colours, type, spacing and radius go into the theme (rule
+NUI-7), its fonts and images through `AppFont` and `AppImage`. Navree UI is dark by default:
+compare in the prototype's colour mode (`Mode::Light`, or `Mode::System` with the browser's colour
+scheme set to the prototype's).
 
-The auditor reads this file. Deviations listed here don't fail the checkpoint. **Everything else does.**
+The threshold stays the one of rule PRE-3, and a hand-built prototype rarely meets it with Navree
+UI's components: the shell (its sidebar, type and spacing) alone moves most header, navigation and
+`main` regions. Expect deviations, and say so to the operator at step 3. A prototype that must stay
+close to the pixel is a reason to choose a Next.js front end, which keeps its markup. A region that
+cannot reach the threshold with Navree UI's components is handled in this order:
+
+1. The theme: a token a custom theme can set (check `navree-ui` for which) takes the prototype's
+   exact value, never the nearest built-in one.
+2. The gap rule, when the difference is a component Navree UI lacks: hard rule 14, applied as
+   [design-to-navree-ui](../design-to-navree-ui/SKILL.md) describes (compose it, or record an
+   `N-n` and ship the nearest component the operator agrees to).
+3. A deviation for what still differs (the nearest component's shape, a colour `Theme::custom`
+   refuses because its text fails WCAG AA, a spacing no token carries), approved by the operator
+   in writing, with the measured drift recorded beside it (rule PRE-4).
+
+Copying the prototype's markup, styles or scripts into a page is never the fix (hard rule 14).
+
+## On Next.js
+
+Wrap, don't replace. Keep the prototype's markup, class names and stylesheet, and make them
+dynamic: a static part becomes a component that renders the same elements with the same classes
+and takes its text and items as props; data arrives through the BFF and the generated types
+([design-to-nextjs](../design-to-nextjs/SKILL.md)). The kept stylesheet is the design's part of
+the tokens layer of rule NX-9. Where a style must be rewritten, use the exact value (13 px
+stays 13 px, an opacity of 0.87 stays 0.87, an inline style stays inline), never the nearest
+token of the component kit. Swapping a prototype element for a kit component that looks different
+is a deviation (rule PRE-4), not a refactor.
+
+## Rules
+
+- **PRE-1** Copy first, build second, restyle never: no reformatting, renaming, minifying or
+  cleanup in `design/source/`.
+- **PRE-2** Built screens are compared with the served copy in `design/source/`, never with files
+  elsewhere.
+- **PRE-3** One drift threshold for the whole plugin, stated only here and measured as
+  [references/drift-check.md](references/drift-check.md) describes: a page region fails when more
+  than 1% of its pixels differ after a 5% colour fuzz, at 1440 and 390 px. `frontend-structure`
+  refactors use the same threshold.
+- **PRE-4** A deviation exists only as a row in `design/DEVIATIONS.md` with page, region, reason,
+  accepted drift, the operator's name and the date.
+- **PRE-5** A defect in the source (missing file, `localhost` address, broken script) is reported
+  to the operator, never fixed in the copy.
 
 ## Reference files
 
-- [`references/verbatim-copy-rules.md`](references/verbatim-copy-rules.md) — what counts as "byte-for-byte"
-- [`references/wrap-dont-replace-patterns.md`](references/wrap-dont-replace-patterns.md) — how to add interactivity without restyling
-- [`references/agent-definitions.md`](references/agent-definitions.md) — dispatch prompts
+| File | Read it |
+|---|---|
+| [references/drift-check.md](references/drift-check.md) | at steps 1, 3, 4 and 5: the copy check, the capture conditions, regions and masks, the compare command, and the formats of `design/DRIFT.md` and `design/DEVIATIONS.md` |
