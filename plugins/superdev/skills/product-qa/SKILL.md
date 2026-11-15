@@ -21,7 +21,7 @@ The `verify-done.mjs` run ([superdev-done](../superdev-done/SKILL.md)) is step 2
 - Reset the data with `navree migrate:fresh --seed` and run the release binary with `serve` and its worker, `<binary> queue:work`. For `front_end: next`, also run the web app built and started in production mode.
 - Write the commit (`git rev-parse --short HEAD`) at the top of the report. A code change after a cell ran makes that cell stale (rule QA-2).
 - Use one account per role per agent from the seed (rule BE-14), and one end user per phone run. List who uses which account in the report; no account appears under two agents.
-- Dispatch each agent with absolute paths (rule BLD-4), its accounts, the app URL and `out_dir: qa`. Evidence goes under `qa/<agent-name>/`, which is git-ignored; `QA_REPORT.md` and `QA_COVERAGE.md` are committed.
+- Dispatch each agent with absolute paths (rule BLD-4), its accounts, the app URL and `out_dir: qa`. Evidence goes under `qa/<agent-name>/`, a git-ignored sub-folder; `QA_REPORT.md`, `QA_COVERAGE.md`, each `qa/<agent-name>.md` and `qa/verify-done.txt` are committed.
 - Browser agents install a pinned Playwright release in a scratch folder, because agents shipped in a plugin cannot declare MCP servers. Navree UI targets Chrome 135 and later, so the release must bring Chromium 135 or newer. [references/ui-sweeps.md](references/ui-sweeps.md) has the recipes.
 
 ## Explore mode
@@ -39,7 +39,7 @@ The gate runs these steps in this order. The matrix format is in [coverage-matri
 | # | Step | Owner | Fills |
 |---|---|---|---|
 | 1 | Fresh data: `navree migrate:fresh --seed`; reconciliation and contract suites pass on it | main agent | header, accounts |
-| 2 | Machine layer: `node ${CLAUDE_PLUGIN_ROOT}/scripts/verify-done.mjs --suites --strict`, saved to `qa/verify-done.txt` | main agent | §1 |
+| 2 | Machine layer: `node ${CLAUDE_PLUGIN_ROOT}/scripts/verify-done.mjs --suites`, saved to `qa/verify-done.txt` (without `--strict`: the reports it reads are not written yet) | main agent | §1 |
 | 3 | Routes × roles × widths (1440, 390) × modes (light, dark): allowed shows content, refused shows the friendly refusal, zero console errors, no horizontal scroll at 390; Navree UI pages pass the render check (rule QA-10) | main agent or `qa-flow-tester` | §2 |
 | 4 | Interactions: every form (empty, invalid, valid, double submit), dialog and menu; every link and button does something | `link-crawler`, `qa-flow-tester` | §3 |
 | 5 | Accessibility and contrast in every state | `a11y-contrast-auditor` | §4 |
@@ -59,9 +59,9 @@ Steps 3 to 10 may run in parallel only under rule QA-3, except that steps 7 and 
 
 Every cell is `PASS`, `FAIL` or `NOT RUN`. The severity scale, the finding fields and the status words are defined once, in [artifacts.md](../superdev-build/references/artifacts.md).
 
-- A `Blocker` or `Major` finding makes its cell `FAIL`. A `Minor` finding leaves the cell `PASS` and is listed with its id and an owner.
-- A cell with no evidence is `NOT RUN`. A `NOT RUN` blocks like a `FAIL` until the operator accepts it. The operator's own words go into `## Not run` with their name, the date and the reason (rule BLD-6); an agent never decides an acceptance. A `FAIL` cannot be accepted: it is fixed and its cell re-run.
-- The gate passes only when `QA_COVERAGE.md` has no `FAIL`, no `NOT RUN` without an acceptance, and no open `Blocker` or `Major` finding in its `## Findings` table. Otherwise the result is not a pass, and the file says which cells and findings are in the way.
+- A `Blocker` or `Major` finding makes its cell `FAIL`. A `Minor` finding marks its cell `PASS (Q-n)` with the finding's id, never a bare `PASS`, and is listed with an owner.
+- A cell with no evidence is `NOT RUN`. A cell whose server answer was proved over HTTP and whose browser half is `NOT RUN` is `PASS (server)` ([coverage-matrix.md](references/coverage-matrix.md)). A `NOT RUN`, and the browser half of a `PASS (server)`, block like a `FAIL` until the operator accepts them in `ACCEPTANCES.md`; the cell then cites the entry, `NOT RUN (ACC-n)` or `PASS (server, ACC-n)`, and `## Not run` lists it with the same `ACC-n`. An agent never writes an acceptance and copies no sentence of one (rule BLD-6): it returns the question to the operator. A `FAIL` cannot be accepted: it is fixed and its cell re-run.
+- The gate passes only when `QA_COVERAGE.md` has no `FAIL`, no `NOT RUN` and no `PASS (server)` without an `ACC-n`, and no open `Blocker` or `Major` finding in its `## Findings` table. Otherwise the result is not a pass, and the file says which cells and findings are in the way. `verify-done.mjs --strict` reads the file and fails on each of these.
 
 ## Rules
 
@@ -74,7 +74,7 @@ Every cell is `PASS`, `FAIL` or `NOT RUN`. The severity scale, the finding field
 - **QA-7** Performance runs alone, last, on an idle app.
 - **QA-8** What the committed suites prove is cited, not re-tested. A suite pass is not browser proof, and a browser pass is not a suite.
 - **QA-9** Explore mode adds edge records on top of the demo seed. It never replaces the seed the gate uses.
-- **QA-10** A rendered Navree UI page has no `style` attribute, no `<style>` element and no `<script>` element other than those the UI kit's own `/profile` page has; a script whose `src` has the same prefix as theirs counts as theirs, because the runtime picks its script modules from the rendered tree (hard rule 14).
+- **QA-10** A rendered Navree UI page has no `style` attribute, no `<style>` element and no `<script>` element other than the framework's own, whose `src` starts with `/_navree/ui/`, because the runtime picks its script modules from the rendered tree (hard rule 14).
 
 ## Reference files
 

@@ -51,6 +51,6 @@ with one line per step (`PASS`, `FAIL` or `NOT RUN`, and the evidence path). The
 ## Limits to record, not fake
 
 Each is `NOT RUN` with its reason in `qa/mobile-qa-tester.md`, for the operator to accept in
-writing: iOS needs a Mac; an emulator's virtual camera cannot scan a real code; closed-app push
+`ACCEPTANCES.md`: iOS needs a Mac; an emulator's virtual camera cannot scan a real code; closed-app push
 needs Firebase or Apple push credentials and a real phone; a platform or screen size that was not
 available.

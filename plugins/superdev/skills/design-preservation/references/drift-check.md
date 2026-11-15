@@ -41,7 +41,7 @@ decimals. A region over the threshold of rule PRE-3 ([design-preservation](../SK
 
 Written by `visual-diff-auditor` at each compare (captures and diff images under
 `design/visual-diff-auditor/<page>/`); a run replaces the rows of the pages it compared. `Result`
-is `PASS`, `FAIL` or `NOT RUN` (not captured, reason under the table; blocks until accepted).
+is `PASS`, `FAIL` or `NOT RUN` (not captured, reason under the table; blocks until an `ACC-n` accepts it).
 
 ```markdown
 # Design drift
@@ -59,9 +59,9 @@ Masks: invoices-list, 1440, rectangle 1180,96 1400,120, the "Updated 10:42 IST" 
 Written by the operator, or by the main agent quoting the operator's message (rule BLD-6); no
 agent adds a row on its own.
 
-| Page | Region | Reason | Accepted drift | Approved by | Date |
-|---|---|---|---|---|---|
-| invoices-list | header | the Navree UI top bar replaces the prototype's header bar | 4.0% at 1440, 6.5% at 390 | Meera Sharma | 2026-11-20 |
+| Page | Region | Reason | Accepted drift | Acceptance |
+|---|---|---|---|---|
+| invoices-list | header | the Navree UI top bar replaces the prototype's header bar | 4.0% at 1440, 6.5% at 390 | ACC-1 |
 
 ## Copy check
 

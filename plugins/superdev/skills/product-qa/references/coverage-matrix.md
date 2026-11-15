@@ -1,6 +1,6 @@
 # QA_COVERAGE.md format
 
-One file at the app root, written by the main agent and the QA agents. Sections are numbered by what fills them, with the gate step in brackets. Every row has a status (`PASS`, `FAIL` or `NOT RUN`) and an evidence cell holding the key result line and the path under `qa/`. A matrix lists only the cells that apply, and each section states its applicability rule once. A section with nothing to test keeps its heading and one line giving the reason. Re-running a cell replaces its evidence. The status words, the severity scale and the finding ids are defined in [artifacts.md](../../superdev-build/references/artifacts.md).
+One file at the app root, written by the main agent and the QA agents. Sections are numbered by what fills them, with the gate step in brackets. Every row has a status (`PASS`, `FAIL` or `NOT RUN`, with the evidence levels below) and an evidence cell holding the key result line and the path under `qa/`. A matrix lists only the cells that apply, and each section states its applicability rule once. A section with nothing to test keeps its heading and one line giving the reason. Re-running a cell replaces its evidence. The status words, the severity scale and the finding ids are defined in [artifacts.md](../../superdev-build/references/artifacts.md).
 
 ```markdown
 # QA Coverage
@@ -19,13 +19,14 @@ Final reset: `navree migrate:fresh --seed` at 16:40 IST
 Applies to: `verify-done.mjs`, then each suite line of `STACK.md` `## Suites`.
 | Check | Command | Status | Evidence |
 |---|---|---|---|
-| verify-done | `node .../verify-done.mjs --suites --strict` | PASS | DONE: all live checks and committed suites green (qa/verify-done.txt) |
+| verify-done | `node .../verify-done.mjs --suites` | PASS | 0 FAIL: all live checks and committed suites green; the reports and acceptances are read at step 10 (qa/verify-done.txt) |
 
 ## 2. Routes, roles, widths, modes [3]
 Applies to: each route a role can reach (Expect `page`) and each route it must be refused (Expect `refusal`), at 1440 and 390 px, in light and dark mode.
 | Client | Route | Role | Width | Mode | Expect | Status | Console errors | Overflow | Evidence |
 |---|---|---|---|---|---|---|---|---|---|
-| web | `/invoices` | owner | 1440 | light | page | PASS | 0 | none | qa/web/invoices-owner-1440-light.png |
+| web | `/invoices` | owner | 1440 | light | page | PASS (Q-2) | 0 | none | qa/web/invoices-owner-1440-light.png |
+| web | `/invoices` | member | 390 | light | page | PASS (server, ACC-1) | NOT RUN (ACC-1) | NOT RUN (ACC-1) | qa/web/invoices-member.http.txt |
 | admin | `/admin` | viewer | 390 | dark | refusal | PASS | 0 | none | qa/admin/admin-viewer-390-dark.png |
 
 ## 3. Interactions [4]
@@ -66,12 +67,21 @@ Applies to: each main route. Columns: Route, LCP, CLS, Queries (1 row and 50 row
 |---|---|---|---|---|---|---|---|---|
 
 ## Not run
-| Cell | Why | Operator's words | Name | Date |
-|---|---|---|---|---|
-| native client on iOS | no Mac on this host | | | |
+| Cell | Why | Acceptance |
+|---|---|---|
+| native client on iOS | no Mac on this host | ACC-3 |
+| section 2, dark mode, member at 390 | no browser on this host: the server half is `PASS (server)` | ACC-1 |
 ```
 
 Sections 5, 6 and 7 use the columns `| Area or behaviour | Check | Status | Evidence |`. Section 9 uses `| Area | Device and build | Steps | Status | Evidence |`, with the step count quoted as `9/9`, and its rows come from the results file of the device pass ([device-qa.md](../../design-to-tauri/references/device-qa.md)). The consistency checks are in [explore-checklist.md](explore-checklist.md). A finding's `State` is `open` or `fixed`.
+
+## Evidence levels
+
+A status is `PASS`, `FAIL` or `NOT RUN`, and a `PASS` or a `NOT RUN` may carry a parenthesis:
+
+- `PASS (server)`: the server's answer for the cell (status, refusal marker, no style or script, no dead link) was proved over HTTP, and the browser half is `NOT RUN`. The cells of that half read `NOT RUN (ACC-n)`, and the cell itself reads `PASS (server, ACC-n)` once the operator has accepted it in `ACCEPTANCES.md`. Without the `ACC-n` the cell blocks the gate like a `NOT RUN`.
+- `PASS (Q-n)`: the cell passes and a `Minor` finding `Q-n` is open on it. A `Minor` finding never leaves a bare `PASS`, so a reader of the status column sees every check that found something.
+- `NOT RUN (ACC-n)`: the cell did not run and the operator accepted that; the row of `## Not run` holds the same `ACC-n`.
 
 ## Listing routes
 

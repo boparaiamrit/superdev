@@ -45,7 +45,7 @@ the date (rule BLD-6).
    region you propose as a deviation, in one batch per module.
 6. A defect in the source (a missing file, a `localhost` address, a broken script, a page that
    renders blank) is reported to the operator with the file and line, and the copy keeps it
-   (rule PRE-5); the operator fixes the source and the copy is taken again, or accepts the page.
+   (rule PRE-5); the operator fixes the source and the copy is taken again, or accepts the page in `ACCEPTANCES.md`.
 
 ## On Navree UI
 
@@ -68,8 +68,8 @@ cannot reach the threshold with Navree UI's components is handled in this order:
    [design-to-navree-ui](../design-to-navree-ui/SKILL.md) describes (compose it, or record an
    `N-n` and ship the nearest component the operator agrees to).
 3. A deviation for what still differs (the nearest component's shape, a colour `Theme::custom`
-   refuses because its text fails WCAG AA, a spacing no token carries), approved by the operator
-   in writing, with the measured drift recorded beside it (rule PRE-4).
+   refuses because its text fails WCAG AA, a spacing no token carries), accepted by the operator
+   in `ACCEPTANCES.md`, with the measured drift recorded beside it (rule PRE-4).
 
 Copying the prototype's markup, styles or scripts into a page is never the fix (hard rule 14).
 
@@ -95,7 +95,7 @@ is a deviation (rule PRE-4), not a refactor.
   than 1% of its pixels differ after a 5% colour fuzz, at 1440 and 390 px. `frontend-structure`
   refactors use the same threshold.
 - **PRE-4** A deviation exists only as a row in `design/DEVIATIONS.md` with page, region, reason,
-  accepted drift, the operator's name and the date.
+  accepted drift and the `ACC-n` of the operator's acceptance.
 - **PRE-5** A defect in the source (missing file, `localhost` address, broken script) is reported
   to the operator, never fixed in the copy.
 

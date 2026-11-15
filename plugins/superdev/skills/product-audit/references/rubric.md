@@ -4,7 +4,7 @@ Read this for score mode and for the `AUDIT_REPORT.md` format in every mode. Rul
 
 ## Score bands
 
-A pass score comes from the findings still open in that pass. A finding in state `accepted` (the operator's name, date and reason are in the report) does not count as open. A main path is a route or screen used by an acceptance criterion in `EXECUTION_PLAN.md`.
+A pass score comes from the findings still open in that pass. A finding in state `accepted ACC-n` (an entry of the operator's `ACCEPTANCES.md`) does not count as open. A main path is a route or screen used by an acceptance criterion in `EXECUTION_PLAN.md`.
 
 | Score | Open findings in the pass | Evidence the score needs |
 |---|---|---|
@@ -29,7 +29,7 @@ A module is `READY` at 9 or more, which means no open `Blocker` or `Major` findi
 
 ## AUDIT_REPORT.md
 
-The main agent (completeness and inventory) or `module-readiness-rater` (score) writes it. `Mode:` is `inventory`, `completeness` or `score (round n)`. `Verdict:` is `PRODUCT`, `HYBRID` or `DEMO` in completeness mode, `READY` when every module is `READY` and `NOT READY` otherwise in score mode, and `none` in inventory mode. `## Inventory` appears in inventory mode only and `## Scores` in score mode only.
+The main agent (completeness and inventory) or `module-readiness-rater` (score) writes it; a check that could not run is listed under `## Not run` with the `ACC-n` of the operator's acceptance, and blocks until there is one. `Mode:` is `inventory`, `completeness` or `score (round n)`. `Verdict:` is `PRODUCT`, `HYBRID` or `DEMO` in completeness mode, `READY` when every module is `READY` and `NOT READY` otherwise in score mode, and `none` in inventory mode. `## Inventory` appears in inventory mode only and `## Scores` in score mode only.
 
 ```markdown
 # Audit Report
@@ -55,4 +55,4 @@ Verdict: NOT READY
 | invoices | 9 | 9 | 3 | 9 | 9 | 3 | NOT READY | A-1; audit/tenancy-isolation-tester.md |
 ```
 
-Each finding has an id, a severity, where, evidence and an owner; a finding without evidence is not reported. `State` is `open`, `fixed` or `accepted`; an accepted finding quotes the operator's words, name and date. Ids are never reused within the file. In score mode a row's `Evidence` cell names the findings that set the score or the report that supports a 9 or 10.
+Each finding has an id, a severity, where, evidence and an owner; a finding without evidence is not reported. `State` is `open`, `fixed` or `accepted ACC-n`; an accepted finding cites the entry of `ACCEPTANCES.md` and copies no sentence of it. Ids are never reused within the file. In score mode a row's `Evidence` cell names the findings that set the score or the report that supports a 9 or 10.

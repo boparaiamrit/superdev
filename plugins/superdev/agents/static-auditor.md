@@ -20,7 +20,7 @@ Searches the code for the faults listed in `static-checks.md` and reports each w
 ## Steps
 
 1. Walk the checks of `static-checks.md` in order, using the commands it gives:
-   - the access column of `navree routes --json` against the plan's public list, `git ls-files .env`, `navree config:show --origin`;
+   - the access column of the release binary's `routes --json` against the plan's public list, `git ls-files .env`, `navree config:show --origin`;
    - searches for `#[public]`, for `Json<` handler arguments without `Valid<`, for `#[allow(` and `#[expect(`, and for models in workspace modules without `workspace` in `#[model(..)]`;
    - searches for raw SQL, outgoing HTTP clients and logging of request bodies (check `navree-database` and `navree-cache-and-http-client` for the API names to search);
    - for the Tauri shell, `design-to-tauri/references/security.md`.
