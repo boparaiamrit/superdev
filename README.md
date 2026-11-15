@@ -1,132 +1,256 @@
-# Superdev
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="Superdev: from a brief to a released app on Navree" width="100%">
+</p>
 
-**Website:** [boparaiamrit.github.io/superdev](https://boparaiamrit.github.io/superdev/) · **Built for:** [Navree](https://navree.com) · **Author:** [Amritpal Singh](https://github.com/boparaiamrit)
+<p align="center">
+  <a href="https://boparaiamrit.github.io/superdev/"><img alt="Website" src="https://img.shields.io/badge/website-superdev-3dff8f?style=for-the-badge&labelColor=000000"></a>
+  <a href="https://navree.com"><img alt="Built for Navree" src="https://img.shields.io/badge/built_for-Navree-3dff8f?style=for-the-badge&labelColor=000000"></a>
+  <img alt="Claude Code and Codex" src="https://img.shields.io/badge/Claude_Code-%2B_Codex-e9efeb?style=for-the-badge&labelColor=000000">
+  <img alt="Version 3.0.0" src="https://img.shields.io/badge/version-3.0.0-e9efeb?style=for-the-badge&labelColor=000000">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-e9efeb?style=for-the-badge&labelColor=000000"></a>
+</p>
 
-Superdev is a plugin of 15 skills and 41 agents for Claude Code and Codex. It is the process for taking a product from a brief and a design to a released, verified app on Navree, a Rust application framework: the order of work, the files written to disk, the rules, and the proof each step needs. Navree's own skills, which every app installs with `navree skills:install`, hold the framework facts; superdev names the skill and the command for each fact instead of restating it. Screens are Navree UI pages drawn on the server, or a Next.js front end on the Navree API; desktop and phone clients in Tauri are optional.
+<p align="center">
+  <b>Give your agent a PRD and a design. Superdev builds the product on <a href="https://navree.com">Navree</a>,<br>
+  and it doesn't call it done until the proof says so.</b><br>
+  15 skills and 41 agents for Claude Code and Codex. A plan and contracts on disk before code, one module at a time,<br>
+  proven in the running app and a real browser, then a security review, an audit, a QA gate and a done check that exits 0.
+</p>
 
-Version 3.0.0.
+## Highlights
 
-Status: 3.0.0 has been checked by its tests and by reading against Navree's documentation and source, and its done check has been tested against stand-ins of the Navree CLI; it has not yet been used to build an app end to end.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-## Install
+**Navree first**<br>
+Every Navree app installs Navree's own skills with `navree skills:install`. Superdev never restates the framework: for each fact it names the Navree skill and the command, and keeps the part a framework can't, the way to ship.
 
-Run these from the target Git project; superdev is installed per project, never at user scope:
+</td>
+<td width="50%" valign="top">
+
+**A plan before code**<br>
+The PRD and the design become digests, the open questions become `GAPS.md`, and `EXECUTION_PLAN.md` is confirmed by you before a line of code is written.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**Contracts first**<br>
+Each module starts as `contracts/<module>.md`: models, validation, list specs and every route with its access rule. You agree it; it becomes the module's first commit.
+
+</td>
+<td valign="top">
+
+**One module at a time, with proof**<br>
+Backend, runtime proof, screens, browser proof, suites, commit. Then the next module. No parallel waves, no self-graded "looks done".
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**Security built in**<br>
+Sign-in, roles, personal data, money and live updates are laid at the foundation, each with what Navree provides, what the app adds and the committed test that proves it.
+
+</td>
+<td valign="top">
+
+**A QA gate with evidence**<br>
+Every route, role, width and colour mode on fresh data, written to `QA_COVERAGE.md` with evidence in every cell: contrast, dead links, money races, the phone app.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**Done means exit 0**<br>
+`verify-done.mjs --suites --strict` runs Navree's checks, cargo, the release build and its health routes on the final commit. It passes, or the build isn't done.
+
+</td>
+<td valign="top">
+
+**Every skill works alone**<br>
+Ask for a security review, a QA pass or a stubborn bug, and that one skill runs. The full build only puts them in order.
+
+</td>
+</tr>
+</table>
+
+## Built on Navree
+
+**[Navree](https://navree.com)** is the complete application framework for Rust. It gives every application one clear structure: modules wired by dependency injection and checked when the app boots. Auth, workspaces, an ORM, queues, search, real time and AI are in the box, and first-party tools take care of monitoring, admin and deployment.
+
+Superdev builds on all of it. Screens are **Navree UI** pages drawn on the server, or a **Next.js** front end on the Navree API generated from its OpenAPI document; desktop and phone clients in **Tauri** are optional.
+
+| Navree knows the framework | Superdev knows the process |
+|:---|:---|
+| Routing, the ORM, access, workspaces, queues, Navree UI and its tools, in skills kept in step with each release | The order of work, the files written to disk, the product rules and the proof each step needs |
+
+[navree.com](https://navree.com) · [NavreeHQ/navree](https://github.com/NavreeHQ/navree) · [crates.io/crates/navree](https://crates.io/crates/navree)
+
+## Get started
+
+**1. Install it in your project.** Run these from the target Git project; Superdev is installed per project, never at user scope:
 
 ```shell
 claude plugin marketplace add boparaiamrit/superdev --scope project
 claude plugin install superdev@superdev --scope project
 ```
 
-The helper `bash /path/to/superdev/install-superdev.sh` runs the same two commands and checks the result. Codex installs superdev from the repository marketplace `.agents/plugins/marketplace.json`; see [INSTALL.md](INSTALL.md) and [CODEX.md](CODEX.md).
+For an existing Navree app, the project is the app. For a new product, it's the Git folder that holds the PRD and the design; the build creates the app inside it. The helper `bash /path/to/superdev/install-superdev.sh` runs the same two commands and checks the result. Codex installs Superdev from the repository marketplace `.agents/plugins/marketplace.json` ([INSTALL.md](INSTALL.md), [CODEX.md](CODEX.md)).
 
-For an existing Navree app, the target project is the app. For a new product, it is a Git folder that holds the PRD and the design; the build creates the app inside it, as a Git repository of its own, and installs superdev in the app ([INSTALL.md](INSTALL.md), "Which project to install it in").
-
-To start a build, give the agent the PRD and, if there is one, the design:
+**2. Start a build.** Give the agent the PRD and, if there is one, the design:
 
 ```text
 Build this product on Navree. The PRD is docs/prd.md and the design is in docs/design/.
 ```
 
-## What a build does
+**Or ask for just one thing.** Every skill runs on its own:
 
-The [superdev-build](plugins/superdev/skills/superdev-build/SKILL.md) skill runs these steps in order, and each one ends with a proof on disk:
+| Want only... | Say... | What runs |
+|:---|:---|:---|
+| A security review | *"Run a security review of this app"* | `security-review-and-fix` |
+| The truth about "done" | *"Is this really wired up, or does it only look done?"* | `product-audit` |
+| Everything tested | *"Check every page, every role, contrast, dead links, the app"* | `product-qa` |
+| A stubborn bug fixed properly | *"Help me debug this failure: ..."* | `systematic-debugging` |
+| Screens from a design | *"Turn this design into Navree UI screens"* | `design-to-navree-ui` |
+| A Next.js front end | *"Build the web app in Next.js on the Navree API"* | `design-to-nextjs` |
+| A phone or desktop app | *"Build the Android and iOS app on the same API"* | `design-to-tauri` |
+| A prototype made real | *"Turn this prototype into a Navree app without changing what users see"* | `prototype-to-navree` |
+| A yes or no on done | *"Are we done?"* | `superdev-done` |
 
-1. **Navree and the app:** the Navree CLI, the app (created with the agreed `navree new` line, or the existing one), Navree's skills installed, `STACK.md` written.
-2. **Digests:** the PRD and the design extracted into `PRD_DIGEST.md` and `DESIGN_DIGEST.md`, without decisions.
-3. **Plan:** gaps decided by the operator in `GAPS.md`; `EXECUTION_PLAN.md` written and confirmed before any code.
-4. **Foundation:** local services, migrations, the security foundation, the demo seed and the first suite; the release binary boots.
-5. **Contracts:** a contract per module in `contracts/`, agreed by the operator before its code.
-6. **Modules:** one module at a time: the contract in code, the backend, the runtime proof, the screens, the browser proof, the suites, a commit.
-7. **Audits:** the security review, then the product audit.
-8. **QA gate:** every route, role, width and colour mode on fresh data, in `QA_COVERAGE.md`, with evidence in every cell.
-9. **Deployment:** when the operator asks, with Navree's tools and the deploy checklist.
-10. **Done:** `verify-done.mjs --suites --strict` exits 0 on the final commit; lessons recorded.
+> 3.0.0 is the first release of Superdev on Navree. Its 142 tests run on Linux and Windows for every change; the first full app built end to end with it is under way.
 
-## Skills
+## How a build works
+
+<p align="center">
+  <img src="docs/assets/flow.svg" alt="The ten steps of a build: Navree and the app, digests, plan, foundation, contracts, modules, audits, QA gate, deployment, done" width="100%">
+</p>
+
+The [superdev-build](plugins/superdev/skills/superdev-build/SKILL.md) skill runs the steps in order, and each one leaves its proof on disk: `STACK.md`, `PRD_DIGEST.md`, `DESIGN_DIGEST.md`, `GAPS.md`, `EXECUTION_PLAN.md`, `contracts/`, `QA_COVERAGE.md`. The build's memory lives in the repository, not in the chat.
+
+## The 15 skills
 
 | Skill | Use it when |
-|---|---|
-| [superdev-build](plugins/superdev/skills/superdev-build/SKILL.md) | building a product from a PRD and a design as a Navree app, or resuming such a build |
-| [backend-on-navree](plugins/superdev/skills/backend-on-navree/SKILL.md) | building or changing a backend module: models, routes, validation, access, workspace scope, lists, jobs, mail, audit, seed data |
-| [security-foundation](plugins/superdev/skills/security-foundation/SKILL.md) | the app has sign-in, staff, roles, personal data, money or live updates, at step 4 and whenever a module adds one |
-| [design-to-navree-ui](plugins/superdev/skills/design-to-navree-ui/SKILL.md) | a design must become Navree UI screens |
-| [design-to-nextjs](plugins/superdev/skills/design-to-nextjs/SKILL.md) | a design must become a Next.js front end of a Navree API |
-| [frontend-structure](plugins/superdev/skills/frontend-structure/SKILL.md) | laying out or auditing a module of a Next.js front end, or splitting one that has grown too large |
-| [prototype-to-navree](plugins/superdev/skills/prototype-to-navree/SKILL.md) | a prototype or an older product must become a Navree app without losing what its users see |
-| [design-preservation](plugins/superdev/skills/design-preservation/SKILL.md) | a prototype must be kept as built and every screen checked against it |
-| [design-to-tauri](plugins/superdev/skills/design-to-tauri/SKILL.md) | the product needs a desktop or phone client in Tauri on its Navree API |
-| [security-review-and-fix](plugins/superdev/skills/security-review-and-fix/SKILL.md) | an app needs a security review: before launch, after a large change, a secret scan, a dependency audit |
-| [product-audit](plugins/superdev/skills/product-audit/SKILL.md) | someone needs to know whether the product is really done: real data, wired controls, readiness scores, a full inventory |
-| [product-qa](plugins/superdev/skills/product-qa/SKILL.md) | someone asks whether it is tested: every page, every role, contrast, dead links, the phone app; or to explore the running app |
-| [systematic-debugging](plugins/superdev/skills/systematic-debugging/SKILL.md) | anything fails: a test, a build, a runtime error, a flaky test |
-| [superdev-done](plugins/superdev/skills/superdev-done/SKILL.md) | someone asks whether the build is done, and before any completion claim |
-| [superdev-self-learning](plugins/superdev/skills/superdev-self-learning/SKILL.md) | the operator corrects the approach or reverts code, a verifier rejects work, or someone says remember this |
+|:---|:---|
+| [**superdev-build**](plugins/superdev/skills/superdev-build/SKILL.md) | building a product from a PRD and a design as a Navree app, or resuming such a build |
+| [**backend-on-navree**](plugins/superdev/skills/backend-on-navree/SKILL.md) | building a backend module: models, routes, validation, access, workspace scope, lists, jobs, mail, audit, seed data |
+| [**security-foundation**](plugins/superdev/skills/security-foundation/SKILL.md) | the app has sign-in, staff, roles, personal data, money or live updates |
+| [**design-to-navree-ui**](plugins/superdev/skills/design-to-navree-ui/SKILL.md) | a design must become Navree UI screens |
+| [**design-to-nextjs**](plugins/superdev/skills/design-to-nextjs/SKILL.md) | a design must become a Next.js front end of a Navree API |
+| [**frontend-structure**](plugins/superdev/skills/frontend-structure/SKILL.md) | laying out, auditing or splitting a module of a Next.js front end |
+| [**prototype-to-navree**](plugins/superdev/skills/prototype-to-navree/SKILL.md) | a prototype or an older product must become a Navree app without losing what its users see |
+| [**design-preservation**](plugins/superdev/skills/design-preservation/SKILL.md) | a prototype must be kept as built and every screen checked against it |
+| [**design-to-tauri**](plugins/superdev/skills/design-to-tauri/SKILL.md) | the product needs a desktop or phone client in Tauri on its Navree API |
+| [**security-review-and-fix**](plugins/superdev/skills/security-review-and-fix/SKILL.md) | before launch, after a large change, a secret scan, a dependency audit |
+| [**product-audit**](plugins/superdev/skills/product-audit/SKILL.md) | someone needs to know whether the product is really done: real data, wired controls, readiness |
+| [**product-qa**](plugins/superdev/skills/product-qa/SKILL.md) | every page, every role, contrast, dead links, the phone app; or exploring the running app |
+| [**systematic-debugging**](plugins/superdev/skills/systematic-debugging/SKILL.md) | anything fails: a test, a build, a runtime error, a flaky test |
+| [**superdev-done**](plugins/superdev/skills/superdev-done/SKILL.md) | someone asks whether the build is done, and before any claim that it is |
+| [**superdev-self-learning**](plugins/superdev/skills/superdev-self-learning/SKILL.md) | you correct the approach, a verifier rejects work, or someone says remember this |
 
-Each skill also runs on its own when a request matches its description.
+<details>
+<summary><b>The 41 agents</b>, dispatched one module or one task at a time</summary>
 
-## Agents
+<br>
 
-The 41 agents are listed by role in [plugins/superdev/README.md](plugins/superdev/README.md); the skills dispatch them, one module or one task at a time.
+- **Planning:** `prd-analyst`, `design-inventory`, `gap-auditor`, `plan-architect`
+- **Building:** `navree-app-bootstrapper`, `navree-module-builder`, `navree-ui-screen-builder`, `nextjs-module-builder`, `seed-data-architect`
+- **Prototypes and refactors:** `codebase-discoverer`, `schema-reverse-engineer`, `migration-planner`, `refactor-planner`, `visual-diff-auditor`
+- **Security review:** `repo-cartographer`, `static-auditor`, `dynamic-auditor`, `dependency-auditor`
+- **Audit:** `placeholder-hunter`, `data-source-auditor`, `journey-walker`, `tenancy-isolation-tester`, `module-readiness-rater`, `module-structure-auditor`, `ui-auditor`
+- **QA:** `qa-environment`, `qa-flow-tester`, `qa-consistency-checker`, `qa-performance-prober`, `link-crawler`, `a11y-contrast-auditor`, `role-matrix-tester`, `money-integrity-prober`, `realtime-prober`, `mobile-qa-tester`
+- **Debugging and fixing:** `bug-reproducer`, `root-cause-investigator`, `hypothesis-tester`, `regression-verifier`, `fix-applier`
+- **Lessons:** `lesson-writer`
 
-## Hard rules
+Each agent file says what it reads, what it writes and what it returns: [plugins/superdev/README.md](plugins/superdev/README.md).
 
-The 25 hard rules in [hard-rules.md](plugins/superdev/skills/superdev-build/references/hard-rules.md) each say where they apply and the check that proves them.
+</details>
+
+<details>
+<summary><b>The 25 hard rules</b>, each with where it applies and the check that proves it</summary>
+
+<br>
+
+**Before code**
+
+1. Install the Navree CLI, create the app and install Navree's skills first
+2. Confirm the plan on disk before code
+3. Agree each module's contract before its code; one owner
+
+**Every module**
+
+4. Boot the release binary after each backend module
+5. A declaration is not proof
+
+**Navree traps**
+
+6. Declare access on every route
+7. Write inside the request's unit of work; make jobs safe to run twice
+8. Validation errors are 400; only Navree UI forms answer 422
+9. Keep secrets in `.env` or the environment, and know which source wins
+10. Models are global until marked for a workspace
+11. SQLite and MySQL have no row-level security
+12. Register the audit module; the minimal app does not
+13. Give `navree check` its configuration and a migrated database
+14. Fill a gap in Navree UI the Navree way, never with raw markup
+15. Fix the cause; add no suppression
+16. Never edit a shipped migration; set the production defaults
+17. Never edit regenerated files by hand
+
+**Product, security and clients**
+
+18. Prove every screen in a real browser
+19. Give operators structured controls
+20. Use one canonical public origin
+21. End access the way each client signs in
+22. Serialize balance changes per account
+23. Make money-moving and record-creating requests idempotent
+24. Publish live updates only after the commit
+25. Prove native clients on a device
+
+Read them in full in [hard-rules.md](plugins/superdev/skills/superdev-build/references/hard-rules.md).
+
+</details>
 
 ## Requirements
 
-- The Navree CLI (`cargo install navree-cli`) and what Navree needs: Rust 1.95 or newer, a C compiler (gcc or clang; on Windows the MSVC build tools), and Docker or Podman for a local TimescaleDB or PostgreSQL database (MySQL runs on a server you provide; SQLite needs nothing).
-- Node.js 22 or newer, only for a Next.js front end and for the browser tools of the QA agents.
-- Claude Code or Codex.
-- Python 3.9 or newer and `node`, to run this repository's tests.
+- **Navree:** the CLI (`cargo install navree-cli`), Rust 1.95 or newer, a C compiler (gcc or clang; on Windows the MSVC build tools), and Docker or Podman for a local TimescaleDB or PostgreSQL database (MySQL runs on a server you provide; SQLite needs nothing)
+- **Node.js 22 or newer**, only for a Next.js front end and the browser tools of the QA agents
+- **Claude Code or Codex**
 
-## Version 2.1.0 for NestJS and Laravel projects
-
-Version 2.1.0 remains the version for NestJS and Laravel projects. Install it in such a project with:
-
-```shell
-claude plugin marketplace add boparaiamrit/superdev#v2.1.0 --scope project
-claude plugin install superdev@superdev --scope project
-```
-
-A project that already uses 2.1.0 added the marketplace without that pin, so an update would bring 3.0.0: [INSTALL.md](INSTALL.md) shows how to pin it to 2.1.0.
-
-## Development
-
-```bash
-python -m unittest discover -s tests -v
-python tools/build_zip.py
-```
-
-`superdev.zip` is the archive attached to each GitHub release; `python tools/build_zip.py` rebuilds it from `plugins/superdev/`, and `--check` compares it with the committed one.
+## Repository
 
 ```text
 plugins/superdev/      the plugin: skills/, agents/, scripts/verify-done.mjs and both manifests
 .claude-plugin/        the Claude Code marketplace
 .agents/plugins/       the Codex marketplace
+docs/                  the website, boparaiamrit.github.io/superdev
 tests/                 the repository's tests
-tools/build_zip.py     builds superdev.zip
+tools/build_zip.py     builds superdev.zip, the archive attached to each release
 ```
 
-## Built for Navree
+```bash
+python -m unittest discover -s tests -v   # needs Python 3.9+ and node
+python tools/build_zip.py                 # --check compares it with the committed archive
+```
 
-Superdev builds products on **[Navree](https://navree.com)**, the complete application framework for Rust, made by the same author. Navree carries the framework knowledge; Superdev carries the process. Navree gives every application one clear structure: modules wired by dependency injection and checked when the app boots. Auth, workspaces, an ORM, queues, search, real time and AI are in the box. Screens are written in Rust with Navree UI, or in Next.js or Nuxt, and first-party tools handle monitoring (Lighthouse), admin (Helm), queues (Fleet) and deployment (Harbor). Every Navree app installs skills for AI coding agents with `navree skills:install`. Navree is free and open source, licensed MIT OR Apache-2.0.
-
-- Website: [navree.com](https://navree.com)
-- Source: [github.com/NavreeHQ/navree](https://github.com/NavreeHQ/navree)
-- Crates: [crates.io/crates/navree](https://crates.io/crates/navree)
+Older projects: version 2.1.0, for NestJS and Laravel, stays available under the tag `v2.1.0`; [INSTALL.md](INSTALL.md) shows how to pin a project to it.
 
 ## Author
 
-Created by **Amritpal Singh**, founder of [Navree](https://navree.com): a serial entrepreneur and full-stack developer with fifteen years of building software, six startups and more than a hundred open-source packages.
+Superdev is made by **Amritpal Singh**, founder of [Navree](https://navree.com): a serial entrepreneur and full-stack developer with fifteen years of building software, six startups and more than a hundred open-source packages. Navree holds what those years taught him, and Superdev is the way he ships products on it.
 
 - Email: [boparaiamrit@gmail.com](mailto:boparaiamrit@gmail.com)
 - GitHub: [@boparaiamrit](https://github.com/boparaiamrit)
-- More from the author: [Skiff](https://boparaiamrit.github.io/skiff/), Claude Code in your pocket: a real Ubuntu on Android with a touch-first agent UI
+- Also by Amritpal Singh: [Skiff](https://boparaiamrit.github.io/skiff/), Claude Code in your pocket, part of Navree
 
 ## License
 
 MIT; see [LICENSE](LICENSE).
 
 <p align="center">
-  <sub>Built by <a href="https://github.com/boparaiamrit">Amritpal Singh</a> (<a href="mailto:boparaiamrit@gmail.com">boparaiamrit@gmail.com</a>) · founder of <a href="https://navree.com">Navree</a></sub>
+  <sub>Built by <a href="https://github.com/boparaiamrit">Amritpal Singh</a> (<a href="mailto:boparaiamrit@gmail.com">boparaiamrit@gmail.com</a>) · founder of <a href="https://navree.com">Navree</a> · <a href="https://boparaiamrit.github.io/superdev/">boparaiamrit.github.io/superdev</a></sub>
 </p>
