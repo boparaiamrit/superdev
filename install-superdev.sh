@@ -26,9 +26,15 @@ require_command() {
 }
 
 resolve_project() {
+  local here="$1"
   require_command git
   PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" ||
     fail "Run this command from inside the target Git project."
+  # Claude Code keeps a project's plugins in the folder its commands are run from. An app that is
+  # one folder of a larger repository is its own project: --here installs in that folder.
+  if [[ "$here" == "yes" ]]; then
+    PROJECT_ROOT="$(pwd -P)"
+  fi
   [[ -w "$PROJECT_ROOT" ]] || fail "Project root is not writable: $PROJECT_ROOT"
   SETTINGS_FILE="${PROJECT_ROOT}/.claude/settings.json"
   cd "$PROJECT_ROOT"
@@ -190,13 +196,17 @@ show_help() {
 install-superdev.sh: manage Superdev for the current Claude Code project
 
 USAGE
-  bash install-superdev.sh [option]
+  bash install-superdev.sh [--here] [option]
 
 OPTIONS
   (none)       Add the marketplace and install at project scope
   --verify     Verify the project-scoped installation
   --uninstall  Uninstall from project scope
   --help       Show this help
+
+  --here       The project is the folder the command is run from, not the
+               repository's root: for an app that is one folder of a larger
+               repository. Goes before the option (--here --verify).
 
 The command must run from inside the target Git project. It never writes
 Superdev configuration to user or personal settings.
@@ -208,6 +218,11 @@ EOF
 }
 
 main() {
+  local here="no"
+  if [[ "${1:-}" == "--here" ]]; then
+    here="yes"
+    shift
+  fi
   local action="${1:-install}"
 
   case "$action" in
@@ -217,7 +232,7 @@ main() {
       ;;
   esac
 
-  resolve_project
+  resolve_project "$here"
 
   case "$action" in
     install|"")

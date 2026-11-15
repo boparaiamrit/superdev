@@ -294,6 +294,49 @@ elif args == ["--version"]:
         self.assertIs(settings["enabledPlugins"]["superdev@superdev"], True)
         self.assert_home_untouched()
 
+    def test_from_a_subfolder_the_project_is_the_repository_root(self) -> None:
+        app = self.project / "apps" / "shop"
+        app.mkdir(parents=True)
+
+        result = self.run_installer(cwd=app)
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertTrue((self.project / ".claude" / "settings.json").is_file())
+        self.assertFalse((app / ".claude").exists())
+        self.assert_home_untouched()
+
+    def test_here_makes_the_folder_it_is_run_from_the_project(self) -> None:
+        """An app that is one folder of a larger repository is its own Claude Code project."""
+        app = self.project / "apps" / "shop"
+        app.mkdir(parents=True)
+
+        result = self.run_installer("--here", cwd=app)
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assert_plain_status(result)
+        settings = json.loads((app / ".claude" / "settings.json").read_text(encoding="utf-8"))
+        self.assertIs(settings["enabledPlugins"]["superdev@superdev"], True)
+        self.assertFalse((self.project / ".claude").exists(), "nothing is written at the repository's root")
+        self.assertIn(["plugin", "install", "superdev@superdev", "--scope", "project"], self.logged_commands())
+
+        verified = self.run_installer("--here", "--verify", cwd=app)
+        self.assertEqual(0, verified.returncode, verified.stdout + verified.stderr)
+        self.assertIn("[ok] Superdev is enabled for project", verified.stdout)
+
+        removed = self.run_installer("--here", "--uninstall", cwd=app)
+        self.assertEqual(0, removed.returncode, removed.stdout + removed.stderr)
+        settings = json.loads((app / ".claude" / "settings.json").read_text(encoding="utf-8"))
+        self.assertNotIn("superdev@superdev", settings["enabledPlugins"])
+        self.assert_home_untouched()
+
+    def test_here_outside_a_git_project_is_refused(self) -> None:
+        result = self.run_installer("--here", cwd=self.outside)
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("[error] Run this command from inside the target Git project.", result.stderr)
+        self.assertEqual([], self.logged_commands())
+        self.assert_home_untouched()
+
     def test_uninstall_uses_project_scope(self) -> None:
         self.enable_in_settings()
 
@@ -335,7 +378,7 @@ elif args == ["--version"]:
         result = self.run_installer("--help", cwd=self.outside)
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        for option in ("--verify", "--uninstall", "--help"):
+        for option in ("--here", "--verify", "--uninstall", "--help"):
             self.assertIn(option, result.stdout)
         self.assertNotIn("--enable-teams", result.stdout)
         self.assertEqual([], self.logged_commands())

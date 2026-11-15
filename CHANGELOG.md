@@ -18,7 +18,7 @@ Status: 3.0.0 has been checked by its tests and by reading against Navree's docu
 - `security-foundation` says, for each control, what Navree provides, what the app still builds and the committed test that proves it. Sign-out and revocation follow the client: a Navree UI browser session ends at once, a token client's refresh is refused at once and its access token ends within its lifetime; staff are global roles, not a separate user table.
 - `verify-done.mjs` runs Navree's checks: `navree --version` against `STACK.md`, the installed skills, `cargo fmt`, `cargo clippy`, `cargo test`, `navree check`, `navree config:check`, the release build and its health routes. It checks the Next.js front end only when `STACK.md` says so (a missing `lint` or `test` script is `NOT RUN`), keeps the Tauri checks, and adds the checks `Navree UI raw markup`, `Navree UI gap rows` and `public routes`. Its suppression sweep diffs against `base_commit` instead of `HEAD`, so a committed suppression now fails, and it also reads lint settings in configuration files. Suite lines in `STACK.md` must be `cargo test` commands, and a missing `STACK.md` or an empty `test_database_url` for a server database fails. It has `--help`, `--base`, exit code 2 for usage errors, and the labels `PASS`, `FAIL` and `NOT RUN`.
 - Agents have four frontmatter keys (`name`, `description`, `tools`, `model`) and receive absolute paths from the skill that dispatches them. Renamed: `data-flow-real-vs-mock` to `data-source-auditor`, `learn-from-frustration` to `lesson-writer`, `module-conversion-planner` to `refactor-planner`, `design-fidelity-auditor` to `visual-diff-auditor`.
-- The tests read counts from disk and are written to pass on Linux and Windows (run on Windows so far); text files are stored with LF line endings.
+- The tests read counts from disk and pass on Linux and Windows: `.github/workflows/tests.yml` runs them and the package check on both for every pull request and every push to `main`. Text files are stored with LF line endings.
 - `superdev.zip` is built by `tools/build_zip.py`.
 - The installer's `--verify` looks for the plugin id `superdev@superdev`.
 
@@ -28,6 +28,7 @@ Status: 3.0.0 has been checked by its tests and by reading against Navree's docu
 - Agents `navree-app-bootstrapper`, `navree-module-builder`, `navree-ui-screen-builder` and `nextjs-module-builder`.
 - The gap rule for Navree UI: a missing component is composed from Navree UI components or proposed to Navree, never drawn with hand-written markup, a stylesheet or a script; Navree UI's raw building blocks serve only stored rich text, the app's own fixed images and icons, and token-only stylesheets, each named in a gap row and checked by `verify-done.mjs`.
 - The deploy checklist, `superdev-build/references/deploy-checklist.md`, for Harbor, a container image or processes set up by hand.
+- `install-superdev.sh --here`, for an app that is one folder of a larger repository: the project is the folder the command is run from, which is where Claude Code keeps a project's plugins.
 
 ### Removed
 
@@ -50,7 +51,7 @@ claude plugin marketplace add boparaiamrit/superdev#v2.1.0 --scope project
 claude plugin install superdev@superdev --scope project
 ```
 
-A project already on 2.1.0 added the marketplace without the pin: uninstall superdev from the project (`claude plugin uninstall superdev@superdev --scope project`, as the helper's `--uninstall` does), then run the two lines above. `INSTALL.md` has the steps.
+A project already on 2.1.0 added the marketplace without the pin: uninstall superdev from the project (`claude plugin uninstall superdev@superdev --scope project`, as the helper's `--uninstall` does), then run the two lines above. Adding the marketplace with the pin replaces its unpinned source; this was tried with Claude Code 2.1.302. `INSTALL.md` has the steps, and what to mind when one machine holds a 2.1.0 project and a 3.0.0 project.
 
 ## v2.1.0 — 2026-10-25
 
