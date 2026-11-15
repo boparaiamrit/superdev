@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="Superdev: from a brief to a released app on Navree">
+  <defs>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#3dff8f" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+    <radialGradient id="fade" cx="0.78" cy="0.2" r="0.75">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="m"><rect width="1280" height="420" fill="url(#fade)"/></mask>
+    <radialGradient id="glow" cx="0.85" cy="0.05" r="0.6">
+      <stop offset="0" stop-color="#3dff8f" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#3dff8f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.1" cy="1.1" r="0.5">
+      <stop offset="0" stop-color="#3dff8f" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#3dff8f" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+  </defs>
+
+  <rect width="1280" height="420" rx="0" fill="#000"/>
+  <rect width="1280" height="420" fill="url(#grid)" mask="url(#m)"/>
+  <rect width="1280" height="420" fill="url(#glow)"/>
+  <rect width="1280" height="420" fill="url(#glow2)"/>
+
+  <!-- the mark -->
+  <g transform="translate(150 140)">
+    <rect x="-8" y="-8" width="156" height="156" rx="38" fill="#3dff8f" opacity="0.35" filter="url(#blur)"/>
+    <rect width="140" height="140" rx="34" fill="#0b100d" stroke="#2a3b31" stroke-width="2"/>
+    <path d="M38 44 L68 70 L38 96" fill="none" stroke="#3dff8f" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M78 100 H104" fill="none" stroke="#3dff8f" stroke-width="12" stroke-linecap="round"/>
+  </g>
+
+  <!-- words -->
+  <g font-family="'Mona Sans', 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <text x="350" y="176" font-size="92" font-weight="700" letter-spacing="-3" fill="#e9efeb">Superdev</text>
+    <text x="354" y="234" font-size="36" font-weight="600" fill="#e9efeb">From a brief to a <tspan fill="#3dff8f">released app</tspan> on Navree.</text>
+    <text x="354" y="278" font-size="21" fill="#9aa7a0">15 skills and 41 agents for Claude Code and Codex: a plan before code,</text>
+    <text x="354" y="306" font-size="21" fill="#9aa7a0">contracts first, one module at a time with proof, and a done check that exits 0.</text>
+  </g>
+
+  <!-- built for navree -->
+  <g transform="translate(354 338)">
+    <rect width="350" height="40" rx="20" fill="#0b100d" stroke="#24322a"/>
+    <g transform="translate(16 7) scale(0.82)" fill="#3dff8f">
+      <path d="M1.5 9.5 L30.5 7 C29.6 9.4 28.6 11.3 27.4 12.7 L3.4 12.7 C2.6 11.8 2 10.8 1.5 9.5Z"/>
+      <path d="M4.4 14.5 L26 14.5 C24.4 16.5 22.4 17.8 19.5 18.3 L10 18.3 C7.6 17.8 5.8 16.5 4.4 14.5Z"/>
+      <path d="M13 18.3H19.4L16.4 26H14.4Z"/>
+    </g>
+    <text x="54" y="26" font-family="'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#e9efeb">Built for Navree <tspan fill="#9aa7a0" font-weight="400">· the Rust framework</tspan></text>
+  </g>
+</svg>

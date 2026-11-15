@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="500" viewBox="0 0 1280 500" role="img" aria-label="The ten steps of a Superdev build, each ending with a proof">
+<defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#3dff8f" stroke-opacity="0.05"/></pattern>
+<linearGradient id="d" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3dff8f" stop-opacity="0.16"/><stop offset="1" stop-color="#3dff8f" stop-opacity="0.03"/></linearGradient>
+<marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#3dff8f"/></marker></defs>
+<rect width="1280" height="500" rx="20" fill="#000"/><rect width="1280" height="500" rx="20" fill="url(#g)"/>
+<g font-family="'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<text x="64" y="62" font-size="15" font-weight="600" letter-spacing="2.5" fill="#3dff8f">WHAT A BUILD DOES</text>
+<text x="64" y="96" font-size="28" font-weight="700" fill="#e9efeb">Ten steps. Each one ends with a proof on disk.</text>
+<rect x="50.0" y="140" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="70.0" y="174" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">01</text>
+<text x="70.0" y="210" font-size="19" font-weight="600" fill="#e9efeb">Navree and the app</text>
+<text x="70.0" y="238" font-size="13.5" fill="#9aa7a0">navree new · skills · STACK.md</text>
+<line x1="266.0" y1="204.0" x2="288.0" y2="204.0" stroke="#3dff8f" stroke-width="2" marker-end="url(#a)"/>
+<rect x="292.0" y="140" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="312.0" y="174" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">02</text>
+<text x="312.0" y="210" font-size="19" font-weight="600" fill="#e9efeb">Digests</text>
+<text x="312.0" y="238" font-size="13.5" fill="#9aa7a0">PRD and design, read first</text>
+<line x1="508.0" y1="204.0" x2="530.0" y2="204.0" stroke="#3dff8f" stroke-width="2" marker-end="url(#a)"/>
+<rect x="534.0" y="140" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="554.0" y="174" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">03</text>
+<text x="554.0" y="210" font-size="19" font-weight="600" fill="#e9efeb">Plan</text>
+<text x="554.0" y="238" font-size="13.5" fill="#9aa7a0">gaps decided, plan confirmed</text>
+<line x1="750.0" y1="204.0" x2="772.0" y2="204.0" stroke="#3dff8f" stroke-width="2" marker-end="url(#a)"/>
+<rect x="776.0" y="140" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="796.0" y="174" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">04</text>
+<text x="796.0" y="210" font-size="19" font-weight="600" fill="#e9efeb">Foundation</text>
+<text x="796.0" y="238" font-size="13.5" fill="#9aa7a0">security, seed, release boots</text>
+<line x1="992.0" y1="204.0" x2="1014.0" y2="204.0" stroke="#3dff8f" stroke-width="2" marker-end="url(#a)"/>
+<rect x="1018.0" y="140" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="1038.0" y="174" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">05</text>
+<text x="1038.0" y="210" font-size="19" font-weight="600" fill="#e9efeb">Contracts</text>
+<text x="1038.0" y="238" font-size="13.5" fill="#9aa7a0">one per module, agreed</text>
+<rect x="50.0" y="314" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="70.0" y="348" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">06</text>
+<text x="70.0" y="384" font-size="19" font-weight="600" fill="#e9efeb">Modules</text>
+<text x="70.0" y="412" font-size="13.5" fill="#9aa7a0">one at a time, with proof</text>
+<line x1="266.0" y1="378.0" x2="288.0" y2="378.0" stroke="#3dff8f" stroke-width="2" marker-end="url(#a)"/>
+<rect x="292.0" y="314" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="312.0" y="348" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">07</text>
+<text x="312.0" y="384" font-size="19" font-weight="600" fill="#e9efeb">Audits</text>
+<text x="312.0" y="412" font-size="13.5" fill="#9aa7a0">security, then product</text>
+<line x1="508.0" y1="378.0" x2="530.0" y2="378.0" stroke="#3dff8f" stroke-width="2" marker-end="url(#a)"/>
+<rect x="534.0" y="314" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="554.0" y="348" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">08</text>
+<text x="554.0" y="384" font-size="19" font-weight="600" fill="#e9efeb">QA gate</text>
+<text x="554.0" y="412" font-size="13.5" fill="#9aa7a0">evidence in every cell</text>
+<line x1="750.0" y1="378.0" x2="772.0" y2="378.0" stroke="#3dff8f" stroke-width="2" marker-end="url(#a)"/>
+<rect x="776.0" y="314" width="212" height="128" rx="16" fill="#0b100d" stroke="#24322a" stroke-opacity="1"/>
+<text x="796.0" y="348" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">09</text>
+<text x="796.0" y="384" font-size="19" font-weight="600" fill="#e9efeb">Deployment</text>
+<text x="796.0" y="412" font-size="13.5" fill="#9aa7a0">Navree's tools, on request</text>
+<line x1="992.0" y1="378.0" x2="1014.0" y2="378.0" stroke="#3dff8f" stroke-width="2" marker-end="url(#a)"/>
+<rect x="1018.0" y="314" width="212" height="128" rx="16" fill="url(#d)" stroke="#3dff8f" stroke-opacity="0.7"/>
+<text x="1038.0" y="348" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="14" fill="#3dff8f">10</text>
+<text x="1038.0" y="384" font-size="19" font-weight="600" fill="#e9efeb">Done</text>
+<text x="1038.0" y="412" font-size="13.5" fill="#9aa7a0">verify-done.mjs exits 0</text>
+<path d="M1124.0 272 V291 H156.0 V310" fill="none" stroke="#3dff8f" stroke-width="2" stroke-opacity="0.6" marker-end="url(#a)"/>
+</g></svg>
