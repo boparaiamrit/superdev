@@ -18,7 +18,7 @@ A key is `<subject>.<action>` in lower case; `src/abilities.rs` turns the keys a
 ## Default roles
 
 - Workspace roles are `owner`, `admin`, `member` and `viewer`; their keys go in `config/app.toml`, for example `[workspace.roles.viewer]` with `permissions = ["customers.read"]`. What `owner` holds without a list: check `navree-workspaces`. Inside a workspace, the workspace role decides.
-- Staff roles are global rows in the database: the demo seeder creates them, their grants and the staff accounts that hold them, and production gets them from a release step (rule BE-14 has the calls). Staff use Helm (`navree-helm`), which has no permission system of its own and asks the same abilities.
+- Staff roles are global rows in the database: the demo seeder creates them, their grants and the staff accounts that hold them, and production gets the roles and their keys from a data migration and the first account from a console command of the app (rule BE-14). Staff use Helm (`navree-helm`), which has no permission system of its own and asks the same abilities.
 - Key names stay clear of `AccessModule`'s own: `roles.manage` is its global permission for managing roles, so a workspace key that manages members is named `members.manage`.
 - The global role `admin` is `AccessModule`'s super-admin and holds every ability: give it to nobody who needs less. It is not the workspace role `admin`.
 - Who holds what is decided in the plan; a staff role never gets reveal and money keys together unless the PRD asks for it (in Ledgerly, `support` reveals and `finance` adjusts credits).
