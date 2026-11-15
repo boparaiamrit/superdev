@@ -10,7 +10,7 @@ Read this for completeness mode and for pass 1 of score mode. The `no placeholde
 | Rust handlers and services | a handler that returns a literal success without calling a service or repository; a database write left in a comment; one fixed error message for every failure |
 | Navree UI | a `Submit` arm that answers with a redirect or toast without storing; a `DataTable` built from an inline list instead of a `TableQuery` loaded over a model query; a chart whose series are literal numbers; a `Region` whose source answers a fixed fragment; a link or button whose `href` is `#` |
 | Next.js | a handler that only logs or alerts; an array used as data inside a component (`useState` seeded with objects, a constant named `mock`, `fake` or `sample`); an import from a fixtures folder in production code; a route handler that returns fixed JSON |
-| Kit leftovers | an example module of the starter kit that the plan does not list: `customers` in the Navree UI kit, `projects` in the `saas` and `api` kits |
+| Kit leftovers | a route of `navree routes --json` that no contract and no Navree module owns. The starter's parts are the examples (the `customers` example module and the `users` profile API of the Navree UI starter, `Housekeeping`, `projects` in the `saas` and `api` kits); a route is judged by who owns it, never by a module's name, which the product's own module may share |
 
 False positives to skip: a `placeholder` attribute on an input or `#[form(placeholder = ..)]`; files under `tests/`; changelogs, `docs/`, `design/` and `qa/`; sample records inside seeders (the seed is where sample data belongs; a handler is not).
 

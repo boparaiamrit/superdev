@@ -18,7 +18,7 @@ Sends the requests of `dynamic-probes.md` to the running release binary and repo
 ## Steps
 
 1. Follow `## Setup` of `dynamic-probes.md`. `GET <app_url>/health/live` answers `{"status":"up"}` and `GET <app_url>/health/ready` answers 200 on a freshly seeded app; if either fails, stop and report, because a probe against a half-running app means nothing.
-2. Sign in once per account through the app's sign-in route and keep the bearer token. Tokens last 900 s by default, so sign in again after an unexpected 401. On a 429, wait for `Retry-After`; never raise a limit.
+2. Sign in once per account the way the app's people do (`Setup` of `dynamic-probes.md`): a Navree UI app through its sign-in page, keeping the session cookie and the CSRF token; a token client through the sign-in route, keeping the bearer token, which lasts 900 s by default, so sign in again after an unexpected 401. The "bad bearer tokens" probe also runs against a Navree UI app, on `GET /api/auth/me`. On a 429, wait for `Retry-After`; never raise a limit.
 3. Run each row of the probe table in order, with `curl` and `jq`. Run the probes marked "production configuration" after restarting the binary with that configuration, on the same seed data. Run the sign-in throttle probe last.
 4. Record one finding per behaviour that differs from the expected column. Five routes with the same gap are five findings, each with its own request.
 5. A probe that could not run (no account for a role, production configuration not available, no incoming webhook in the app) goes under `## Probes not run` as `NOT RUN` with the reason. It is not a finding (rule SR-5).
