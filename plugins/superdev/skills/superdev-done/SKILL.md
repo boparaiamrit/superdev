@@ -33,13 +33,13 @@ Later runs are incremental and take minutes. `--fast` runs only the checks that 
 - `--fast`: only the checks that build nothing (`STACK.md`, the `navree` CLI, the installed skills, `cargo fmt --check`, the flow's files, the sweeps over source); the others print `NOT RUN`. Not with `--suites`.
 - `--skip-build`: no `cargo build --release` and no web `build` script; those checks print `NOT RUN`.
 - `--skip-boot`: do not boot the release binary (`NOT RUN`).
-- `--suites`: run the committed suites listed under `## Suites` in `STACK.md`.
+- `--suites`: run the committed suites listed under `## Suites` in `STACK.md`. Without it the line `suites` prints `NOT RUN`, so a `--strict` run without `--suites` never ends `DONE`.
 - `--base REF`: base commit for the suppression and raw-markup sweeps (default: `base_commit` in `STACK.md`).
 - `--strict`: every warning and every `NOT RUN` fails, and `SECURITY_REPORT.md`, `AUDIT_REPORT.md`, `QA_COVERAGE.md` and `ACCEPTANCES.md` are read (below).
 
 ## Exit codes
 
-- `0`: no check failed. That is not done: only a `--strict` run whose last line is `DONE` means the build is done. Any other run with exit `0` ends with a line that says `NOT DONE`, lists the checks that passed and the checks not run, and says that steps 7 and 8 were not checked.
+- `0`: no check failed. That is not done: only a `--suites --strict` run whose last line is `DONE` means the build is done. Any other run with exit `0` ends with a line that says `NOT DONE`, lists the checks that passed and the checks not run, and says that steps 7 and 8 were not checked.
 - `1`: a check failed (a `--strict` run also fails on a warning and on a `NOT RUN`). Fix each failing check at its cause (hard rule 15 of [superdev-build](../superdev-build/references/hard-rules.md)), then run it again.
 - `2`: usage error: an unknown flag, a flag missing its value, or `--fast` with `--suites`.
 
@@ -48,8 +48,8 @@ Later runs are incremental and take minutes. `--fast` runs only the checks that 
 Besides the machine checks, a `--strict` run reads the files of the flow, in the formats of [artifacts.md](../superdev-build/references/artifacts.md):
 
 - `EXECUTION_PLAN.md` has `Status: CONFIRMED by <name> on <date>`; every module of its `## Modules` has `contracts/<module>.md` with `Status: AGREED by <name> on <date>`; `Cargo.lock` is tracked by git. These three checks run without `--strict` too.
-- `SECURITY_REPORT.md`, `AUDIT_REPORT.md` and `QA_COVERAGE.md` exist; none holds an open `Blocker` or `Major` finding, a `NOT RUN` cell or row, or a `PASS (server)` cell without an `ACC-n`; each `accepted` state and each `ACC-n` names an entry of `ACCEPTANCES.md`.
-- Every module row of the plan's `## Build order` is `PASS`, or `PASS (6.5 NOT RUN, ACC-n)` with an entry of `ACCEPTANCES.md`; `ACCEPTANCES.md` is committed, and no commit changes it together with another file.
+- `SECURITY_REPORT.md`, `AUDIT_REPORT.md` and `QA_COVERAGE.md` exist; the `## Findings` section of each holds a table with the columns `Severity` and `State`, or `None.`, so a table it cannot read fails; none holds an open `Blocker` or `Major` finding, a `NOT RUN` cell or row, or a `PASS (server)` cell without an `ACC-n`; each `accepted` state and each `ACC-n` names an entry of `ACCEPTANCES.md`.
+- Every module row of the plan's `## Build order` is `PASS`, or `PASS (6.5 NOT RUN, ACC-n)` with an entry of `ACCEPTANCES.md`; each entry of `ACCEPTANCES.md` has a number of its own; the file is committed, and no commit changes it together with another file (for an app that is one folder of a larger repository too).
 
 Without `--strict`, the three reports and the acceptances print `NOT RUN`, with the words that they are read under `--strict`.
 
