@@ -1,5 +1,7 @@
 # Superdev
 
+**Website:** [boparaiamrit.github.io/superdev](https://boparaiamrit.github.io/superdev/) · **Built for:** [Navree](https://navree.com) · **Author:** [Amritpal Singh](https://github.com/boparaiamrit)
+
 Superdev is a plugin of 15 skills and 41 agents for Claude Code and Codex. It is the process for taking a product from a brief and a design to a released, verified app on Navree, a Rust application framework: the order of work, the files written to disk, the rules, and the proof each step needs. Navree's own skills, which every app installs with `navree skills:install`, hold the framework facts; superdev names the skill and the command for each fact instead of restating it. Screens are Navree UI pages drawn on the server, or a Next.js front end on the Navree API; desktop and phone clients in Tauri are optional.
 
 Version 3.0.0.
@@ -105,6 +107,26 @@ tests/                 the repository's tests
 tools/build_zip.py     builds superdev.zip
 ```
 
+## Built for Navree
+
+Superdev builds products on **[Navree](https://navree.com)**, the complete application framework for Rust, made by the same author. Navree carries the framework knowledge; Superdev carries the process. Navree gives every application one clear structure: modules wired by dependency injection and checked when the app boots. Auth, workspaces, an ORM, queues, search, real time and AI are in the box. Screens are written in Rust with Navree UI, or in Next.js or Nuxt, and first-party tools handle monitoring (Lighthouse), admin (Helm), queues (Fleet) and deployment (Harbor). Every Navree app installs skills for AI coding agents with `navree skills:install`. Navree is free and open source, licensed MIT OR Apache-2.0.
+
+- Website: [navree.com](https://navree.com)
+- Source: [github.com/NavreeHQ/navree](https://github.com/NavreeHQ/navree)
+- Crates: [crates.io/crates/navree](https://crates.io/crates/navree)
+
+## Author
+
+Created by **Amritpal Singh**, founder of [Navree](https://navree.com): a serial entrepreneur and full-stack developer with fifteen years of building software, six startups and more than a hundred open-source packages.
+
+- Email: [boparaiamrit@gmail.com](mailto:boparaiamrit@gmail.com)
+- GitHub: [@boparaiamrit](https://github.com/boparaiamrit)
+- More from the author: [Skiff](https://boparaiamrit.github.io/skiff/), Claude Code in your pocket: a real Ubuntu on Android with a touch-first agent UI
+
 ## License
 
 MIT; see [LICENSE](LICENSE).
+
+<p align="center">
+  <sub>Built by <a href="https://github.com/boparaiamrit">Amritpal Singh</a> (<a href="mailto:boparaiamrit@gmail.com">boparaiamrit@gmail.com</a>) · founder of <a href="https://navree.com">Navree</a></sub>
+</p>
