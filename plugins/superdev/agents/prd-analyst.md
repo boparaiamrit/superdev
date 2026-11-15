@@ -19,7 +19,7 @@ Extracts what a PRD says into a structured digest. It records; it does not decid
 
 1. Product: one paragraph on what it is and who it is for.
 2. Roles: each type of person with their primary tasks, and whether they work for the operating company (staff) or are its customers' users.
-3. Features: every feature the PRD mentions as `F-n`, with a name, a short description and the PRD section.
+3. Features: every feature the PRD mentions as `F-n`, with a name, a short description and the PRD section. When the PRD labels its features, keep its labels and say so on the `Source:` line; cite a section by its number or, when the PRD has none, by its heading.
 4. Entities: each as `E-n` with the fields the PRD states (only those), the relationships it states or strongly implies, which entity data belongs to one customer team or organisation (per workspace) and which is shared, and a volume signal: whether the PRD implies write-heavy, append-only or time-ordered data, with the sentence that implies it.
 5. Screens: every screen described, with a route suggestion, who may see it and its main entity.
 6. Integrations: each third-party service with its auth model and endpoints.

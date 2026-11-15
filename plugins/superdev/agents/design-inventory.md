@@ -27,7 +27,7 @@ Records what a design handoff shows, and nothing it does not.
 
 ## Output
 
-`DESIGN_DIGEST.md` at `app_root`, with the headings `# Design Digest`, `## Source`, `## Screens`, `## Components seen`, `## Forms`, `## Tables`, `## Navigation`, `## Tokens`, `## States not shown`, `## Questions`.
+`DESIGN_DIGEST.md` at `app_root`, with the headings `# Design Digest`, `## Source`, `## Screens`, `## Components seen`, `## Forms`, `## Tables`, `## Navigation`, `## Tokens`, `## Computed displays`, `## States not shown`, `## Questions`.
 
 ## Limits
 

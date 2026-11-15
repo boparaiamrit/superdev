@@ -5,12 +5,12 @@ Step 9 of a build, run only when the operator asks for a deploy. Go through the 
 ## Before
 
 - [ ] The operator asked for a deploy and chose the target: Harbor (`navree harbor:init`, `navree harbor:secrets set APP_KEY --generate`, `navree harbor:provision`, then `navree deploy`; servers on Ubuntu 22.04 or 24.04 with SSH as root), a container image (`navree build:image`), or processes set up by hand per `navree-deployment`. Proof: the operator's words and the target in `DEPLOY.md`.
-- [ ] `navree config:check --env production` exits 0 on the production configuration. Proof: the exit code in `DEPLOY.md`. An app on SQLite: the check refuses a SQLite URL in production; settle with the operator how the app runs there (check `navree-deployment`) and record it.
+- [ ] `APP_ENV=production navree config:check --env production` exits 0 on the production configuration: `config/env/production.toml` is read only when `APP_ENV=production` is in the environment, and `--env production` alone judges the development configuration. Proof: the exit code in `DEPLOY.md`. An app on SQLite cannot pass: the check refuses a SQLite file in production, whatever the settings. For a SQLite deployment, settle with the operator how the app runs there (check `navree-deployment`), and record the findings that only a server database clears in `DEPLOY.md` with the operator's `ACC-n`; every other finding is fixed, so the exit code is the only `FAIL` left.
 - [ ] Production settings: `database.migrate_on_boot = false`, `session.secure = true`, `mail.transport` not `log`, `http.trusted_proxies` set to the proxy, `observe.metrics_token` set and `/metrics` denied at the proxy, `app.url` the real public origin (hard rule 20); on TimescaleDB, `APP_SCHEMA__TIMESCALEDB=require`. Proof: the matching lines of `navree config:show --origin`.
 - [ ] The OpenAPI document and its docs UI are off in production unless the operator wants them; when on, they are public, so they are on only by decision. Proof: `GET /api/openapi.json` answers as decided.
 - [ ] Secrets come from `.env`, the environment or Harbor's secrets, never from TOML (hard rule 9), and every process reads the same `APP_KEY`. Proof: `navree config:show --origin` on each server.
 - [ ] Database backups are encrypted, and a restore has been tested. Proof: the date and result of the last tested restore in `DEPLOY.md`.
-- [ ] The global staff roles, their grants and the staff accounts' roles are made by a release step or a data migration, never by the demo seeder (rule BE-14). Proof: one staff account signs in on production with its role.
+- [ ] The roles and their permission keys are made by a data migration, and the first account by the app's own console command, with its password taken from the environment (rule BE-14); the release runs both, and the demo seeder never runs in production. Proof: on production, the first account signs in and holds its role.
 
 ## Processes
 
@@ -29,7 +29,7 @@ Step 9 of a build, run only when the operator asks for a deploy. Go through the 
 
 - [ ] Logbook (`/_logbook`) belongs to debug builds. Proof: the release build does not serve it.
 - [ ] Navigator (`navree mcp`) is a development tool and does not run on a server. Proof: the process list.
-- [ ] Demo seeders refuse production: `navree db:seed` stops there without `--force`, and nobody passes it. Proof: no demo account of `EXECUTION_PLAN.md` signs in on production.
+- [ ] Demo seeders refuse production: `navree db:seed` stops there without `--force`, and nobody passes it; the roles and the first account come from the release step above. Proof: no demo account of `EXECUTION_PLAN.md` signs in on production.
 
 ## After
 
@@ -42,7 +42,7 @@ Step 9 of a build, run only when the operator asks for a deploy. Go through the 
 - [ ] Lighthouse at `/_lighthouse` is reachable by staff only; check `navree-lighthouse` for how its access is set.
 - [ ] `audit:prune` is scheduled (hard rule 12).
 
-Each item of this section is a row of `DEPLOY.md` `## Checks` with `PASS`, `FAIL` or `NOT RUN`; a `NOT RUN` needs the operator's acceptance.
+Each item of this section is a row of `DEPLOY.md` `## Checks` with `PASS`, `FAIL` or `NOT RUN`; a `NOT RUN` needs an `ACC-n`, an entry of the operator's `ACCEPTANCES.md`, cited in its evidence.
 
 ## DEPLOY.md
 
@@ -55,7 +55,7 @@ Date: 2026-12-02 18:30 IST
 Release: <the id navree deploy printed>
 
 ## Commands run
-- navree config:check --env production (exit 0)
+- APP_ENV=production navree config:check --env production (exit 0)
 - navree deploy (Released <id> in ...)
 
 ## Settings
@@ -66,5 +66,5 @@ Release: <the id navree deploy printed>
 |---|---|---|
 | GET /health/ready | PASS | 200 at 18:41 IST |
 | Sign-in per role | PASS | owner, member and support accounts at 18:44 IST |
-| Lighthouse staff only | NOT RUN | accepted by Meera Sharma on 2026-12-02: no staff account yet |
+| Lighthouse staff only | NOT RUN | no staff account yet; ACC-4 |
 ```
