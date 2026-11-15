@@ -6,7 +6,7 @@ All notable changes to Superdev are documented here. Releases are annotated git 
 
 Superdev now builds products on Navree, a Rust application framework, with Navree UI screens or a Next.js front end on the Navree API, and optional Tauri clients. Navree's own skills hold the framework facts; superdev keeps the order of work, the files on disk, the rules and the proofs, and names the Navree skill and command for each fact. NestJS and Laravel are no longer supported; version 2.1.0 stays available for them, and a project already on 2.1.0 pins its marketplace to `v2.1.0` (below) so an update does not bring 3.0.0.
 
-Status: 3.0.0 has been checked by its tests and by reading against Navree's documentation and source, and its done check has been tested against stand-ins of the Navree CLI; it has not yet been used to build an app end to end.
+Status: 3.0.0 was used once to build a two-module Navree UI app on SQLite with the published Navree 1.2.2, through all ten steps, on a host without a browser, so the browser proofs of steps 6 and 8 were `NOT RUN`; the done check ran against the real Navree CLI; what that build showed was fixed in the same release. It has not yet been used with a Next.js front end, a native client, a server database or a real deployment.
 
 ### Changed
 
@@ -21,6 +21,11 @@ Status: 3.0.0 has been checked by its tests and by reading against Navree's docu
 - The tests read counts from disk and pass on Linux and Windows: `.github/workflows/tests.yml` runs them and the package check on both for every pull request and every push to `main`. Text files are stored with LF line endings.
 - `superdev.zip` is built by `tools/build_zip.py`.
 - The installer's `--verify` looks for the plugin id `superdev@superdev`.
+- `verify-done.mjs` reads the release binary: `public routes` runs `<target>/release/<binary> routes --json` (the binary the boot check starts; `CARGO_TARGET_DIR` is honoured) and compares it with the plan's `Public routes` bullet both ways, and the new `first address (GET /)` check fails when the booted binary answers `GET /` with a 404 or a 5xx.
+- `verify-done.mjs` reads the flow's files: the plan's `Status: CONFIRMED` line, `Status: AGREED` in the contract of every module, and a tracked `Cargo.lock`. With `--strict` it also reads `SECURITY_REPORT.md`, `AUDIT_REPORT.md`, `QA_COVERAGE.md` and the plan's `## Build order` (no open `Blocker` or `Major` finding, no `NOT RUN` without an acceptance). Exit 0 means that no check failed; only a `--strict` run that ends `DONE` means done, and any other run ends with a line that says what passed and that steps 7 and 8 were not checked.
+- `--suites` runs the `cargo test` lines of `STACK.md` without polling a running app, so `--api-url` and `--health-url` are gone. The full run is made on the last commit that changes code and its output, `qa/verify-done.txt`, is committed after it.
+- An acceptance is the operator's entry in `ACCEPTANCES.md`; reports, the matrix and the build order cite its `ACC-n`, and the main agent and every agent never write one (rule BLD-6).
+- Step 1 lists what the starter brings and decides keep, rename or remove with the operator; step 4 removes it as its first commit, rewrites `README.md` and `AGENTS.md`, owns `GET /`, commits `Cargo.lock` and builds the release path of the roles and the first account (rule BE-14). The production check is `APP_ENV=production navree config:check --env production`, which a SQLite app cannot pass.
 
 ### Added
 
@@ -29,6 +34,9 @@ Status: 3.0.0 has been checked by its tests and by reading against Navree's docu
 - The gap rule for Navree UI: a missing component is composed from Navree UI components or proposed to Navree, never drawn with hand-written markup, a stylesheet or a script; Navree UI's raw building blocks serve only stored rich text, the app's own fixed images and icons, and token-only stylesheets, each named in a gap row and checked by `verify-done.mjs`.
 - The deploy checklist, `superdev-build/references/deploy-checklist.md`, for Harbor, a container image or processes set up by hand.
 - `install-superdev.sh --here`, for an app that is one folder of a larger repository: the project is the folder the command is run from, which is where Claude Code keeps a project's plugins.
+- `verify-done.mjs --fast`, which runs only the checks that build nothing, for use while building; the first full run compiles the app in three profiles and is run detached.
+- `ACCEPTANCES.md` in `artifacts.md`, the operator's own file, and the row `PASS (6.5 NOT RUN, ACC-n)` and the evidence levels `PASS (server)` and `PASS (Q-n)` for a build on a host without a browser.
+- A no-browser recipe for the runtime proof of a Navree UI module (sign in through the form, keep the cookie, send `X-XSRF-TOKEN`, follow no redirect), in `design-to-navree-ui`.
 
 ### Removed
 

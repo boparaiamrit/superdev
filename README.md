@@ -4,7 +4,7 @@ Superdev is a plugin of 15 skills and 41 agents for Claude Code and Codex. It is
 
 Version 3.0.0.
 
-Status: 3.0.0 has been checked by its tests and by reading against Navree's documentation and source, and its done check has been tested against stand-ins of the Navree CLI; it has not yet been used to build an app end to end.
+Status: 3.0.0 was used once to build a two-module Navree UI app on SQLite with the published Navree 1.2.2, through all ten steps, on a host without a browser, so the browser proofs of steps 6 and 8 were `NOT RUN`; the done check ran against the real Navree CLI; what that build showed was fixed in the same release. It has not yet been used with a Next.js front end, a native client, a server database or a real deployment.
 
 ## Install
 
@@ -36,9 +36,9 @@ The [superdev-build](plugins/superdev/skills/superdev-build/SKILL.md) skill runs
 5. **Contracts:** a contract per module in `contracts/`, agreed by the operator before its code.
 6. **Modules:** one module at a time: the contract in code, the backend, the runtime proof, the screens, the browser proof, the suites, a commit.
 7. **Audits:** the security review, then the product audit.
-8. **QA gate:** every route, role, width and colour mode on fresh data, in `QA_COVERAGE.md`, with evidence in every cell.
+8. **QA gate:** every route, role, width and colour mode on fresh data, in `QA_COVERAGE.md`, with evidence in every cell. A finding or a cell that blocks is accepted only by the operator, in `ACCEPTANCES.md`.
 9. **Deployment:** when the operator asks, with Navree's tools and the deploy checklist.
-10. **Done:** `verify-done.mjs --suites --strict` exits 0 on the final commit; lessons recorded.
+10. **Done:** `verify-done.mjs --suites --strict` exits 0 and ends `DONE` on the last commit that changes code, and its output is committed after it; lessons recorded.
 
 ## Skills
 
