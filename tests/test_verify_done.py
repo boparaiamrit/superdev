@@ -304,6 +304,8 @@ class UsageTests(unittest.TestCase):
                 self.assertIn("Usage: node verify-done.mjs", res.stderr)
         res = run_script("--root", str(ROOT / "no-such-folder"))
         self.assertEqual(2, res.returncode)
+        for removed in ("--api-url", "--health-url"):
+            self.assertIn(f"{removed} is no longer a flag: each suite boots its own app", run_script(removed, "http://x").stderr)
 
     def test_the_script_parses(self) -> None:
         res = subprocess.run(["node", "--check", str(SCRIPT)], capture_output=True, text=True)

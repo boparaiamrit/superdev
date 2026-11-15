@@ -6,7 +6,7 @@
   <a href="https://boparaiamrit.github.io/superdev/"><img alt="Website" src="https://img.shields.io/badge/website-superdev-3dff8f?style=for-the-badge&labelColor=000000"></a>
   <a href="https://navree.com"><img alt="Built for Navree" src="https://img.shields.io/badge/built_for-Navree-3dff8f?style=for-the-badge&labelColor=000000"></a>
   <img alt="Claude Code and Codex" src="https://img.shields.io/badge/Claude_Code-%2B_Codex-e9efeb?style=for-the-badge&labelColor=000000">
-  <img alt="Version 3.0.0" src="https://img.shields.io/badge/version-3.0.0-e9efeb?style=for-the-badge&labelColor=000000">
+  <img alt="Version 3.1.0" src="https://img.shields.io/badge/version-3.1.0-e9efeb?style=for-the-badge&labelColor=000000">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-e9efeb?style=for-the-badge&labelColor=000000"></a>
 </p>
 
@@ -121,7 +121,7 @@ Build this product on Navree. The PRD is docs/prd.md and the design is in docs/d
 | A prototype made real | *"Turn this prototype into a Navree app without changing what users see"* | `prototype-to-navree` |
 | A yes or no on done | *"Are we done?"* | `superdev-done` |
 
-> 3.0.0 is the first release of Superdev on Navree. Its 142 tests run on Linux and Windows for every change; the first full app built end to end with it is under way.
+> 3.0.0 was the first release of Superdev on Navree, and it built its first full app end to end: two modules in Navree UI on SQLite, on a host without a browser. 3.1.0 fixes what that build showed in the flow, the rules and the done check. Its 193 tests run on Linux and Windows for every change. Not yet tried: a Next.js front end, a native client, a server database, a real deployment.
 
 ## How a build works
 

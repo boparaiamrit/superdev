@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// verify-done.mjs 3.0.0 — the live done check of a superdev build of a Navree app.
+// verify-done.mjs 3.1.0 — the live done check of a superdev build of a Navree app.
 //
 // Every check runs now, against the real tree and the real release binary; nothing is read
 // from a file that grades itself. Plain Node 18 or newer, no dependencies, the same on Windows,
 // Linux and macOS. Run it from the app root (or pass --root); --help lists the flags and
-// every check. Exit 0: no check failed, which is not done: only a --strict run whose last line
-// is DONE means the build is done. Exit 1: a check failed (--strict also fails a warning and a
+// every check. Exit 0: no check failed, which is not done: only a --suites --strict run whose last
+// line is DONE means the build is done. Exit 1: a check failed (--strict also fails a warning and a
 // NOT RUN); the report names the failing checks. Exit 2: a usage error. Fix at the root cause:
 // suppressions fail here.
 
@@ -14,7 +14,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:net";
 import { join, posix, relative, resolve, sep } from "node:path";
 
-const VERSION = "3.0.0";
+const VERSION = "3.1.0";
 const MINUTE = 60_000;
 const TIMEOUT = { cargo: 30 * MINUTE, navree: 10 * MINUTE, web: 10 * MINUTE, suite: 15 * MINUTE };
 const MAX_BUFFER = 64 * 1024 * 1024;
@@ -32,6 +32,8 @@ const FLAGS = [
 ];
 const VALUE_FLAGS = new Set(["--root", "--base"]);
 const BOOL_FLAGS = new Set(["--fast", "--skip-build", "--skip-boot", "--suites", "--strict"]);
+// Flags of 3.0.0 that named the running app the suites were sent to.
+const REMOVED_FLAGS = new Set(["--api-url", "--health-url"]);
 
 // The one list of checks in the plugin, in run order: label (when it runs): what it runs.
 const CHECKS = [
@@ -95,6 +97,8 @@ function parseArgs(argv) {
       const value = argv[++i];
       if (value === undefined || value.startsWith("--")) return { error: `${arg} needs a value` };
       opts[arg] = value;
+    } else if (REMOVED_FLAGS.has(arg)) {
+      return { error: `${arg} is no longer a flag: each suite boots its own app, so --suites needs no address` };
     } else {
       return { error: `${arg.startsWith("-") ? "unknown flag" : "unexpected argument"}: ${arg}` };
     }
