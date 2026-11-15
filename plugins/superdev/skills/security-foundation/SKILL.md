@@ -12,6 +12,10 @@ This skill says which security controls every build implements, at step 4 (the f
 **SEC-1** A control exists when a committed test exercises it: `TestApp` over HTTP, or the running app for the real-database and browser suites. An attribute, a config line or a guard is not proof. The suites and how to write them are in [references/security-suites.md](references/security-suites.md).
 Proof: every row of `## Controls` that the plan's `## Security` section lists has its test, and the test's file is a line of `STACK.md` `## Suites`.
 
+## Staff
+
+In this skill, staff are the people of the company that operates the product, never its users. A role that the product's own users hold (the helper of a shop who adds credits and payments) is an end-user role, whatever it can do. For a single-tenant product whose users hold several roles, the plan's `## Access` lists them as global roles; the staff rules of SEC-5 apply to the roles that can reveal personal data or change the permissions of others, and money entered by an end-user role is covered by hard rules 22 and 23, not by SEC-5.
+
 ## At step 4
 
 The plan's `## Security` section (written at step 3) lists the rows of `## Controls` that apply, the personal-data fields to mask, the balances and the live topics. Before the first feature module, the foundation gets:
@@ -20,12 +24,12 @@ The plan's `## Security` section (written at step 3) lists the rows of `## Contr
 2. `auth.registration = false` unless the PRD has sign-up.
 3. For token clients, the access-token lifetime left at 900 s or shorter (hard rule 21; the setting is in `navree-auth`).
 4. `auth.two_factor.required_for` listing every staff role that can reveal personal data, change permissions or move money (SEC-5).
-5. Global staff roles, their keys and the staff accounts that hold them, created by the demo seeder (rule BE-14), and workspace roles with their keys in `config/app.toml` (`[workspace.roles.<role>]`, `permissions = [..]`), per [references/staff-and-personal-data.md](references/staff-and-personal-data.md).
+5. Global staff roles, their keys and the staff accounts that hold them, created by the demo seeder (rule BE-14), and workspace roles with their keys in `config/app.toml` (`[workspace.roles.<role>]`, `permissions = [..]`), per [references/staff-and-personal-data.md](references/staff-and-personal-data.md). Production gets the roles and their keys from a data migration and the first account from a console command of the app, both built now (rule BE-14).
 6. The ability rules in `src/abilities.rs`, each with a unit test (rule BE-5).
 7. Stricter throttles on the sign-in, code and refresh routes (SEC-4).
-8. `http.trusted_proxies` naming the proxy or BFF in front of the app, so the client address is real.
-9. Exact CORS origins (the setting is in `navree-security-checklist`, headers group).
-10. `session.secure` set to `true` in the production configuration (hard rule 16).
+8. `http.trusted_proxies` naming the proxy or BFF in front of the app, so the client address is real: when the deployment target is known; otherwise record it under `## Open items` of the plan.
+9. Exact CORS origins (the setting is in `navree-security-checklist`, headers group), on the same terms as item 8.
+10. `session.secure` set to `true` in `config/env/production.toml`, the file Navree reads only when `APP_ENV=production` is set (hard rule 16). `mail.transport`, `app.url` and `observe.metrics_token` wait for the deploy checklist.
 11. The first suite, `tests/security.rs`, and its line `cargo test --test security` in `STACK.md` `## Suites`.
 
 The step's proof is the one `superdev-build` gives for step 4.
@@ -69,7 +73,7 @@ A module carries its share of these controls in its contract and its tests. Each
 | Payments | `navree-billing` (opt-in feature `billing`): Stripe and Paddle, and their webhooks | SEC-11 | `tests/money.rs` |
 | Live updates | `RealtimeModule`; a nudge in a unit of work waits for the commit; workers broadcast through `dyn Broadcaster` (`navree-events-and-broadcasting`) | hard rule 24; SEC-12 | `tests/live.rs` |
 | Headers, CORS, HTTPS | the headers group of `navree-security-checklist` | SEC-13 | `dynamic-auditor` |
-| Secrets | `.env` and `APP_*` variables only, `Secret<T>`, `navree config:check` (`navree-config`) | hard rule 9 | `navree config:check --env production` exits 0 |
+| Secrets | `.env` and `APP_*` variables only, `Secret<T>`, `navree config:check` (`navree-config`) | hard rule 9 | `APP_ENV=production navree config:check --env production` exits 0 |
 | Uploads | `store_upload` with `UploadRules`; keyed upload responses, required since 1.2.1 (`navree-storage`) | a directory per workspace | `tests/security.rs`: an upload outside the rules is refused |
 | Outgoing HTTP | the HTTP client's SSRF guard (`navree-cache-and-http-client`) | keep the guard on | `static-auditor` |
 | Incoming webhooks | verified incoming webhooks (`navree-webhooks`) | every incoming webhook goes through it | `tests/security.rs`: an unsigned payload is refused |
@@ -81,14 +85,14 @@ A module carries its share of these controls in its contract and its tests. Each
 
 SEC-1 is the proof rule above.
 
-**SEC-2** Every event that ends someone's access (sign-out, sign-out everywhere, a revoked device, a block, a disabled staff member, a password change or reset) ends it as hard rule 21 says for each kind of client the app has. The app wires each event Navree does not end by itself (a block, a disabled staff member) to the call that ends the person's sessions and refresh-token families (check `navree-auth`: account flows, sessions); a token client that needs access to end at once records an open item `O-n` and keeps the lifetime short.
+**SEC-2** Every event that ends someone's access (sign-out, sign-out everywhere, a revoked device, a block, a disabled staff member, a password change or reset) ends it as hard rule 21 says for each kind of client the app has. The app wires each event Navree does not end by itself (a block, a disabled staff member) to the call that ends the person's sessions and refresh-token families (check `navree-auth`: account flows, sessions). The flows that end sessions are `reset_password`, `change_password*` and sign-out; `AuthService::update_password` leaves every session alive. A Navree UI app has no change-password page, so its test runs forgot and reset through the real pages, with the queue run first (`queue.driver = "memory"`, then `Queue::run_pending()`) so that the `array` mail transport holds the message; a token client that needs access to end at once records an open item `O-n` and keeps the lifetime short.
 Proof: `tests/security.rs`, one test per event and kind of client, as hard rule 21's Verify line says.
 
 **SEC-3** Blocking an account needs a reason, ends every session and refresh-token family at once (SEC-2), and tells the person the reason when they sign in or refresh; "blocked" is shown only after the first factor succeeds, so the answer never confirms that an account exists. Navree documents no block feature: check `navree-auth` (account flows, sessions) at build time and build it as a status that sign-in and refresh check; the block ends the sessions and families in the same unit of work and mails the person.
 Proof: `tests/security.rs`: after a block the person's browser session is a guest at its next request and a refresh is refused at once (for the clients the app has); a sign-in with the right password returns the reason; a sign-in with a wrong password answers like any wrong password.
 
-**SEC-4** The sign-in, code and refresh routes have stricter limits than the global one (check `navree-auth` for the limits Navree's own routes carry and how to tighten them; `#[throttle(limit, per)]` on the app's routes). The per-IP limit is never switched off in production, and `http.trusted_proxies` makes the client address real. An unknown account and a wrong password answer with the same status, `code` and words, in the same time. Tests wait for `Retry-After` and never raise a limit to pass.
-Proof: `tests/security.rs`: repeated sign-ins get 429 `too_many_login_attempts` with `Retry-After`; an unknown email and a wrong password get identical bodies, and the median times of five attempts each are within a factor of 2.
+**SEC-4** The sign-in, code and refresh routes have stricter limits than the global one (check `navree-auth` for the limits Navree's own routes carry and how to tighten them; `#[throttle(limit, per)]` on the app's routes). The per-IP limit is never switched off in production, and `http.trusted_proxies` makes the client address real. An unknown account and a wrong password answer with the same status, `code` and words, in the same time. The sign-in limit is `auth.login_throttle_per_minute` (5 for one email and client): it does not show in `navree routes --json`, which lists only the throttles a route carries. Tests wait for `Retry-After` and never raise a limit to pass.
+Proof: `tests/security.rs`: repeated sign-ins get 429 `too_many_login_attempts` with `Retry-After`; an unknown email and a wrong password get identical bodies, and the median times of five attempts each are within a factor of 2, with the real hashing parameters (`hashing.memory_kib = 19456`, 2 iterations) set for that one test: with the fast test hashing the hash costs less than the request around it.
 
 **SEC-5** Two-factor is required for every staff role that can reveal personal data, change permissions or move money: `auth.two_factor.required_for` lists them (`navree-auth`). Turning a second factor on or off, or making new recovery codes, sends the person a security notice ([references/live-updates.md](references/live-updates.md)).
 Proof: `tests/security.rs`: a password sign-in as each listed role returns a second-factor challenge, not tokens; the notice is found with the `array` mail transport.
@@ -105,7 +109,7 @@ Proof: `tests/access.rs`: each guard is refused with its status and `code`.
 **SEC-9** End users never hold staff permissions. Staff-only keys are granted to global staff roles, which only staff accounts hold (the seeder creates the roles, grants and holders in development, a release step in production: rule BE-14); end users get workspace roles only, and no workspace role holds a staff-only key.
 Proof: `tests/access.rs`: a workspace `owner` is refused on every staff route; no `[workspace.roles.*]` section of `config/app.toml` lists a key that the plan marks staff-only.
 
-**SEC-10** Personal data is masked by default and revealed on purpose: masks in every list and detail, reveal as its own permission and route audited in the same transaction, contact search only with the reveal permission, exports masked, no contact data in URLs. The mask formats, the reveal flow and the tests are in [references/staff-and-personal-data.md](references/staff-and-personal-data.md).
+**SEC-10** Personal data is masked by default and revealed on purpose: masks in every list and detail, reveal as its own permission and route audited in the same transaction, contact search only with the reveal permission, exports masked, no contact data in URLs. The one exception is a role that the plan's `## Security` names as seeing a field in full, with the plan confirmed by the operator; without that, a role that sees personal data without the reveal permission is a `Blocker` that only an `ACC-n` of the operator's `ACCEPTANCES.md` clears. The mask formats, the reveal flow and the tests are in [references/staff-and-personal-data.md](references/staff-and-personal-data.md).
 Proof: the `tests/access.rs` cases of that reference.
 
 **SEC-11** Ledgers, lots, payments and the reconciliation follow [references/money-and-ledgers.md](references/money-and-ledgers.md), with hard rules 22 and 23.
@@ -115,7 +119,7 @@ Proof: the `tests/money.rs` cases of that reference.
 Proof: `tests/live.rs`: a member of another workspace and a role without the topic's permission receive nothing.
 
 **SEC-13** Hardening: exact CORS origins; security headers on; HTTPS in production; cookie sessions keep CSRF on; `/metrics` protected by `observe.metrics_token` and denied at the proxy; no SQL, paths or stack traces in error messages; no secrets, tokens or personal data in logs or audit metadata; outgoing HTTP keeps the SSRF guard; row-level security runs under an ordinary database role (hard rule 11). `navree-security-checklist` holds the switches.
-Proof: the `dynamic-auditor` probes of `security-review-and-fix` pass, and `navree config:check --env production` exits 0 on the deploy configuration.
+Proof: the `dynamic-auditor` probes of `security-review-and-fix` pass, and `APP_ENV=production navree config:check --env production` exits 0 on the deploy configuration.
 
 ## Reference files
 

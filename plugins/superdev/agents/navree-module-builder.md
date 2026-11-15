@@ -21,7 +21,7 @@ Builds one module's backend, steps 6.1 to 6.3 of `superdev-build`: the contract 
 ## Steps
 
 1. Read the `navree` skill, then `backend-on-navree`, then the Navree skills it names for this module's needs (`navree-orm`, `navree-migrations`, `navree-controllers-and-routing`, `navree-validation`, `navree-access-control`, `navree-workspaces`, and the queue, mail, cache, billing or search skills the contract uses). Read the installed skills, not memory: they match the CLI's version.
-2. Generate with `navree make:module <module>` or the finer generators (`make:model <module> <Model> -m -f -s --policy`, `make:migration`, `make:job`, `make:mail`, `make:test`, `make:seeder`). Keep the markers `// navree:modules`, `// navree:wire` and `// navree:policies`, and do not hand-write what a generator writes (rule BLD-7).
+2. Generate with `navree make:module <module>` or the finer generators (`make:model <module> <Model> -m -f -s --policy`, `make:migration`, `make:job`, `make:mail`, `make:test`, `make:seeder`), never both for one module. For a Navree UI module, `make:module` writes a JSON `controller.rs` and `dto.rs` the contract does not have: remove them and their tests, or start from the finer generators. Keep the markers `// navree:modules`, `// navree:wire` and `// navree:policies`, and do not hand-write what a generator writes (rule BLD-7).
 3. Generators write global models. Make every model the contract marks `workspace` a workspace model (hard rule 10). `make:module --crud` writes a `PageQuery` list, not a `ListResource`; replace it when the contract has filters or sorts.
 4. 6.1, the contract in code. Write, from the contract:
    - the models and migrations;
