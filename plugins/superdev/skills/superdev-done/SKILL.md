@@ -47,7 +47,7 @@ Later runs are incremental and take minutes. `--fast` runs only the checks that 
 
 Besides the machine checks, a `--strict` run reads the files of the flow, in the formats of [artifacts.md](../superdev-build/references/artifacts.md):
 
-- `EXECUTION_PLAN.md` has `Status: CONFIRMED by <name> on <date>`; every module of its `## Modules` has `contracts/<module>.md` with `Status: AGREED by <name> on <date>`; `Cargo.lock` is tracked by git. These three checks run without `--strict` too.
+- `EXECUTION_PLAN.md` has `Status: CONFIRMED by <name> on <date>`, and its `## Modules` and `## Build order` form an acyclic dependency graph respecting hierarchy tiers and build order (`module dependency graph`, hard rule 26); every module of its `## Modules` has `contracts/<module>.md` with `Status: AGREED by <name> on <date>` and a `## Stories` table covering both `Must pass` and `Must reject` cases (`contract stories`, hard rule 30); `Cargo.lock` is tracked by git. These five checks run without `--strict` too.
 - `SECURITY_REPORT.md`, `AUDIT_REPORT.md` and `QA_COVERAGE.md` exist; the `## Findings` section of each holds a table with the columns `Severity` and `State`, or `None.`, so a table it cannot read fails; none holds an open `Blocker` or `Major` finding, a `NOT RUN` cell or row, or a `PASS (server)` cell without an `ACC-n`; each `accepted` state and each `ACC-n` names an entry of `ACCEPTANCES.md`.
 - Every module row of the plan's `## Build order` is `PASS`, or `PASS (6.5 NOT RUN, ACC-n)` with an entry of `ACCEPTANCES.md`; each entry of `ACCEPTANCES.md` has a number of its own; the file is committed, and no commit changes it together with another file (for an app that is one folder of a larger repository too).
 

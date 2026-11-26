@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "superdev",
-  "description": "Superdev for Claude Code and Codex: 15 skills and 41 agents that build products on Navree, installed per project.",
+  "description": "Superdev for Claude Code and Codex: 16 skills and 41 agents that build products on Navree, installed per project.",
   "owner": {
     "name": "Amritpal Singh Boparai",
     "email": "boparaiamrit@gmail.com",
@@ -10,8 +10,8 @@
   "plugins": [
     {
       "name": "superdev",
-      "description": "15 skills and 41 agents that take a product from a PRD and a design to a released, verified Navree app: the Navree CLI and Navree's own skills first, a plan and each module's contract on disk before code, one module at a time with runtime and browser proof, then a security review, an audit, a QA gate where every cell cites evidence, and deployment with Navree's tools. Screens in Navree UI or Next.js; optional Tauri clients.",
-      "version": "3.1.0",
+      "description": "16 skills and 41 agents that take a product from a PRD and a design to a released, verified Navree app: the Navree CLI and Navree's own skills first, a plan with acyclic module tiers and scaling/worker choices plus each module's contract and pass/reject stories on disk before code, one module at a time with runtime and browser proof, then a security review, an audit, a QA gate where every cell cites evidence, and deployment with Navree's tools. Screens in Navree UI or Next.js; optional Tauri clients.",
+      "version": "3.2.0",
       "author": {
         "name": "Amritpal Singh Boparai"
       },

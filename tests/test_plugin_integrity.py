@@ -28,14 +28,16 @@ CLAUDE_MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
 CODEX_MARKETPLACE = ROOT / ".agents" / "plugins" / "marketplace.json"
 
 EXPECTED_SKILLS = {
-    "superdev-build", "superdev-done", "superdev-self-learning", "backend-on-navree", "security-foundation",
-    "design-to-navree-ui", "design-preservation", "design-to-nextjs", "frontend-structure", "prototype-to-navree",
-    "design-to-tauri", "security-review-and-fix", "product-audit", "product-qa", "systematic-debugging",
+    "superdev-build", "superdev-done", "superdev-self-learning", "architecture-governance", "backend-on-navree",
+    "security-foundation", "design-to-navree-ui", "design-preservation", "design-to-nextjs", "frontend-structure",
+    "prototype-to-navree", "design-to-tauri", "security-review-and-fix", "product-audit", "product-qa",
+    "systematic-debugging",
 }
 EXPECTED_REFERENCES = {
     "superdev-build": {"artifacts.md", "hard-rules.md", "deploy-checklist.md"},
     "superdev-done": set(),
     "superdev-self-learning": {"memory-entry-format.md"},
+    "architecture-governance": {"scaling-and-workers.md", "stories-and-srp.md"},
     "backend-on-navree": set(),
     "security-foundation": {"staff-and-personal-data.md", "money-and-ledgers.md", "live-updates.md", "security-suites.md"},
     "design-to-navree-ui": set(),
@@ -60,7 +62,7 @@ EXPECTED_AGENTS = {
     "schema-reverse-engineer", "seed-data-architect", "static-auditor", "tenancy-isolation-tester", "ui-auditor",
     "visual-diff-auditor",
 }
-EXPECTED_HARD_RULES = 25
+EXPECTED_HARD_RULES = 30
 GATE_AGENTS = (
     "qa-flow-tester", "link-crawler", "a11y-contrast-auditor", "qa-consistency-checker", "role-matrix-tester",
     "money-integrity-prober", "realtime-prober", "mobile-qa-tester", "qa-performance-prober",
@@ -108,7 +110,7 @@ OLD_STACK = re.compile(
     r"NestJS|Nest\.js|nestjs|Laravel|Inertia|Bref|Sanctum|Eloquent|Fortify|Drizzle|CASL|BullMQ|Zustand|"
     r"patchNestJsSwagger|Turborepo|InboxKit|Acme|Meridian"
 )
-RULE_PREFIXES = "BLD BE SEC NUI PRE NX FS PRO TAU SR AUD QA DBG LRN".split()
+RULE_PREFIXES = "BLD GOV BE SEC NUI PRE NX FS PRO TAU SR AUD QA DBG LRN".split()
 AGENT_TOOLS = {"Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebFetch"}
 OUTSIDE_NAVREE_SKILLS = {"superdev-build", "superdev-done", "superdev-self-learning"}
 
@@ -446,6 +448,14 @@ class BuildSkillTests(unittest.TestCase):
         text = "\n".join(read(p) for p in [folder / "SKILL.md", *sorted((folder / "references").glob("*.md"))])
         for suite in ("tests/security.rs", "tests/access.rs", "tests/isolation.rs", "tests/money.rs", "tests/live.rs"):
             self.assertIn(suite, text)
+
+    def test_architecture_governance_covers_scaling_workers_hierarchy_srp_and_stories(self) -> None:
+        folder = SKILLS / "architecture-governance"
+        text = "\n".join(read(p) for p in [folder / "SKILL.md", *sorted((folder / "references").glob("*.md"))])
+        for needle in ("GOV-1", "GOV-8", "sync-http", "async-queue", "scheduled-cron", "isolated-worker",
+                       "sse-stream", "module dependency graph", "contract stories", "Must pass", "Must reject",
+                       "413", "__proto__"):
+            self.assertIn(needle, text, f"architecture-governance must cover {needle}")
 
     def test_navree_skill_names_are_real_and_every_skill_uses_one(self) -> None:
         agent_names = {p.stem for p in agent_files()}

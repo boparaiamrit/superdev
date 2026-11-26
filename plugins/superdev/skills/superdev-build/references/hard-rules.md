@@ -213,3 +213,45 @@ A nudge inside a unit of work waits for the commit; a job is queued only if the 
 A type check and a web build do not prove that an app installs, signs in, survives a token refresh, handles the keyboard and system insets, or shows notifications. The client itself is built per [design-to-tauri](../../design-to-tauri/SKILL.md).
 
 **Verify:** the debug build installed on an emulator or phone, each module's main flow driven with `adb` (or the iOS simulator), screenshots and logcat with no app error; the `verify-done.mjs` Tauri checks `PASS`; platforms that could not be run recorded as `NOT RUN`, which blocks until the operator accepts it in `ACCEPTANCES.md`.
+
+## Architecture, scaling and adversarial contracts
+
+### 26. Keep the module hierarchy acyclic and cross-module reads behind facades
+
+**Scope:** every app with more than one module (`EXECUTION_PLAN.md` `## Modules`, `src/modules/`).
+
+Assign every module a hierarchy tier in `EXECUTION_PLAN.md` (`0` Kernel and foundation, `1` Core identity and shared libraries, `2` Domain execution, `3` Intelligence, automation and reporting). A module depends only on same-or-lower-tier modules through their exported public service facades (`navree-modules-and-di`); a lower tier never imports a higher tier and never queries another module's database tables directly (rule BE-18). Upward notifications use domain events after commit (`navree-events-and-broadcasting`). `## Build order` lists every dependency before the module that depends on it (rule GOV-5).
+
+**Verify:** the `verify-done.mjs` check `module dependency graph` reports zero cycles, zero tier inversions and zero build-order inversions; `navree check` exits 0; no module queries another module's model or table directly.
+
+### 27. Choose the execution class from the workload and scope every worker to its workspace
+
+**Scope:** every route, job, schedule, live stream and heavy background task (`EXECUTION_PLAN.md` `## Scaling and workers`, `src/modules/`).
+
+Declare the app's scale tier (`T1`, `T2` or `T3`, rule GOV-1) and match each non-CRUD workload to one of five execution classes: `sync-http` (indexed CRUD under 250 ms), `async-queue` (bulk over 500 ids, CSV/Excel imports, outgoing mail or webhooks, batch scoring), `scheduled-cron` (idempotent per-workspace-day schedules, rules BE-11 and BE-15), `isolated-worker` (heavy CPU or media rendering with memory and time caps), or `sse-stream` (authenticated live streams). A queue worker runs outside HTTP middleware and guards: every workspace job payload carries `workspace_id`, and every query in the job scopes by it explicitly (rule BE-17, rule GOV-2; `navree-queues-and-scheduling`).
+
+**Verify:** `EXECUTION_PLAN.md` `## Scaling and workers` declares the scale tier and execution classes; each workspace job has a committed test proving a job run for workspace A cannot read or change workspace B's rows.
+
+### 28. Enforce backend-vs-frontend ownership and single-responsibility backend layers
+
+**Scope:** every module, especially apps with a Next.js or Tauri client (`backend-on-navree`, `design-to-nextjs`, `design-to-tauri`).
+
+Authentication, authorization, workspace scoping, business invariants, server-derived fields (computed totals, resolved emails, UTC timestamps, risk scores), filtering and sorting over server datasets, payload ceilings and audit writes always live on the backend (rule GOV-3). Frontend clients own responsive layout, draft UX, inline server error display, optimistic rollback on 409, accessibility and lazy loading. Backend modules separate responsibilities across thin Transport/Handlers (`Valid<..>`, zero domain rules), Policies, Domain Services (`&Uow`), Queries, Worker Jobs and Cross-Module Facades (rule GOV-4, rule BE-19).
+
+**Verify:** handlers delegate business calculations and transactions to services; direct HTTP calls bypassing the UI cannot forge `workspace_id`, mutate derived fields or bypass permissions.
+
+### 29. Bound every untrusted payload and reject adversarial inputs before business logic
+
+**Scope:** every route accepting JSON, forms, query parameters, file uploads or hierarchy links (`navree-validation`, `navree-security-checklist`).
+
+Enforce hard input ceilings before domain logic runs (rule GOV-6, rule BE-20): cap JSON bodies (default 64 KB, 413 on exceed), multipart uploads (per contract, 413 on exceed), JSON nesting depth (max 16), plain-text string lengths and `per_page <= 100` (rule BE-7). Refuse `<script>`, `javascript:` and null bytes in plain-text fields (stored rich text uses Navree's sanitizer per hard rule 14), refuse prototype-pollution keys (`__proto__`, `prototype`, `constructor`) at Next.js and BFF JSON boundaries, and refuse self-parent or circular hierarchy edges (`A -> B -> A`).
+
+**Verify:** committed unit tests and the adversarial probes of `security-review-and-fix/references/dynamic-probes.md` assert 400, 409, 413 or 422 with zero rows stored.
+
+### 30. Prove every contract route with both passing stories and adversarial rejections
+
+**Scope:** every module contract (`contracts/<module>.md`) and its committed tests.
+
+Every `contracts/<module>.md` holds a `## Stories` table mapping each user story (`US-n`) and route to BOTH observable `Must pass` outcomes and explicit adversarial `Must reject` cases (unauthorized role, cross-workspace id, hostile or oversized payload, invariant violation — rule GOV-7).
+
+**Verify:** the `verify-done.mjs` check `contract stories` is `PASS`; every `Must pass` and `Must reject` row is exercised by `cargo test` (`navree-testing`) or a committed suite.

@@ -130,10 +130,10 @@ Written by `design-inventory` at step 2. It records what the design shows and in
 # Execution Plan
 Status: CONFIRMED by Meera Sharma on 2026-11-18
 ## Modules
-| Id | Module | Purpose | Depends on |
-|---|---|---|---|
-| M-1 | customers | the trader's customers | (none) |
-| M-2 | invoices | invoices, sending and payment | M-1 |
+| Id | Module | Tier | Purpose | Depends on |
+|---|---|---|---|---|
+| M-1 | customers | 1 | the trader's customers | (none) |
+| M-2 | invoices | 2 | invoices, sending and payment | M-1 |
 ## Models
 | Model | Module | Table | Scope | Fields | Indexes |
 |---|---|---|---|---|---|
@@ -150,6 +150,10 @@ Status: CONFIRMED by Meera Sharma on 2026-11-18
 - Permission keys: `customers.read`, `customers.reveal_contact`, `invoices.send`.
 - Public routes, copied from `<target>/release/<binary> routes --json` at step 4 and after each module: the release binary, which ships, and not `navree routes --json`, which runs the debug build and also lists Logbook's routes. Each route is method and path in backticks; the done check compares this bullet with the release binary both ways (prose does not count). A Navree app has about thirty public routes of the framework's own: the sign-in pages, health, the toolkit's files, the token and realtime routes. `GET /health/live`, `GET /health/ready`, `GET /sign-in`, `POST /sign-in`, `GET /_navree/ui/{file}`, `POST /api/auth/login`, `GET /metrics`, `GET /api/openapi.json`, `GET /api/docs` and the rest of the binary's list. Decided at deploy, and settled in `DEPLOY.md`: `/metrics`, `/api/openapi.json` and `/api/docs`. No module route is public.
 - First address: `GET /` sends a signed-in person to `/customers` and a guest to `/sign-in` (route `GET !/`, access `.authenticated()`); the done check asks for it on the booted release binary.
+## Scaling and workers
+- Scale tier: `T1` Startup (under 100k rows per table; composite `(workspace_id, ..)` indexes; `per_page <= 100` for tables, keyset cursors for audit streams).
+- Execution classes: CRUD (`sync-http`), `invoices.mail` (`async-queue`, workspace-scoped payload), `invoices.remind` (`scheduled-cron`, workspace-local day).
+- Cross-module facades and events: `customers` (tier 1) exports `CustomerLookup` facade consumed by `invoices` (tier 2); `invoices` emits `invoices.sent` after commit.
 ## Jobs and schedules
 - `invoices.remind`: daily at 09:00 IST, mails a reminder for each invoice due tomorrow.
 ## Integrations
@@ -216,6 +220,10 @@ Front end: navree
 ## Screens
 | Screen | Route | Built from | States | Design |
 |---|---|---|---|---|
+## Stories
+| Story | Actor | Routes | Must pass | Must reject |
+|---|---|---|---|---|
+| US-1 | Workspace owner | `GET !/invoices`, `POST !/invoices/{id}/send` | Draft invoice sends once, queues mail and records `invoices.sent` | Member without send ability gets 403; second send gets 409 `invoice_already_sent`; another workspace's id gets 404; oversized body gets 413 |
 ## Open questions
 ```
 
@@ -236,7 +244,7 @@ Every finding has an id, a severity, where (file:line, route or screen), the evi
 
 ## Ids
 
-Finding ids: `G-` gaps (`GAPS.md`), `A-` audit, `Q-` QA, `S-` security, `B-` debugging candidates. Other ids: `F-` PRD features, `E-` PRD entities, `D-` design screens, `M-` modules, `O-` open items, `N-` Navree UI gaps, `ACC-` the operator's acceptances (`ACCEPTANCES.md`). Numbers start at 1 and are never reused in a file.
+Finding ids: `G-` gaps (`GAPS.md`), `A-` audit, `Q-` QA, `S-` security, `B-` debugging candidates. Other ids: `F-` PRD features, `E-` PRD entities, `D-` design screens, `M-` modules, `US-` user stories, `O-` open items, `N-` Navree UI gaps, `ACC-` the operator's acceptances (`ACCEPTANCES.md`). Numbers start at 1 and are never reused in a file.
 
 ## ACCEPTANCES.md
 

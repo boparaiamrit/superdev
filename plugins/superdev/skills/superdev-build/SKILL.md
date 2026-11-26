@@ -51,6 +51,7 @@ A digest records what its source says, with the section or screen it came from. 
 - `GAPS.md` `## Decisions` holds the operator's words with their name and the date (rule BLD-6); `plan-architect` reads the decisions, not the findings. A revision of the plan follows rule BLD-3.
 - Without a design there is nothing to compare: skip `gap-auditor` and write `GAPS.md` with `None.` under `## Findings` and `## Decisions`.
 - `plan-architect` also gets the list of what the starter brings and the operator's answers (step 1, item 6), and records them as one item under `## Open items`; step 4 does what they say.
+- Module tiers (`0` to `3`), scale tier (`T1`, `T2` or `T3`), execution classes (`sync-http`, `async-queue`, `scheduled-cron`, `isolated-worker`, `sse-stream`) and cross-module facades follow [architecture-governance](../architecture-governance/SKILL.md) (rules GOV-1, GOV-2, GOV-5; hard rules 26 and 27).
 - The plan's `## Security` section lists the rows of the controls table in [security-foundation](../security-foundation/SKILL.md) that apply, the personal-data fields to mask, the balances and the live topics.
 - `clients`: `web` always; `admin` when the PRD has staff work ("staff" is defined in [security-foundation](../security-foundation/SKILL.md)); a Tauri client when the PRD asks for a phone or desktop app, once the questions in [design-to-tauri](../design-to-tauri/SKILL.md) are answered.
 - Screens are planned here. `front_end: navree`: phases 1 to 4 of `navree-design-to-ui` as [design-to-navree-ui](../design-to-navree-ui/SKILL.md) maps them. Every gap the design mapping finds goes into `## Navree UI gaps` now, and the operator agrees all of them once, with the plan (hard rule 14); a gap found later, during a module, is recorded and the module goes on (design-to-navree-ui, "The gap rule"). `front_end: next`: step 3 of [design-to-nextjs](../design-to-nextjs/SKILL.md), the module plan, recorded under `## Modules`.
@@ -78,7 +79,7 @@ A digest records what its source says, with the section or screen it came from. 
 - **Writes:** `contracts/<module>.md` for every module.
 - **Proof:** each file has `Status: AGREED by <operator> on <YYYY-MM-DD>`.
 
-- What a contract is on Navree, and its format: [artifacts.md](references/artifacts.md), section `contracts/<module>.md`.
+- What a contract is on Navree, and its format: [artifacts.md](references/artifacts.md), section `contracts/<module>.md`. Every contract holds a `## Stories` table naming observable `Must pass` outcomes and adversarial `Must reject` cases covering its routes (rule GOV-7, hard rule 30).
 - The main agent writes and changes every contract (rule BLD-2, hard rule 3). Drafts from `prototype-to-navree` (`Status: DRAFT`) are completed here, never taken as agreed.
 - Each `D-n` screen of `DESIGN_DIGEST.md` becomes a row of one contract's `## Screens`. A screen that Navree draws itself (the sign-in pages) and the shell are rows of the first module's contract, marked as such: no module owns their routes. Commit the agreed contracts.
 

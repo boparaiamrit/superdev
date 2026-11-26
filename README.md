@@ -6,14 +6,14 @@
   <a href="https://boparaiamrit.github.io/superdev/"><img alt="Website" src="https://img.shields.io/badge/website-superdev-3dff8f?style=for-the-badge&labelColor=000000"></a>
   <a href="https://navree.com"><img alt="Built for Navree" src="https://img.shields.io/badge/built_for-Navree-3dff8f?style=for-the-badge&labelColor=000000"></a>
   <img alt="Claude Code and Codex" src="https://img.shields.io/badge/Claude_Code-%2B_Codex-e9efeb?style=for-the-badge&labelColor=000000">
-  <img alt="Version 3.1.0" src="https://img.shields.io/badge/version-3.1.0-e9efeb?style=for-the-badge&labelColor=000000">
+  <img alt="Version 3.2.0" src="https://img.shields.io/badge/version-3.2.0-e9efeb?style=for-the-badge&labelColor=000000">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-e9efeb?style=for-the-badge&labelColor=000000"></a>
 </p>
 
 <p align="center">
   <b>Give your agent a PRD and a design. Superdev builds the product on <a href="https://navree.com">Navree</a>,<br>
   and it doesn't call it done until the proof says so.</b><br>
-  15 skills and 41 agents for Claude Code and Codex. A plan and contracts on disk before code, one module at a time,<br>
+  16 skills and 41 agents for Claude Code and Codex. A plan and contracts on disk before code, one module at a time,<br>
   proven in the running app and a real browser, then a security review, an audit, a QA gate and a done check that exits 0.
 </p>
 
@@ -119,6 +119,7 @@ Build this product on Navree. The PRD is docs/prd.md and the design is in docs/d
 | A Next.js front end | *"Build the web app in Next.js on the Navree API"* | `design-to-nextjs` |
 | A phone or desktop app | *"Build the Android and iOS app on the same API"* | `design-to-tauri` |
 | A prototype made real | *"Turn this prototype into a Navree app without changing what users see"* | `prototype-to-navree` |
+| Architecture, scaling & workers | *"Review scaling tiers, worker choices, module hierarchy and hostile input bounds"* | `architecture-governance` |
 | A yes or no on done | *"Are we done?"* | `superdev-done` |
 
 > 3.0.0 was the first release of Superdev on Navree, and it built its first full app end to end: two modules in Navree UI on SQLite, on a host without a browser. 3.1.0 fixes what that build showed in the flow, the rules and the done check. Its 193 tests run on Linux and Windows for every change. Not yet tried: a Next.js front end, a native client, a server database, a real deployment.
@@ -131,11 +132,12 @@ Build this product on Navree. The PRD is docs/prd.md and the design is in docs/d
 
 The [superdev-build](plugins/superdev/skills/superdev-build/SKILL.md) skill runs the steps in order, and each one leaves its proof on disk: `STACK.md`, `PRD_DIGEST.md`, `DESIGN_DIGEST.md`, `GAPS.md`, `EXECUTION_PLAN.md`, `contracts/`, `QA_COVERAGE.md`. The build's memory lives in the repository, not in the chat.
 
-## The 15 skills
+## The 16 skills
 
 | Skill | Use it when |
 |:---|:---|
 | [**superdev-build**](plugins/superdev/skills/superdev-build/SKILL.md) | building a product from a PRD and a design as a Navree app, or resuming such a build |
+| [**architecture-governance**](plugins/superdev/skills/architecture-governance/SKILL.md) | choosing scale tiers, worker execution classes, acyclic module tiers, SRP backend layers, input ceilings and pass/reject user stories |
 | [**backend-on-navree**](plugins/superdev/skills/backend-on-navree/SKILL.md) | building a backend module: models, routes, validation, access, workspace scope, lists, jobs, mail, audit, seed data |
 | [**security-foundation**](plugins/superdev/skills/security-foundation/SKILL.md) | the app has sign-in, staff, roles, personal data, money or live updates |
 | [**design-to-navree-ui**](plugins/superdev/skills/design-to-navree-ui/SKILL.md) | a design must become Navree UI screens |
@@ -170,7 +172,7 @@ Each agent file says what it reads, what it writes and what it returns: [plugins
 </details>
 
 <details>
-<summary><b>The 25 hard rules</b>, each with where it applies and the check that proves it</summary>
+<summary><b>The 30 hard rules</b>, each with where it applies and the check that proves it</summary>
 
 <br>
 
@@ -210,6 +212,14 @@ Each agent file says what it reads, what it writes and what it returns: [plugins
 23. Make money-moving and record-creating requests idempotent
 24. Publish live updates only after the commit
 25. Prove native clients on a device
+
+**Architecture, scaling and adversarial contracts**
+
+26. Keep the module hierarchy acyclic and cross-module reads behind facades
+27. Choose the execution class from the workload and scope every worker to its workspace
+28. Enforce backend-vs-frontend ownership and single-responsibility backend layers
+29. Bound every untrusted payload and reject adversarial inputs before business logic
+30. Prove every contract route with both passing stories and adversarial rejections
 
 Read them in full in [hard-rules.md](plugins/superdev/skills/superdev-build/references/hard-rules.md).
 

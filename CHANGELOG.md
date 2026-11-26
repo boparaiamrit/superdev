@@ -2,6 +2,17 @@
 
 All notable changes to Superdev are documented here. Releases are annotated git tags (`vX.Y.Z`) on `main`; from v2.0.0 they are also published as GitHub Releases with the packaged `superdev.zip` attached.
 
+## v3.2.0 — 2026-11-26
+
+Architecture governance, scaling and worker selection, single-responsibility backend separation, acyclic module tiers, adversarial payload ceilings, and executable pass/reject user stories in contracts — enforced mechanically by `verify-done.mjs`.
+
+### Added
+
+- Skill `architecture-governance` (`GOV-1` to `GOV-8`) with references `scaling-and-workers.md` (T1/T2/T3 scaling tiers, 5-class worker selection matrix, worker workspace isolation, 4-tier acyclic module hierarchy) and `stories-and-srp.md` (backend-vs-frontend ownership matrix, 6-role single-responsibility backend layout, input ceilings, executable `## Stories` pass/reject tables, 4-rung UI escalation ladder).
+- Hard rules 26 to 30 in `superdev-build/references/hard-rules.md` and backend rules `BE-17` to `BE-20` in `backend-on-navree` (worker payload workspace scoping, cross-module public facades and domain events, single-responsibility handlers/services, payload ceilings and cycle checks).
+- `verify-done.mjs` checks `module dependency graph` (DFS cycle detection, unknown dependency detection, lower-to-higher tier inversion detection, and `## Build order` dependency-order verification) and `contract stories` (verifying every agreed module contract defines `## Stories` with non-empty `Must pass` and `Must reject` cases).
+- Adversarial input probes in `security-review-and-fix/references/dynamic-probes.md` covering oversized bodies (`413`), deep JSON nesting, script and URI injection in plain-text fields, unbounded `per_page` / bad cursors, and hierarchy cycles.
+
 ## v3.1.0 — 2026-11-15
 
 What the first full build showed, fixed. 3.0.0 was used once to build a two-module Navree UI app on SQLite with the published Navree 1.2.2, through all ten steps, on a host without a browser, so the browser proofs of steps 6 and 8 were `NOT RUN`; the done check ran against the real Navree CLI. That build logged 42 places where the flow, a rule or the done check was wrong or unclear; this release fixes those that are superdev's. Superdev has not yet been used with a Next.js front end, a native client, a server database or a real deployment.

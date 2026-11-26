@@ -1,6 +1,6 @@
 # Superdev plugin
 
-Superdev's 15 skills, 41 agents and 25 hard rules take a product from a PRD and a design to a released, verified Navree app. The skills hold the order of work, the files written to disk, the rules and the proofs; Navree's own skills, installed into every app with `navree skills:install`, hold the framework facts. The build itself is [superdev-build](skills/superdev-build/SKILL.md); its [hard rules](skills/superdev-build/references/hard-rules.md) say where each applies and how it is checked.
+Superdev's 16 skills, 41 agents and 30 hard rules take a product from a PRD and a design to a released, verified Navree app. The skills hold the order of work, the files written to disk, the rules and the proofs; Navree's own skills, installed into every app with `navree skills:install`, hold the framework facts. The build itself is [superdev-build](skills/superdev-build/SKILL.md); its [hard rules](skills/superdev-build/references/hard-rules.md) say where each applies and how it is checked.
 
 ## Skills
 
@@ -9,6 +9,7 @@ By the step of a build that uses them; each also runs on its own when a request 
 | Step | Skills |
 |---|---|
 | Steps 1 to 10, in order | [superdev-build](skills/superdev-build/SKILL.md) |
+| Steps 3, 5 and 6, for scaling, workers, module hierarchy, SRP layers and pass/reject stories | [architecture-governance](skills/architecture-governance/SKILL.md) |
 | Step 3, when the source is a prototype or an older product | [prototype-to-navree](skills/prototype-to-navree/SKILL.md), [design-preservation](skills/design-preservation/SKILL.md) |
 | Step 4. Foundation | [security-foundation](skills/security-foundation/SKILL.md); the demo seed in [backend-on-navree](skills/backend-on-navree/SKILL.md) |
 | Step 6. Modules | [backend-on-navree](skills/backend-on-navree/SKILL.md); [design-to-navree-ui](skills/design-to-navree-ui/SKILL.md), or [design-to-nextjs](skills/design-to-nextjs/SKILL.md) with [frontend-structure](skills/frontend-structure/SKILL.md); [design-to-tauri](skills/design-to-tauri/SKILL.md) for Tauri clients; [design-preservation](skills/design-preservation/SKILL.md) for a preserved prototype |

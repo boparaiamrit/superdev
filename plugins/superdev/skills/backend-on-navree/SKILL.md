@@ -128,6 +128,18 @@ Proof: a test passes 00:30 IST on 21 November 2026 (19:00 UTC on 20 November) an
 **BE-16** Every filter and sort of a list has an index in a migration; relations a list shows are eager loaded, never fetched per row (`navree-orm`); a list over a TimescaleDB hypertable always carries a time range (`navree-database`). Query counts per action are measured by `qa-performance-prober` in `product-qa` explore mode.
 Proof: every filter and sort field of the contract's `## Lists` has an index in the module's migrations; a list request makes the same number of queries for 1 row and for 50.
 
+**BE-17** Every workspace job payload carries `workspace_id`, and every query inside the job scopes by it explicitly: a worker runs outside HTTP middleware and guards (rule GOV-2, hard rule 27; `navree-queues-and-scheduling`).
+Proof: a test runs the job for workspace A with a record id belonging to workspace B and confirms workspace B's rows did not change and no data leaked.
+
+**BE-18** Cross-module reads and actions go through the lower-tier module's exported public service facade (`navree-modules-and-di`), never by querying another module's table or model directly; upward notifications use domain events after commit (`navree-events-and-broadcasting`, rule GOV-5, hard rule 26).
+Proof: `navree check` exits 0; a search of each module's folder finds no direct query against another module's model or table.
+
+**BE-19** Keep module files single-responsibility (rule GOV-4, hard rule 28): transport handlers extract `Valid<..>` inputs, invoke one service method and map errors; services take `&Uow` and enforce invariants, derived fields and transactions; queries stay in model or query helpers; jobs stay in `jobs/`.
+Proof: handlers contain no raw SQL or multi-step domain calculations; direct API calls cannot forge derived fields or `workspace_id`.
+
+**BE-20** Enforce payload ceilings and adversarial input checks before business logic runs (rule GOV-6, hard rule 29; `navree-validation`): bound JSON body size (default 64 KB, 413 on exceed), upload size, JSON nesting depth (max 16) and plain-text field lengths; refuse `<script>`, `javascript:` and null bytes in plain-text fields; reject self-parent or circular hierarchy edges (`A -> B -> A`).
+Proof: committed tests send an oversized body, a `<script>` plain-text field, `per_page=101` and (where hierarchies exist) a circular parent link and assert 400, 409, 413 or 422 with zero rows stored.
+
 ## Proof of a module
 
 Run from the app root, in this order, and record the result lines in `EXECUTION_PLAN.md` `## Build order` (rule BLD-5):

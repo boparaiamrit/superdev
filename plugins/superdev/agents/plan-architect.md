@@ -20,8 +20,9 @@ Writes the plan that drives the build, from the digests and the operator's decis
 ## Steps
 
 1. Read `GAPS.md` `## Decisions`, not the findings: the operator's words decide. If the operator said to drop a feature, it is not in the plan (rule BLD-3).
-2. Modules: group the features and screens into modules `M-n`, each with a name, a purpose and what it depends on.
-3. Models: for each, its module, table, scope, fields and indexes.
+2. Modules: group the features and screens into modules `M-n`, each with a name, a hierarchy tier (`0` Kernel, `1` Core identity and shared libraries, `2` Domain execution, `3` Intelligence and reporting — rule GOV-5, hard rule 26), a purpose and what it depends on. Lower tiers never depend on higher tiers, and no cycle is allowed.
+3. Scaling and workers: pick the target scale tier (`T1`, `T2` or `T3`, rule GOV-1) and assign every bulk, scheduled, streaming or heavy workload its execution class (`sync-http`, `async-queue`, `scheduled-cron`, `isolated-worker` or `sse-stream`, rule GOV-2, hard rule 27), plus any cross-module public facade or domain event (rule GOV-5). Record these under `## Scaling and workers`.
+4. Models: for each, its module, table, scope, fields and indexes.
    - Scope is `workspace` for every model that holds a workspace's data, otherwise `global` (hard rule 10).
    - Indexes: one for every filter and sort (rule BE-16).
    - Money fields are integers in paise (rule BE-9); enum values are strings (rule BE-8).
@@ -36,7 +37,7 @@ Writes the plan that drives the build, from the digests and the operator's decis
 
 ## Output
 
-`EXECUTION_PLAN.md` in `app_root`: `# Execution Plan`, the line `Status: DRAFT`, then `## Modules`, `## Models`, `## Build order`, `## Access`, `## Jobs and schedules`, `## Integrations`, `## Security`, `## Navree UI gaps`, `## Open items`, `## Acceptance criteria`. Every non-obvious decision cites the digest id behind it (`F-n`, `E-n`, `D-n`, `G-n`). `## Demo accounts` is added at step 4.
+`EXECUTION_PLAN.md` in `app_root`: `# Execution Plan`, the line `Status: DRAFT`, then `## Modules`, `## Models`, `## Build order`, `## Access`, `## Scaling and workers`, `## Jobs and schedules`, `## Integrations`, `## Security`, `## Navree UI gaps`, `## Open items`, `## Acceptance criteria`. Every non-obvious decision cites the digest id behind it (`F-n`, `E-n`, `D-n`, `G-n`). `## Demo accounts` is added at step 4.
 
 ## Limits
 

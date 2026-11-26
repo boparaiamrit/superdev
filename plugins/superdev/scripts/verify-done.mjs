@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// verify-done.mjs 3.1.0 — the live done check of a superdev build of a Navree app.
+// verify-done.mjs 3.2.0 — the live done check of a superdev build of a Navree app.
 //
 // Every check runs now, against the real tree and the real release binary; nothing is read
 // from a file that grades itself. Plain Node 18 or newer, no dependencies, the same on Windows,
@@ -14,7 +14,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:net";
 import { join, posix, relative, resolve, sep } from "node:path";
 
-const VERSION = "3.1.0";
+const VERSION = "3.2.0";
 const MINUTE = 60_000;
 const TIMEOUT = { cargo: 30 * MINUTE, navree: 10 * MINUTE, web: 10 * MINUTE, suite: 15 * MINUTE };
 const MAX_BUFFER = 64 * 1024 * 1024;
@@ -57,7 +57,9 @@ const CHECKS = [
   "no new suppressions since <base> (a git repository and a base): lines added since the base, committed or not, with allow, expect, cfg_attr(allow), eslint-disable, oxlint-disable, ts-ignore or as any in .ts and .tsx code, and lints turned off in Cargo.toml [lints], .cargo/config.toml rustflags, a clippy.toml allow-* or *-threshold key, an ESLint or oxlint rule set to off or 0, \"strict\": false in tsconfig; plugins/, design/source/ and docs/brief/ are left out, and so is #![allow(dead_code)] as the first attribute of tests/support/mod.rs",
   "no placeholder content (always, over the folders that exist): placeholder text and todo!() in src/*.rs, web/ and clients/*/src, tests excluded; any file in a mocks or fixtures folder of the front end",
   "plan confirmed (STACK.md valid): EXECUTION_PLAN.md has the line `Status: CONFIRMED by <name> on <YYYY-MM-DD>` (NOT RUN without the plan or while it is a draft)",
+  "module dependency graph (STACK.md valid): EXECUTION_PLAN.md ## Modules forms an acyclic dependency graph with no unknown dependencies, no lower-tier module depending on a higher-tier module, and ## Build order listing every dependency before its dependents (hard rule 26)",
   "contracts agreed (STACK.md valid): every module of the plan's ## Modules has contracts/<module>.md with `Status: AGREED by <name> on <YYYY-MM-DD>` (NOT RUN for a missing or draft contract)",
+  "contract stories (STACK.md valid): every agreed contracts/<module>.md holds a ## Stories table with non-empty Must pass and Must reject cases (hard rule 30)",
   "Cargo.lock committed (STACK.md valid, a git repository): Cargo.lock is tracked by git and not ignored (NOT RUN before cargo has written it)",
   "SECURITY_REPORT.md, AUDIT_REPORT.md, QA_COVERAGE.md (STACK.md valid): read under --strict only (NOT RUN without it): each exists; its ## Findings section holds a table with the columns Severity and State, or None.; no finding of a table with those columns is an open Blocker or Major, and a state `accepted ACC-n` names an entry of ACCEPTANCES.md; no table cell is NOT RUN, or PASS (server), without an ACC-n of ACCEPTANCES.md, nor a row of a Not run section; QA_COVERAGE.md has no FAIL cell",
   "acceptances (STACK.md valid): read under --strict only (NOT RUN without it): every module row of EXECUTION_PLAN.md ## Build order is PASS, or PASS (6.5 NOT RUN, ACC-n) with an ACC-n of ACCEPTANCES.md; each entry of ACCEPTANCES.md has its own number; the file is committed, and no commit changes it together with another file (git log --name-only, also for an app in a sub-folder of its repository)",
@@ -902,6 +904,150 @@ function contractsAgreed(plan) {
   pass(label, `${modules.length} contract(s): ${modules.join(", ")}`);
 }
 
+function moduleDependencyGraph(plan) {
+  const label = "module dependency graph";
+  if (plan === null) return notRun(label, "no EXECUTION_PLAN.md: step 3 writes ## Modules and ## Build order (hard rule 26)");
+  const table = tables(sectionOf(plan, "Modules"))[0];
+  if (!table || !table.rows.length) return notRun(label, "EXECUTION_PLAN.md ## Modules lists no module");
+  const colId = table.header.indexOf("id");
+  const colMod = table.header.indexOf("module");
+  const colTier = table.header.indexOf("tier");
+  const colDeps = table.header.indexOf("depends on");
+  if (colMod < 0) return fail(label, "EXECUTION_PLAN.md ## Modules has no Module column");
+
+  const clean = (s) => (s ?? "").replace(/[`*]/g, "").trim();
+  const nodes = [];
+  const byKey = new Map();
+  const problems = [];
+  for (const cells of table.rows) {
+    const id = colId >= 0 ? clean(cells[colId]) : "";
+    const name = clean(cells[colMod]);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    const labelName = id ? `${id} ${name}` : name;
+    let tier = null;
+    if (colTier >= 0) {
+      const rawTier = clean(cells[colTier]);
+      if (/^[0-3]$/.test(rawTier)) tier = Number(rawTier);
+      else problems.push(`${labelName}: invalid tier "${rawTier || "(empty)"}" (expected 0 to 3, hard rule 26)`);
+    }
+    const rawDeps = colDeps >= 0 ? clean(cells[colDeps]) : "";
+    const depTokens = rawDeps && !/^(?:\(none\)|none|-)$/i.test(rawDeps)
+      ? rawDeps.split(/[,;]/).map((t) => clean(t)).filter((t) => t && !/^(?:\(none\)|none|-)$/i.test(t))
+      : [];
+    const node = { key, id, name, label: labelName, tier, depTokens, deps: [] };
+    nodes.push(node);
+    byKey.set(key, node);
+    if (id) byKey.set(id.toLowerCase(), node);
+  }
+
+  for (const node of nodes) {
+    for (const tok of node.depTokens) {
+      const firstWord = tok.split(/\s+/)[0].toLowerCase();
+      const target = byKey.get(tok.toLowerCase()) ?? byKey.get(firstWord);
+      if (!target) {
+        problems.push(`${node.label}: depends on unknown module "${tok}" (hard rule 26)`);
+      } else {
+        node.deps.push(target);
+        if (node.tier !== null && target.tier !== null && target.tier > node.tier) {
+          problems.push(`tier inversion: ${node.label} (tier ${node.tier}) depends on ${target.label} (tier ${target.tier}); lower tiers never depend on higher tiers (hard rule 26)`);
+        }
+      }
+    }
+  }
+
+  // DFS 3-color cycle detection over the module graph.
+  const color = new Map();
+  const stack = [];
+  const visit = (node) => {
+    color.set(node.key, 1);
+    stack.push(node);
+    for (const dep of node.deps) {
+      const state = color.get(dep.key) ?? 0;
+      if (state === 1) {
+        const start = stack.findIndex((n) => n.key === dep.key);
+        const cycle = [...stack.slice(start).map((n) => n.label), dep.label];
+        problems.push(`cycle detected: ${cycle.join(" -> ")} (hard rule 26)`);
+      } else if (state === 0) {
+        visit(dep);
+      }
+    }
+    stack.pop();
+    color.set(node.key, 2);
+  };
+  for (const node of nodes) if ((color.get(node.key) ?? 0) === 0) visit(node);
+
+  // Build order must place every dependency before any module that depends on it.
+  const buildTable = tables(sectionOf(plan, "Build order"))[0];
+  if (buildTable) {
+    const colOrderMod = buildTable.header.indexOf("module");
+    const orderPos = new Map();
+    if (colOrderMod >= 0) {
+      buildTable.rows.forEach((cells, idx) => {
+        const raw = clean(cells[colOrderMod]);
+        const parts = raw.split(/\s+/);
+        const match = byKey.get(raw.toLowerCase()) ?? byKey.get((parts[1] ?? "").toLowerCase()) ?? byKey.get((parts[0] ?? "").toLowerCase());
+        if (match && !orderPos.has(match.key)) orderPos.set(match.key, idx);
+      });
+      for (const node of nodes) {
+        const pos = orderPos.get(node.key);
+        if (pos === undefined) continue;
+        for (const dep of node.deps) {
+          const depPos = orderPos.get(dep.key);
+          if (depPos !== undefined && depPos > pos) {
+            problems.push(`build order inversion: ${node.label} appears before ${dep.label}, which it depends on (hard rule 26)`);
+          }
+        }
+      }
+    }
+  }
+
+  if (problems.length) return fail(label, capped([...new Set(problems)]));
+  pass(label, `${nodes.length} module(s), acyclic${colTier >= 0 ? " with valid hierarchy tiers" : ""} and ordered build sequence`);
+}
+
+function contractStories(plan) {
+  const label = "contract stories";
+  if (plan === null) return notRun(label, "no EXECUTION_PLAN.md, so no module contract is known (hard rule 30)");
+  const modules = moduleNames(plan);
+  if (!modules.length) return notRun(label, "EXECUTION_PLAN.md ## Modules lists no module");
+  const unwritten = [];
+  const problems = [];
+  const isEmptyCell = (s) => !s || /^(?:\(none\)|none|-)$/i.test(s.replace(/[`*]/g, "").trim());
+  for (const module of modules) {
+    const file = `contracts/${module}.md`;
+    const text = readText(join(ROOT, file));
+    if (text === null || isDraft(statusOf(text))) {
+      unwritten.push(`${file}: missing or still DRAFT (hard rule 30)`);
+      continue;
+    }
+    const section = sectionOf(text, "Stories");
+    if (!section.trim()) {
+      problems.push(`${file}: missing ## Stories section with Must pass and Must reject cases (hard rule 30)`);
+      continue;
+    }
+    const table = tables(section)[0];
+    if (!table || !table.rows.length) {
+      problems.push(`${file}: ## Stories has no story rows (hard rule 30)`);
+      continue;
+    }
+    const colPass = table.header.indexOf("must pass");
+    const colReject = table.header.indexOf("must reject");
+    if (colPass < 0 || colReject < 0) {
+      problems.push(`${file}: ## Stories table must include Must pass and Must reject columns (hard rule 30)`);
+      continue;
+    }
+    for (const cells of table.rows) {
+      const storyId = (cells[0] ?? "story").replace(/[`*]/g, "").trim() || "story";
+      if (isEmptyCell(cells[colPass] ?? "")) problems.push(`${file} (${storyId}): empty Must pass cell (hard rule 30)`);
+      if (isEmptyCell(cells[colReject] ?? "")) problems.push(`${file} (${storyId}): empty Must reject cell (hard rule 30)`);
+    }
+  }
+  if (problems.length) return fail(label, capped(problems));
+  if (unwritten.length) return notRun(label, unwritten.join("\n"));
+  pass(label, `${modules.length} contract(s) define Must pass and Must reject stories`);
+}
+
 function cargoLockCommitted() {
   const label = "Cargo.lock committed";
   if (!isGitRepo()) return notRun(label, "not a git repository");
@@ -1142,7 +1288,9 @@ async function main(argv) {
   if (stackOk) {
     const plan = readText(join(ROOT, "EXECUTION_PLAN.md"));
     planConfirmed(plan);
+    moduleDependencyGraph(plan);
     contractsAgreed(plan);
+    contractStories(plan);
     cargoLockCommitted();
     const entries = acceptanceEntries();
     for (const name of Object.keys(REPORT_FILES)) reportCheck(name, entries.ids);
